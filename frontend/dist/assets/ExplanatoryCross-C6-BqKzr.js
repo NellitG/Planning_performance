@@ -1,0 +1,1 @@
+import{j as t}from"./index-BQr9Z7MP.js";import{P as o}from"./PagePlaceholder-DTT2vNtn.js";import"./card-BA23MEDR.js";function e(){return t.jsx(o,{title:"Explanatory Notes — Cross-Cutting",description:"Explanatory notes for cross-cutting issues."})}export{e as default};

@@ -1,0 +1,267 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and extend the existing hierarchy and Strategy Mapping workflow.
+
+Implement the following enhancements.
+
+### 1. Create a New Module: Baseline
+
+Add a new module immediately below **Output Indicators** in the Projects sidebar.
+
+Updated structure:
+
+```text
+Projects
+│
+├── Key Result Areas
+├── Strategic Objectives
+├── Strategy
+├── Key Activities
+├── Expected Outputs
+├── Output Indicators
+└── Baseline
+```
+
+---
+
+### 2. Baseline Management Interface
+
+Create a Baseline management page.
+
+The page should contain:
+
+* List of all baselines
+* Search functionality
+* Pagination
+* Add New Baseline button
+
+Suggested table columns:
+
+| Output Indicator | Year 1 | Year 2 | Year 3 | Year 4 | Year 5 | Date Created | Actions |
+| ---------------- | ------ | ------ | ------ | ------ | ------ | ------------ | ------- |
+
+Actions:
+
+* View
+* Edit
+* Delete
+
+---
+
+### 3. Add New Baseline Interface
+
+When the user clicks **Add New Baseline**, open a dedicated page (not a modal).
+
+The form should contain:
+
+#### Output Indicator
+
+Dropdown populated from previously created Output Indicators.
+
+Example:
+
+```text
+Select Output Indicator
+▼ Indicator A
+▼ Indicator B
+▼ Indicator C
+```
+
+#### Baseline Values
+
+Provide numeric input fields for:
+
+* Year 1
+* Year 2
+* Year 3
+* Year 4
+* Year 5
+
+Example:
+
+```text
+Year 1: [____]
+Year 2: [____]
+Year 3: [____]
+Year 4: [____]
+Year 5: [____]
+```
+
+Buttons:
+
+* Save
+* Cancel
+
+---
+
+### 4. Baseline Data Relationships
+
+Each Baseline record must belong to a specific Output Indicator.
+
+Relationship:
+
+```text
+Key Result Area
+    ↓
+Strategic Objective
+    ↓
+Strategy
+    ↓
+Expected Output
+    ↓
+Output Indicator
+    ↓
+Baseline
+```
+
+Persist all relationships correctly.
+
+---
+
+### 5. Strategy Mapping Enhancement
+
+Within the Project Details → Strategy Mapping workflow:
+
+Current behavior:
+
+```text
+Expected Output Selected
+       ↓
+Output Indicators Displayed
+```
+
+Enhance this workflow.
+
+---
+
+### 6. Output Indicator Selection
+
+When an Expected Output checkbox is selected:
+
+* Display all related Output Indicators.
+* Allow Output Indicators to be selected.
+
+---
+
+### 7. Baseline Tracking Table
+
+When an Output Indicator is selected, automatically display a tracking table beneath it.
+
+Table structure:
+
+| Baseline (Years) | Target | Achievement | Evidence |
+| ---------------- | ------ | ----------- | -------- |
+
+---
+
+### Column Requirements
+
+#### Baseline (Years)
+
+Display baseline values pulled automatically from the Baseline module.
+
+Example:
+
+```text
+Year 1: 100
+Year 2: 120
+Year 3: 150
+Year 4: 180
+Year 5: 200
+```
+
+This field should be read-only.
+
+---
+
+#### Target
+
+Editable numeric input.
+
+Validation:
+
+* Target value must not exceed the corresponding baseline year value.
+* Display validation errors when exceeded.
+* Prevent saving invalid values.
+
+Example:
+
+```text
+Baseline Year 1 = 100
+
+Target:
+[95] ✔
+
+Target:
+[120] ✖ Validation Error
+```
+
+---
+
+#### Achievement
+
+Editable field.
+
+Purpose:
+
+* To be completed later during project implementation.
+* May initially remain blank.
+
+---
+
+#### Evidence
+
+Provide a file upload component.
+
+Supported files:
+
+* PDF
+* DOC
+* DOCX
+* XLS
+* XLSX
+* Images
+
+Requirements:
+
+* Upload button
+* File preview
+* Replace file functionality
+
+---
+
+### 8. Multiple Output Indicators Handling
+
+If more than one Output Indicator exists under the selected Expected Output:
+
+Display an Output Indicator selector.
+
+Example:
+
+```text
+Select Output Indicator
+
+▼ Indicator A
+▼ Indicator B
+▼ Indicator C
+```
+
+or a tabbed interface.
+
+Selecting an Output Indicator should load its corresponding tracking table.
+
+Only one Output Indicator table should be displayed at a time.
+
+---
+
+### Final Expected Result
+
+After implementation:
+
+1. A new Baseline module exists beneath Output Indicators.
+2. Users can create Baselines linked to Output Indicators.
+3. Baselines store values for Years 1–5.
+4. In Strategy Mapping, selecting an Expected Output displays Output Indicators.
+5. Selecting an Output Indicator displays a tracking table.
+6. The tracking table automatically loads baseline values.
+7. Users can enter Targets, Achievements, and Evidence.
+8. Target values are validated against baseline values.
+9. Multiple Output Indicators can be viewed using a dropdown or selector while displaying the corresponding tracking table dynamically.

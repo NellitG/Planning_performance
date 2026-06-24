@@ -1,0 +1,1 @@
+import{j as t}from"./index-BQr9Z7MP.js";import{P as o}from"./PagePlaceholder-DTT2vNtn.js";import"./card-BA23MEDR.js";function a(){return t.jsx(o,{title:"Submit for Moderation",description:"Submit the self-evaluation for moderation review."})}export{a as default};

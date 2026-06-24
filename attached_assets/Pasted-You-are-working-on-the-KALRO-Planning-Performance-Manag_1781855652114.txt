@@ -1,0 +1,208 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus only on the Projects module and implement the following modifications and bug fixes.
+
+---
+
+## 1. REMOVE PROJECT LOGIN PAGE
+
+Current Behavior:
+
+From the project landing page, when a user clicks **Continue**, the system redirects to a login page containing:
+
+* Email
+* Password
+
+This authentication step is no longer required.
+
+### Required Change
+
+Remove the entire Projects login page and its associated authentication flow.
+
+New behavior:
+
+```text
+Project Landing Page
+        ↓
+     Continue
+        ↓
+ Projects Dashboard
+```
+
+Requirements:
+
+* Remove project-specific login screens.
+* Remove project authentication guards.
+* Remove email/password form.
+* Clicking Continue should immediately open the Projects Dashboard.
+* Update routing accordingly.
+* Ensure no broken routes remain.
+* Preserve all existing Projects functionality.
+
+Do not modify authentication for other modules if they still require it.
+
+---
+
+## 2. STRATEGY MODULE COUNTING BUG
+
+Current Issue:
+
+The Strategy module correctly allows multiple strategies to be created.
+
+However:
+
+If a user creates multiple strategy records, the dashboard/listing incorrectly displays duplicate totals or counts each entry separately when it should be grouped appropriately.
+
+Example:
+
+```text
+Component A
+  Strategic Objective A
+     Strategy 1
+     Strategy 2
+```
+
+The listing currently shows:
+
+```text
+Total Strategies: 2
+```
+
+Required Behavior:
+
+Display the parent strategy grouping as a single record while still allowing multiple child strategies underneath it.
+
+Example:
+
+```text
+Component A
+    Strategic Objective A
+        Strategy 1
+        Strategy 2
+```
+
+Dashboard should display:
+
+```text
+Total Strategy Groups: 1
+```
+
+while allowing users to expand or view all associated strategies.
+
+Review:
+
+* strategy count calculations
+* dashboard statistics
+* listing logic
+* grouping queries
+
+Ensure duplicate counting is eliminated.
+
+---
+
+## 3. STRATEGIC OBJECTIVES MODULE ENHANCEMENT
+
+Current Behavior:
+
+The Strategic Objectives module needs to properly support multiple strategic objectives under a component.
+
+### Required Changes
+
+Allow users to:
+
+* Create multiple strategic objectives
+* Associate multiple objectives with a component
+* View all objectives under a component
+
+Example:
+
+```text
+Component A
+    Strategic Objective 1
+    Strategic Objective 2
+    Strategic Objective 3
+```
+
+---
+
+### Listing Behavior
+
+Currently the listing may display multiple records separately.
+
+Modify the interface so that objectives are grouped under their component.
+
+Example:
+
+Instead of:
+
+```text
+Component A - Strategic Objective 1
+Component A - Strategic Objective 2
+Component A - Strategic Objective 3
+```
+
+Display:
+
+```text
+Component A
+    Strategic Objective 1
+    Strategic Objective 2
+    Strategic Objective 3
+```
+
+This should appear as a single component entry containing multiple strategic objectives.
+
+---
+
+## DATA STRUCTURE REQUIREMENTS
+
+Maintain the hierarchy:
+
+```text
+Component
+    ↓
+Strategic Objectives
+    ↓
+Strategies
+```
+
+Relationships:
+
+* One Component → Many Strategic Objectives
+* One Strategic Objective → Many Strategies
+
+Ensure all listings, counts, and dashboard summaries reflect these relationships correctly.
+
+---
+
+## USER INTERFACE REQUIREMENTS
+
+Maintain:
+
+* TailwindCSS styling
+* Existing KALRO green theme
+* Responsive layouts
+* Dedicated pages
+* Search and filtering functionality
+
+---
+
+## FINAL EXPECTED RESULT
+
+After implementation:
+
+1. Clicking Continue from the Projects landing page opens the Projects dashboard directly without a login page.
+
+2. The Strategy module supports multiple strategies while correctly grouping them under their parent strategic objective and showing accurate totals.
+
+3. The Strategic Objectives module supports multiple objectives under a component and displays them grouped under a single component entry rather than as duplicated records.
+
+4. Dashboard counts, statistics, and listings accurately reflect the hierarchical structure:
+
+```text
+Component
+    ↓
+Strategic Objectives
+    ↓
+Strategies
+```
+
+without duplicate counting or fragmented listings.

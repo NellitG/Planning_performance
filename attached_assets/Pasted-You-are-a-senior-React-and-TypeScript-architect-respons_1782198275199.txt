@@ -1,0 +1,169 @@
+You are a senior React and TypeScript architect responsible for restructuring and modernizing the KALRO Planning, Performance Management (PPM) System.
+
+Using the uploaded React project structure image as the reference architecture, refactor the entire frontend codebase to match the same folder organization, naming conventions, and structure.
+
+### Required Project Structure
+
+Refactor the application to follow this structure:
+
+```text
+project-root/
+│
+├── node_modules/
+│
+├── public/
+│   ├── index.html
+│   ├── favicon.ico
+│   ├── manifest.json
+│   └── robots.txt
+│
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   ├── context/
+│   ├── utils/
+│   │
+│   ├── App.tsx
+│   ├── index.tsx
+│   └── styles.css
+│
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+### TypeScript Conversion
+
+Convert the entire frontend codebase from JSX to TypeScript TSX.
+
+Examples:
+
+```text
+Component.jsx  → Component.tsx
+Page.jsx       → Page.tsx
+Layout.jsx     → Layout.tsx
+App.jsx        → App.tsx
+index.jsx      → index.tsx
+```
+
+Requirements:
+
+* Convert all React components to TSX.
+* Add proper TypeScript interfaces and types.
+* Type all props, hooks, state variables, API responses, and context providers.
+* Remove JavaScript-only patterns where TypeScript alternatives are appropriate.
+* Ensure all imports and exports are updated after conversion.
+
+### Folder Refactoring
+
+Move files into the appropriate folders:
+
+#### assets/
+
+Store:
+
+* Images
+* Icons
+* Fonts
+* Static resources
+
+#### components/
+
+Store reusable UI components such as:
+
+* Buttons
+* Tables
+* Forms
+* Cards
+* Modals
+* Layout components
+
+#### pages/
+
+Store all application pages:
+
+* Dashboard
+* Projects
+* Key Result Areas
+* Strategic Objectives
+* Strategy
+* Key Activities
+* Expected Outputs
+* Output Indicators
+* Reports
+* Settings
+* User Management
+
+#### hooks/
+
+Store:
+
+* Custom React hooks
+* Data-fetching hooks
+* Authentication hooks
+
+#### context/
+
+Store:
+
+* Authentication context
+* User context
+* Global state providers
+
+#### utils/
+
+Store:
+
+* Helper functions
+* Constants
+* Formatters
+* Validation utilities
+
+### Routing
+
+Update the routing structure to work correctly after the refactor.
+
+Ensure:
+
+* All page imports point to the new folder locations.
+* Protected routes continue to function.
+* Navigation remains intact.
+
+### Code Quality Requirements
+
+* Remove redundant files and unused code.
+* Standardize naming conventions.
+* Maintain existing functionality.
+* Keep all API integrations working.
+* Preserve all project workflows and business logic.
+
+### Important Implementation Rule
+
+Do NOT create:
+
+* migration scripts
+* conversion scripts
+* transformation utilities
+* temporary compatibility layers
+* helper files whose only purpose is conversion
+
+Instead:
+
+* directly refactor the existing codebase
+* move files into the new structure
+* convert files from JSX to TSX
+* update imports, exports, routing, and references throughout the project
+
+### Final Expected Result
+
+The entire frontend codebase should:
+
+* Match the uploaded React project structure.
+* Use TypeScript throughout the application.
+* Use `.tsx` files instead of `.jsx`.
+* Maintain all current functionality.
+* Be clean, scalable, maintainable, and production-ready.
+* Contain no conversion scripts or temporary migration files.

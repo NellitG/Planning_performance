@@ -1,0 +1,1 @@
+import{j as r}from"./index-BQr9Z7MP.js";import{P as t}from"./PagePlaceholder-DTT2vNtn.js";import"./card-BA23MEDR.js";function a(){return r.jsx(t,{title:"MDA Signatories",description:"Authorized signatories for the performance contract."})}export{a as default};

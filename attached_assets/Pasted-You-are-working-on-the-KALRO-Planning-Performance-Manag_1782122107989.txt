@@ -1,0 +1,331 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and extend the existing hierarchy and workflow structure.
+
+Implement the following changes and enhancements while maintaining all previously developed functionality.
+
+---
+
+# TERMINOLOGY CHANGE
+
+Rename the module currently called:
+
+```text
+Components
+```
+
+to:
+
+```text
+Key Result Areas (KRA)
+```
+
+Apply this change consistently throughout the entire Projects module, including:
+
+* Sidebar navigation
+* Page titles
+* Forms
+* Tables
+* Dropdowns
+* Checkboxes
+* Database labels
+* Relationships
+* API responses
+* Breadcrumbs
+
+---
+
+# PROJECT WORKFLOW - STEP 2 MODIFICATION
+
+The current Step 2 workflow uses a dropdown to select a Component.
+
+Replace this behavior.
+
+## Current
+
+```text
+Select Component
+▼ Component A
+▼ Component B
+▼ Component C
+```
+
+## New Requirement
+
+Display all Key Result Areas as checkboxes.
+
+Example:
+
+```text
+Select Key Result Area(s)
+
+☐ KRA 1
+☐ KRA 2
+☐ KRA 3
+☐ KRA 4
+```
+
+Requirements:
+
+* Allow selecting multiple KRAs.
+* Strategic Objectives should dynamically load based on selected KRAs.
+* Strategies should dynamically load based on the selected Strategic Objectives.
+* Users should be able to associate a project with multiple KRAs where applicable.
+
+---
+
+# NEW MODULES
+
+Add the following modules immediately below the **Strategy** module in the Projects sidebar:
+
+1. Key Activities
+2. Expected Outputs
+3. Output Indicators
+
+Updated sidebar structure:
+
+```text
+Projects
+│
+Key Result Areas
+Strategic Objectives
+Strategy
+Key Activities
+Expected Outputs
+Output Indicators
+```
+
+---
+
+# KEY ACTIVITIES MODULE
+
+Create a complete Key Activities management interface.
+
+## Listing Page
+
+Display all Key Activities.
+
+Suggested table:
+
+| Strategy | Key Activity | Date Created | Actions |
+| -------- | ------------ | ------------ | ------- |
+
+Actions:
+
+* View
+* Edit
+* Delete
+
+---
+
+## Create Key Activity
+
+Add a prominent:
+
+```text
++ Add Key Activity
+```
+
+button.
+
+Clicking the button should open a dedicated page containing:
+
+### Fields
+
+#### Strategy
+
+Dropdown populated from previously created Strategies.
+
+#### Key Activity
+
+Text input field.
+
+---
+
+## Multiple Activity Entry
+
+Allow users to add more than one Key Activity before saving.
+
+Example:
+
+```text
+Strategy: Improve Crop Productivity
+
+Key Activities
+
+[Activity 1]
+
+[Activity 2]
+
+[Activity 3]
+
++ Add Another Activity
+```
+
+Users should be able to dynamically add and remove activity rows.
+
+---
+
+# EXPECTED OUTPUTS MODULE
+
+Create a complete Expected Outputs management interface.
+
+## Listing Page
+
+Display all Expected Outputs.
+
+Suggested table:
+
+| Strategy | Expected Output | Date Created | Actions |
+| -------- | --------------- | ------------ | ------- |
+
+---
+
+## Create Expected Output
+
+Fields:
+
+### Strategy
+
+Dropdown populated from Strategies.
+
+### Expected Output
+
+Text input field.
+
+---
+
+## Multiple Output Entry
+
+Allow users to add multiple Expected Outputs before saving.
+
+Example:
+
+```text
+Strategy: Improve Seed Quality
+
+Output 1
+
+Output 2
+
+Output 3
+
++ Add Another Output
+```
+
+Users should be able to dynamically add and remove rows.
+
+---
+
+# OUTPUT INDICATORS MODULE
+
+Create a complete Output Indicators management interface.
+
+## Listing Page
+
+Display all Output Indicators.
+
+Suggested table:
+
+| Strategy | Output Indicator | Date Created | Actions |
+| -------- | ---------------- | ------------ | ------- |
+
+---
+
+## Create Output Indicator
+
+Fields:
+
+### Strategy
+
+Dropdown populated from Strategies.
+
+### Output Indicator
+
+Text input field.
+
+---
+
+## Multiple Indicator Entry
+
+Allow users to add multiple indicators before saving.
+
+Example:
+
+```text
+Strategy: Enhance Farmer Adoption
+
+Indicator 1
+
+Indicator 2
+
+Indicator 3
+
++ Add Another Indicator
+```
+
+Users should be able to dynamically add and remove rows.
+
+---
+
+# RELATIONSHIP REQUIREMENTS
+
+Implement the following hierarchy:
+
+```text
+Key Result Area (KRA)
+        ↓
+Strategic Objective
+        ↓
+Strategy
+        ↓
+Key Activities
+        ↓
+Expected Outputs
+        ↓
+Output Indicators
+        ↓
+Projects
+```
+
+Rules:
+
+* A Strategic Objective must belong to a Key Result Area.
+* A Strategy must belong to a Strategic Objective.
+* A Key Activity must belong to a Strategy.
+* An Expected Output must belong to a Strategy.
+* An Output Indicator must belong to a Strategy.
+* Projects can be linked to one or more KRAs, Strategic Objectives, and Strategies.
+
+---
+
+# DYNAMIC DATA BEHAVIOR
+
+All dropdowns and selections must be populated from previously created records.
+
+Examples:
+
+* Selecting a Strategy should show only Key Activities linked to that Strategy.
+* Expected Outputs should be linked to a Strategy.
+* Output Indicators should be linked to a Strategy.
+* Data relationships must persist correctly in the database.
+
+#
+
+---
+
+# FINAL EXPECTED RESULT
+
+After implementation:
+
+1. Components are renamed to Key Result Areas (KRA) throughout the Projects module.
+2. Step 2 uses multi-select checkboxes for KRAs instead of a dropdown.
+3. Users can select multiple KRAs for a project.
+4. New modules exist:
+
+   * Key Activities
+   * Expected Outputs
+   * Output Indicators
+5. Each module supports full CRUD operations.
+6. Users can add multiple records at once before saving.
+7. Every Key Activity, Expected Output, and Output Indicator is linked to a Strategy.
+8. All relationships follow the defined hierarchy and are persisted correctly.
+9. The Projects module remains scalable, maintainable, and aligned with the KALRO planning framework.

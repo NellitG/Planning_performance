@@ -1,0 +1,240 @@
+You are a senior React architect responsible for restructuring and standardizing the entire KALRO PPM System frontend.
+
+Using the uploaded React project structure as the reference architecture, refactor the entire codebase to match that structure and organization.
+
+### Target Project Structure
+
+```text
+project-root/
+│
+├── node_modules/
+├── public/
+│   ├── index.html
+│   ├── favicon.ico
+│   ├── manifest.json
+│   └── robots.txt
+│
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   ├── context/
+│   ├── utils/
+│   ├── App.jsx
+│   ├── index.jsx
+│   └── styles.css
+│
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+### Refactoring Requirements
+
+#### Components
+
+Move all reusable UI elements into:
+
+```text
+src/components/
+```
+
+Examples:
+
+* Navbar
+* Sidebar
+* Buttons
+* Tables
+* Forms
+* Cards
+* Modals
+* Notifications
+* Upload Components
+
+---
+
+#### Pages
+
+Move all module screens into:
+
+```text
+src/pages/
+```
+
+Examples:
+
+* Dashboard
+* Projects
+* Key Result Areas
+* Strategic Objectives
+* Strategy
+* Key Activities
+* Expected Outputs
+* Output Indicators
+* Reports
+* User Management
+* Settings
+
+Each major feature should have its own page structure.
+
+---
+
+#### Assets
+
+Move all static resources into:
+
+```text
+src/assets/
+```
+
+Examples:
+
+* Images
+* Logos
+* Icons
+* PDFs
+* Static files
+
+---
+
+#### Hooks
+
+Move all custom React hooks into:
+
+```text
+src/hooks/
+```
+
+Examples:
+
+* useAuth
+* useProjects
+* useNotifications
+* useApi
+* usePermissions
+
+---
+
+#### Context
+
+Move all Context API providers into:
+
+```text
+src/context/
+```
+
+Examples:
+
+* AuthContext
+* UserContext
+* ProjectContext
+* NotificationContext
+
+---
+
+#### Utils
+
+Move all utility functions into:
+
+```text
+src/utils/
+```
+
+Examples:
+
+* API helpers
+* Formatters
+* Validators
+* Constants
+* Permission helpers
+
+---
+
+### Entry Files
+
+Ensure the application entry points are:
+
+```text
+src/App.jsx
+src/index.jsx
+```
+
+Requirements:
+
+* Use React Router for navigation
+* Centralize route definitions
+* Maintain all existing functionality
+
+---
+
+### File Conversion
+
+Convert all frontend files to:
+
+```text
+.jsx
+```
+
+where appropriate.
+
+Examples:
+
+```text
+Dashboard.jsx
+Projects.jsx
+Sidebar.jsx
+Navbar.jsx
+```
+
+Remove unnecessary file types and maintain consistency across the application.
+
+---
+
+### Architecture Rules
+
+* Do not create migration scripts.
+* Do not create conversion scripts.
+* Do not create temporary compatibility layers.
+* Do not generate a separate tool to perform the conversion.
+* Directly refactor and reorganize the existing codebase.
+* Update imports throughout the application to reflect the new structure.
+* Remove obsolete folders and unused files.
+
+---
+
+### Maintain Existing Functionality
+
+The refactor must preserve:
+
+* Authentication
+* Routing
+* Project workflows
+* KRA hierarchy
+* Strategic Objectives
+* Strategies
+* Key Activities
+* Expected Outputs
+* Output Indicators
+* Reports
+* User Management
+* API integrations
+* Permissions
+
+No functionality should be lost during restructuring.
+
+---
+
+### Final Expected Result
+
+The entire frontend codebase should be reorganized to mirror the uploaded React project structure, resulting in:
+
+* A clean and maintainable codebase
+* Consistent folder organization
+* Improved scalability
+* Easier onboarding for developers
+* Clear separation of concerns
+* React SPA best practices
+
+Do not generate a new project. Refactor the existing project structure directly so that the final codebase resembles the uploaded reference architecture.

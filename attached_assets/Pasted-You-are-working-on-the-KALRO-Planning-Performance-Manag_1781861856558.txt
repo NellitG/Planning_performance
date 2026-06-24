@@ -1,0 +1,291 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and implement the following enhancements and workflow improvements.
+
+Do not modify other modules unless required for integration.
+
+---
+
+# PROJECTS MODULE ENHANCEMENTS
+
+## 1. REMOVE DROPFILES COMPONENT
+
+The current Projects page contains a standalone **DropFiles** component.
+
+### Required Change
+
+* Remove the DropFiles component from the main Projects page/dashboard.
+* Ensure its removal does not affect any existing project upload workflows.
+* The file upload functionality will be relocated into the Project Details workflow described below.
+
+---
+
+## 2. RETAIN EXISTING PROJECT CREATION FORM
+
+The **Add New Project** interface already contains several input fields and project information sections.
+
+### Required Change
+
+* Retain all existing project information fields.
+* Do not remove or simplify any existing project data inputs.
+* Preserve current validation rules and save functionality.
+
+The Add New Project page should continue functioning exactly as it does today.
+
+---
+
+## 3. PROJECTS LISTING TABLE ENHANCEMENTS
+
+The Projects module currently displays a table listing all projects.
+
+Enhance the table with the following functionality.
+
+### Table Columns
+
+Maintain existing columns and add an **Actions** column on the far right.
+
+### Actions Column
+
+Add the following icons for every project row:
+
+* View Icon
+* Edit Icon
+* Delete Icon
+
+Requirements:
+
+#### View
+
+* Opens the project details workflow.
+
+#### Edit
+
+* Opens the existing project edit interface.
+
+#### Delete
+
+* Shows confirmation dialog.
+* Removes the project after confirmation.
+
+---
+
+## 4. CLICKABLE PROJECT NAME
+
+Make the **Project Name** column clickable.
+
+When a user clicks a project name, open a dedicated **Project Details Workflow**.
+
+---
+
+# PROJECT DETAILS WORKFLOW
+
+Implement a multi-step workflow.
+
+## STEP 1 – PROJECT DOCUMENT UPLOAD
+
+When a project is opened, display Step 1.
+
+### Interface Requirements
+
+Show:
+
+* Project information summary
+* File Upload Component
+
+The upload component should support:
+
+* Drag and drop upload
+* File selection button
+* Upload progress indicator
+* Uploaded file preview
+
+Supported documents may include:
+
+* Project proposal
+* Concept note
+* Supporting documents
+* Approval documents
+
+  Note: The document uploaded should can be viewed below
+
+---
+
+### Validation Rule
+
+Users must upload at least one project document before proceeding.
+
+Disable the **Next Step** button until:
+
+```text
+Project Document Uploaded = TRUE
+```
+
+If no file is uploaded:
+
+* Show validation message
+* Prevent navigation to Step 2
+
+---
+
+### Navigation
+
+Display:
+
+* Next Step Button
+
+The button becomes active only after a successful upload.
+
+---
+
+## STEP 2 – COMPONENT, STRATEGIC OBJECTIVE & STRATEGY MAPPING
+
+When Step 1 is completed, allow navigation to Step 2.
+
+---
+
+### Component Selection
+
+Display a dropdown:
+
+```text
+Select Component
+▼ Component A
+▼ Component B
+▼ Component C
+```
+
+Load all Components previously created in the Components module.
+
+---
+
+### Strategic Objectives Table
+
+When a Component is selected:
+
+Automatically load all Strategic Objectives associated with that Component.
+
+Display them in a table.
+
+Suggested columns:
+
+| Strategic Objective | Date Created |
+| ------------------- | ------------ |
+
+Example:
+
+```text
+Component: Agricultural Productivity
+
+Strategic Objectives
+
+1. Increase Crop Productivity
+2. Improve Seed Quality
+3. Enhance Farmer Adoption
+```
+
+---
+
+### Strategy Selection
+
+Below the Strategic Objectives table:
+
+Display all Strategies associated with the selected Strategic Objectives.
+
+Allow users to select one or more strategies.
+
+Example:
+
+```text
+☐ Strategy A
+☐ Strategy B
+☐ Strategy C
+```
+
+or
+
+```text
+Select Strategy
+▼ Strategy A
+▼ Strategy B
+▼ Strategy C
+```
+
+---
+
+### Save Mapping
+
+When a strategy is selected:
+
+Create and save the relationship:
+
+```text
+Project
+    ↓
+Component
+    ↓
+Strategic Objective
+    ↓
+Strategy
+```
+
+The selected project should now be linked to:
+
+* Component
+* Strategic Objective
+* Strategy
+
+---
+
+## DATA RELATIONSHIPS
+
+Ensure the following hierarchy is maintained:
+
+```text
+Component
+    ↓
+Strategic Objectives
+    ↓
+Strategies
+    ↓
+Projects
+```
+
+Requirements:
+
+* Components populate Strategic Objectives.
+* Strategic Objectives populate Strategies.
+* Strategies can be linked to Projects.
+* Relationships must persist in the database.
+
+---
+
+## USER INTERFACE REQUIREMENTS
+
+Use:
+
+* React
+* TailwindCSS
+* Existing KALRO Green Theme
+
+Requirements:
+
+* Dedicated pages
+* Responsive design
+* Loading states
+* Error handling
+* Success notifications
+* Clean enterprise UI
+
+---
+
+## FINAL EXPECTED RESULT
+
+After implementation:
+
+1. The DropFiles component is removed from the main Projects page.
+2. Existing Add Project functionality remains unchanged.
+3. Projects table includes View, Edit, and Delete actions.
+4. Project names are clickable.
+5. Clicking a project opens a two-step workflow.
+6. Step 1 requires document upload before proceeding.
+7. Step 2 allows Component → Strategic Objective → Strategy selection.
+8. Selected strategies are linked to the project and stored correctly.
+9. The workflow enforces proper validation and hierarchy throughout the process.

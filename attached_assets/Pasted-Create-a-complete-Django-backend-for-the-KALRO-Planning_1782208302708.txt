@@ -1,0 +1,504 @@
+Create a complete Django backend for the KALRO Planning, Performance Management (PPM) System Projects Module and ensure it integrates with every frontend feature that has been implemented.
+
+### Backend Technology Stack
+
+Use:
+
+* Django
+* Django REST Framework (DRF)
+* SQLite (`db.sqlite3`)
+* Django CORS Headers
+* Django Filter
+* Token or JWT Authentication
+* File Upload Support
+
+The backend must be fully API-driven and integrate seamlessly with the React frontend.
+
+---
+
+## Project Structure
+
+Create a clean and scalable Django architecture:
+
+```text
+backend/
+│
+├── config/
+│   ├── settings.py
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
+│
+├── projects/
+│   ├── models.py
+│   ├── serializers.py
+│   ├── views.py
+│   ├── urls.py
+│   ├── permissions.py
+│   └── services.py
+│
+├── media/
+├── static/
+├── db.sqlite3
+└── manage.py
+```
+
+---
+
+## Database Models
+
+Create all models required by the Projects module.
+
+### Project
+
+Fields:
+
+* id
+* project_name
+* logo
+* description
+* start_date
+* end_date
+* status
+* created_at
+* updated_at
+
+---
+
+### Key Result Area (KRA)
+
+Fields:
+
+* id
+* title
+* created_at
+
+Relationship:
+
+```text
+Project
+    ↓
+Many Key Result Areas
+```
+
+---
+
+### Strategic Objective
+
+Fields:
+
+* id
+* key_result_area
+* title
+* created_at
+
+Relationship:
+
+```text
+Key Result Area
+    ↓
+Many Strategic Objectives
+```
+
+---
+
+### Strategy
+
+Fields:
+
+* id
+* strategic_objective
+* title
+* created_at
+
+Relationship:
+
+```text
+Strategic Objective
+    ↓
+Many Strategies
+```
+
+---
+
+### Key Activity
+
+Fields:
+
+* id
+* strategy
+* title
+* created_at
+
+Relationship:
+
+```text
+Strategy
+    ↓
+Many Key Activities
+```
+
+---
+
+### Expected Output
+
+Fields:
+
+* id
+* strategy
+* title
+* created_at
+
+Relationship:
+
+```text
+Strategy
+    ↓
+Many Expected Outputs
+```
+
+---
+
+### Output Indicator
+
+Fields:
+
+* id
+* expected_output
+* title
+* created_at
+
+Relationship:
+
+```text
+Expected Output
+    ↓
+Many Output Indicators
+```
+
+---
+
+### Baseline
+
+Fields:
+
+* id
+* output_indicator
+* year_1
+* year_2
+* year_3
+* year_4
+* year_5
+* created_at
+
+Relationship:
+
+```text
+Output Indicator
+    ↓
+Baseline
+```
+
+---
+
+### Project Strategy Mapping
+
+Create a mapping model that links:
+
+```text
+Project
+    ↓
+Key Result Area
+    ↓
+Strategic Objective
+    ↓
+Strategy
+```
+
+This supports the Strategy Mapping workflow.
+
+---
+
+### Indicator Tracking
+
+Create a model to support:
+
+* Baseline
+* Target
+* Achievement
+* Evidence
+
+Fields:
+
+* id
+* project
+* output_indicator
+* baseline_reference
+* target
+* achievement
+* evidence
+* created_at
+
+Validation:
+
+* Target must never exceed the baseline value.
+* Validation should happen in serializer and model layer.
+
+---
+
+## File Upload Support
+
+Support uploads for:
+
+### Project Documents
+
+* Proposal
+* Concept Note
+* Supporting Documents
+
+### Evidence Files
+
+* PDF
+* DOC
+* DOCX
+* XLS
+* XLSX
+* Images
+
+Create media storage configuration and API endpoints.
+
+---
+
+## API Endpoints
+
+Create complete CRUD APIs.
+
+### Projects
+
+```text
+GET     /api/projects/
+POST    /api/projects/
+GET     /api/projects/{id}/
+PUT     /api/projects/{id}/
+DELETE  /api/projects/{id}/
+```
+
+---
+
+### Key Result Areas
+
+```text
+GET     /api/kras/
+POST    /api/kras/
+GET     /api/kras/{id}/
+PUT     /api/kras/{id}/
+DELETE  /api/kras/{id}/
+```
+
+---
+
+### Strategic Objectives
+
+```text
+GET     /api/strategic-objectives/
+POST    /api/strategic-objectives/
+GET     /api/strategic-objectives/{id}/
+PUT     /api/strategic-objectives/{id}/
+DELETE  /api/strategic-objectives/{id}/
+```
+
+---
+
+### Strategies
+
+```text
+GET     /api/strategies/
+POST    /api/strategies/
+GET     /api/strategies/{id}/
+PUT     /api/strategies/{id}/
+DELETE  /api/strategies/{id}/
+```
+
+---
+
+### Key Activities
+
+```text
+GET     /api/key-activities/
+POST    /api/key-activities/
+PUT     /api/key-activities/{id}/
+DELETE  /api/key-activities/{id}/
+```
+
+Support bulk creation of multiple activities in one request.
+
+---
+
+### Expected Outputs
+
+```text
+GET     /api/expected-outputs/
+POST    /api/expected-outputs/
+PUT     /api/expected-outputs/{id}/
+DELETE  /api/expected-outputs/{id}/
+```
+
+Support bulk creation.
+
+---
+
+### Output Indicators
+
+```text
+GET     /api/output-indicators/
+POST    /api/output-indicators/
+PUT     /api/output-indicators/{id}/
+DELETE  /api/output-indicators/{id}/
+```
+
+Support bulk creation.
+
+---
+
+### Baselines
+
+```text
+GET     /api/baselines/
+POST    /api/baselines/
+GET     /api/baselines/{id}/
+PUT     /api/baselines/{id}/
+DELETE  /api/baselines/{id}/
+```
+
+---
+
+### Strategy Mapping
+
+```text
+GET     /api/project-mappings/
+POST    /api/project-mappings/
+PUT     /api/project-mappings/{id}/
+DELETE  /api/project-mappings/{id}/
+```
+
+---
+
+### Indicator Tracking
+
+```text
+GET     /api/indicator-tracking/
+POST    /api/indicator-tracking/
+PUT     /api/indicator-tracking/{id}/
+DELETE  /api/indicator-tracking/{id}/
+```
+
+---
+
+## Dynamic Filtering APIs
+
+Create endpoints that support dependent selections.
+
+### Strategic Objectives by KRA
+
+```text
+GET /api/kras/{id}/strategic-objectives/
+```
+
+---
+
+### Strategies by Strategic Objective
+
+```text
+GET /api/strategic-objectives/{id}/strategies/
+```
+
+---
+
+### Key Activities by Strategy
+
+```text
+GET /api/strategies/{id}/activities/
+```
+
+---
+
+### Expected Outputs by Strategy
+
+```text
+GET /api/strategies/{id}/expected-outputs/
+```
+
+---
+
+### Output Indicators by Expected Output
+
+```text
+GET /api/expected-outputs/{id}/output-indicators/
+```
+
+---
+
+### Baseline by Output Indicator
+
+```text
+GET /api/output-indicators/{id}/baseline/
+```
+
+---
+
+## Frontend Integration Requirements
+
+Ensure all APIs integrate with:
+
+* Projects Dashboard
+* Project Creation
+* Project Details
+* Strategy Mapping
+* Key Result Areas
+* Strategic Objectives
+* Strategies
+* Key Activities
+* Expected Outputs
+* Output Indicators
+* Baseline Module
+* Indicator Tracking Table
+* File Upload Components
+
+Remove all mock data and connect all interfaces to live APIs.
+
+---
+
+## Database Requirements
+
+Use:
+
+```text
+db.sqlite3
+```
+
+Requirements:
+
+* Create migrations for all models.
+* Establish all foreign key relationships.
+* Configure cascading deletes where appropriate.
+* Enforce validation constraints.
+* Persist all user-created records.
+
+---
+
+## Final Deliverable
+
+Generate:
+
+* Django Models
+* Serializers
+* ViewSets
+* API URLs
+* Permissions
+* File Upload Handling
+* Validation Logic
+* SQLite Configuration
+* Migrations
+* API Documentation
+
+Ensure every frontend feature is connected to a working Django REST API and all data is stored and retrieved from `db.sqlite3`.

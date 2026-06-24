@@ -1,0 +1,252 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects** section of the application.
+
+Do not modify, redesign, or add functionality to the **Performance Contracts (PC)** or **Strategic Objectives** systems available on the landing page. All development should be confined to the Projects module.
+
+---
+
+## PROJECTS MODULE ENHANCEMENT
+
+Within the Projects interface, add the following new modules to the sidebar navigation:
+
+### Sidebar Menu
+
+* Components
+* Strategic Objectives
+* Strategy
+
+Ensure these appear as dedicated navigation items within the Projects section.
+
+---
+
+## 1. COMPONENTS MODULE
+
+Create a Components management interface.
+
+### Components Dashboard
+
+Display:
+
+* Total number of components
+* List of all existing components
+
+Include a prominent **"Create Component"** button.
+
+### Create Component Page
+
+When the user clicks Create Component:
+
+Display a dedicated page (not a popup/modal) containing:
+
+Field:
+
+* Component Title
+
+Buttons:
+
+* Save
+* Cancel
+
+### Save Functionality
+
+When saved:
+
+* Store the component
+* Add it to the components list
+* Update the total component count
+* Display success notification/message
+
+### Components List
+
+Display all created components in a table.
+
+Suggested columns:
+
+| Component Name | Date Created | Actions |
+| -------------- | ------------ | ------- |
+
+Actions:
+
+* View
+* Edit
+* Delete
+
+---
+
+## 2. STRATEGIC OBJECTIVES MODULE
+
+Create a Strategic Objectives interface under the Projects section.
+
+### Strategic Objectives Dashboard
+
+Display:
+
+* List of all strategic objectives
+* Associated component for each objective
+
+Suggested table columns:
+
+| Component | Strategic Objective | Date Created | Actions |
+| --------- | ------------------- | ------------ | ------- |
+
+Include a **"Create Strategic Objective"** button.
+
+---
+
+### Create Strategic Objective Page
+
+Display a dedicated page containing:
+
+Fields:
+
+#### Component Dropdown
+
+Populate dynamically using components previously created in the Components module.
+
+Example:
+
+```text
+Select Component
+▼ Component A
+▼ Component B
+▼ Component C
+```
+
+#### Strategic Objective
+
+Text input field.
+
+Buttons:
+
+* Save
+* Cancel
+
+### Save Functionality
+
+When saved:
+
+* Associate the strategic objective with the selected component
+* Save the relationship
+* Display it in the Strategic Objectives list
+
+---
+
+## 3. STRATEGY MODULE
+
+Create a Strategy management interface.
+
+### Strategy Dashboard
+
+Display all strategies in a table.
+
+Suggested columns:
+
+| Component | Strategic Objective | Strategy | Date Created | Actions |
+| --------- | ------------------- | -------- | ------------ | ------- |
+
+Include a **"Create Strategy"** button.
+
+---
+
+### Create Strategy Page
+
+Display a dedicated page containing:
+
+#### Component Dropdown
+
+Load components previously created in the Components module.
+
+#### Strategic Objective Dropdown
+
+Load strategic objectives previously created and filter them according to the selected component.
+
+#### Strategy
+
+Text input field.
+
+Buttons:
+
+* Save
+* Cancel
+
+---
+
+### Save Functionality
+
+When saved:
+
+* Link the strategy to:
+
+  * selected component
+  * selected strategic objective
+* Save successfully
+* Display in the strategy list
+
+---
+
+## RELATIONSHIP REQUIREMENTS
+
+Implement the following hierarchy:
+
+```text
+Component
+    ↓
+Strategic Objective
+    ↓
+Strategy
+```
+
+Rules:
+
+* A Strategic Objective must belong to a Component.
+* A Strategy must belong to a Strategic Objective.
+* A Strategy must inherit the selected Component through the Strategic Objective relationship.
+* Dropdowns must dynamically load data from previously created records.
+
+---
+
+## USER INTERFACE REQUIREMENTS
+
+Use:
+
+* React
+* TailwindCSS
+* Existing KALRO green theme
+
+Requirements:
+
+* Dedicated pages instead of modal windows
+* Responsive layouts
+* Search functionality
+* Pagination
+* Loading states
+* Error handling
+* Success notifications
+
+---
+
+## DATA MANAGEMENT
+
+Ensure all modules support:
+
+* Create
+* Read
+* Update
+* Delete (CRUD)
+
+Persist relationships correctly between:
+
+* Components
+* Strategic Objectives
+* Strategies
+
+---
+
+## IMPORTANT
+
+Do not make any modifications to:
+
+* Performance Contracts (PC)
+* Strategic Objectives system on the landing page
+* Landing page navigation
+
+Only extend and enhance the **Projects module** by implementing Components, Strategic Objectives, and Strategy management functionality.

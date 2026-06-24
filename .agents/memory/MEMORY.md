@@ -1,0 +1,1 @@
+- [Projects module API quirks](projects-api-quirks.md) — KALRO frontend: mapping serializer field naming + React Query cache-key invalidation rules.

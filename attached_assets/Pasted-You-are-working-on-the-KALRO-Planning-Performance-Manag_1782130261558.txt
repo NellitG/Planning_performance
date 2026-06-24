@@ -1,0 +1,126 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and modify the Strategy Mapping workflow.
+
+Implement the following changes:
+
+### 1. Strategy Mapping Hierarchy Display
+
+When a user selects a **Key Result Area (KRA)**, automatically display all related Strategic Objectives and their associated Strategies grouped under that same KRA.
+
+Example:
+
+```text
+☑ KRA 1
+
+Strategic Objectives
+
+• Strategic Objective A
+    ○ Strategy 1
+    ○ Strategy 2
+
+• Strategic Objective B
+    ○ Strategy 3
+    ○ Strategy 4
+```
+
+Requirements:
+
+* Strategic Objectives must appear under the selected KRA.
+* Strategies must appear under their respective Strategic Objective.
+* The entire hierarchy must remain grouped under one KRA container/card/section.
+* Do not separate Strategic Objectives and Strategies into different unrelated sections.
+
+---
+
+### 2. Progressive Strategy Selection Workflow
+
+When a user clicks or selects a Strategy, dynamically display the related Key Activities as checkboxes.
+
+Example:
+
+```text
+Strategy 1
+
+☐ Key Activity 1
+☐ Key Activity 2
+☐ Key Activity 3
+```
+
+---
+
+### 3. Expected Outputs Visibility
+
+When a user selects a Key Activity checkbox, automatically display the related Expected Outputs as checkboxes.
+
+Example:
+
+```text
+☑ Key Activity 1
+
+Expected Outputs
+
+☐ Expected Output 1
+☐ Expected Output 2
+☐ Expected Output 3
+```
+
+---
+
+### 4. Output Indicators Visibility
+
+When a user selects an Expected Output checkbox, automatically display the related Output Indicators as checkboxes.
+
+Example:
+
+```text
+☑ Expected Output 1
+
+Output Indicators
+
+☐ Output Indicator 1
+☐ Output Indicator 2
+☐ Output Indicator 3
+```
+
+---
+
+### 5. Single Hierarchical View
+
+All information must remain visible under the same selected Key Result Area.
+
+Hierarchy:
+
+```text
+Key Result Area
+    ↓
+Strategic Objective
+    ↓
+Strategy
+    ↓
+Key Activity
+    ↓
+Expected Output
+    ↓
+Output Indicator
+```
+
+Requirements:
+
+* Do not open new pages.
+* Do not open modals.
+* Do not create separate panels for each level.
+* Dynamically expand each level beneath its parent selection.
+* Maintain a clear tree/hierarchy structure.
+* Allow multiple selections where applicable.
+* Preserve all existing relationships and data integrity.
+
+### Final Expected Result
+
+When a KRA is selected, users can progressively drill down through:
+
+* Strategic Objectives
+* Strategies
+* Key Activities
+* Expected Outputs
+* Output Indicators
+
+all within a single hierarchical interface under the selected Key Result Area, making it easy to visualize and manage the complete planning structure.
