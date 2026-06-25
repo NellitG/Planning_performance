@@ -107,15 +107,6 @@ export interface OutputIndicator extends StoreItem {
   text: string;
 }
 
-export interface Baseline extends StoreItem {
-  outputIndicatorId: string;
-  year1: number | null;
-  year2: number | null;
-  year3: number | null;
-  year4: number | null;
-  year5: number | null;
-}
-
 export interface TrackingEntry {
   year: number;
   target: string;

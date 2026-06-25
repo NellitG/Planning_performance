@@ -7,7 +7,6 @@ import type {
   OutputIndicator,
   ProjectDocument,
   ProjectMapping,
-  Baseline,
   TrackingEntry,
   ProjectTrackingRecord,
 } from "./types";
@@ -22,7 +21,6 @@ const KEYS = {
   projectDocs: "kalro_pm_project_docs",
   projectMappings: "kalro_pm_project_mappings",
   deletedProjects: "kalro_pm_deleted_projects",
-  baselines: "kalro_pm_baselines",
   projectTracking: "kalro_pm_project_tracking",
 } as const;
 
@@ -274,53 +272,6 @@ export const deletedProjectsStore = {
   },
   restore: (id: string): void => {
     save(KEYS.deletedProjects, load<string>(KEYS.deletedProjects, []).filter((x) => x !== id));
-  },
-};
-
-export const baselinesStore = {
-  getAll: (): Baseline[] => load<Baseline>(KEYS.baselines),
-  getById: (id: string): Baseline | null =>
-    load<Baseline>(KEYS.baselines).find((b) => b.id === id) ?? null,
-  getByIndicator: (outputIndicatorId: string): Baseline | null =>
-    load<Baseline>(KEYS.baselines).find((b) => b.outputIndicatorId === outputIndicatorId) ?? null,
-  create: (
-    outputIndicatorId: string,
-    year1: number | null,
-    year2: number | null,
-    year3: number | null,
-    year4: number | null,
-    year5: number | null,
-  ): Baseline => {
-    const items = load<Baseline>(KEYS.baselines);
-    const item: Baseline = {
-      id: uid(),
-      outputIndicatorId,
-      year1,
-      year2,
-      year3,
-      year4,
-      year5,
-      createdAt: fmt(),
-    };
-    save(KEYS.baselines, [...items, item]);
-    return item;
-  },
-  update: (
-    id: string,
-    outputIndicatorId: string,
-    year1: number | null,
-    year2: number | null,
-    year3: number | null,
-    year4: number | null,
-    year5: number | null,
-  ): void => {
-    const items = load<Baseline>(KEYS.baselines).map((b) =>
-      b.id === id ? { ...b, outputIndicatorId, year1, year2, year3, year4, year5 } : b,
-    );
-    save(KEYS.baselines, items);
-  },
-  delete: (id: string): void => {
-    save(KEYS.baselines, load<Baseline>(KEYS.baselines).filter((b) => b.id !== id));
   },
 };
 

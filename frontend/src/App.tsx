@@ -78,8 +78,6 @@ const ExpectedOutputs = lazy(() => import("@/pages/projects/expected-outputs/Exp
 const ExpectedOutputForm = lazy(() => import("@/pages/projects/expected-outputs/ExpectedOutputForm"));
 const OutputIndicators = lazy(() => import("@/pages/projects/output-indicators/OutputIndicators"));
 const OutputIndicatorForm = lazy(() => import("@/pages/projects/output-indicators/OutputIndicatorForm"));
-const BaselineList = lazy(() => import("@/pages/projects/baseline/Baseline"));
-const BaselineForm = lazy(() => import("@/pages/projects/baseline/BaselineForm"));
 
 const FinancialReports = lazy(() => import("@/pages/reports/FinancialReports"));
 const TechnicalReports = lazy(() => import("@/pages/reports/TechnicalReports"));
@@ -160,10 +158,6 @@ function AppRoutes() {
         <Route path="/projects/output-indicators" element={<OutputIndicators />} />
         <Route path="/projects/output-indicators/new" element={<OutputIndicatorForm mode="create" />} />
         <Route path="/projects/output-indicators/:id/edit" element={<OutputIndicatorForm mode="edit" />} />
-
-        <Route path="/projects/baseline" element={<BaselineList />} />
-        <Route path="/projects/baseline/new" element={<BaselineForm mode="create" />} />
-        <Route path="/projects/baseline/:id/edit" element={<BaselineForm mode="edit" />} />
 
         <Route path="/strategic-objectives/dashboard" element={<SODashboard />} />
         <Route path="/strategic-objectives/kpis" element={<SOKPIs />} />

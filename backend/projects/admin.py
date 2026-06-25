@@ -1,7 +1,6 @@
 from django.contrib import admin
 
 from .models import (
-    Baseline,
     ExpectedOutput,
     IndicatorTracking,
     KeyActivity,
@@ -21,7 +20,6 @@ admin.site.register(Strategy)
 admin.site.register(KeyActivity)
 admin.site.register(ExpectedOutput)
 admin.site.register(OutputIndicator)
-admin.site.register(Baseline)
 admin.site.register(ProjectDocument)
 admin.site.register(ProjectMapping)
 admin.site.register(IndicatorTracking)

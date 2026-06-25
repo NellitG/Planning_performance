@@ -1,11 +1,9 @@
-from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from .models import (
-    Baseline,
     ExpectedOutput,
     IndicatorTracking,
     KeyActivity,
@@ -18,7 +16,6 @@ from .models import (
     StrategicObjective,
 )
 from .serializers import (
-    BaselineSerializer,
     ExpectedOutputSerializer,
     IndicatorTrackingSerializer,
     KeyActivitySerializer,
@@ -129,12 +126,6 @@ class OutputIndicatorViewSet(BulkCreateMixin, viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class BaselineViewSet(viewsets.ModelViewSet):
-    queryset = Baseline.objects.all()
-    serializer_class = BaselineSerializer
-    filterset_fields = ["output_indicator"]
-
-
 class ProjectDocumentViewSet(viewsets.ModelViewSet):
     queryset = ProjectDocument.objects.all()
     serializer_class = ProjectDocumentSerializer
@@ -177,15 +168,11 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        baseline = Baseline.objects.filter(output_indicator_id=oi_id).first()
         results = []
         for entry in entries:
             year = entry.get("year")
             if year is None:
                 continue
-            baseline_ref = None
-            if baseline:
-                baseline_ref = getattr(baseline, f"year_{year}", None)
             payload = {
                 "project": project_id,
                 "outputIndicatorId": oi_id,
@@ -193,7 +180,6 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
                 "target": entry.get("target"),
                 "achievement": entry.get("achievement", ""),
                 "evidenceName": entry.get("evidenceName", "") or "",
-                "baselineReference": baseline_ref,
             }
             instance = IndicatorTracking.objects.filter(
                 project_id=project_id, output_indicator_id=oi_id, year=year

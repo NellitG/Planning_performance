@@ -8,7 +8,6 @@ from .models import (
     KeyActivity,
     ExpectedOutput,
     OutputIndicator,
-    Baseline,
     ProjectDocument,
     ProjectMapping,
     IndicatorTracking,
@@ -127,31 +126,6 @@ class OutputIndicatorSerializer(serializers.ModelSerializer):
         ]
 
 
-class BaselineSerializer(serializers.ModelSerializer):
-    outputIndicatorId = serializers.PrimaryKeyRelatedField(
-        source="output_indicator", queryset=OutputIndicator.objects.all()
-    )
-    year1 = serializers.FloatField(source="year_1", required=False, allow_null=True)
-    year2 = serializers.FloatField(source="year_2", required=False, allow_null=True)
-    year3 = serializers.FloatField(source="year_3", required=False, allow_null=True)
-    year4 = serializers.FloatField(source="year_4", required=False, allow_null=True)
-    year5 = serializers.FloatField(source="year_5", required=False, allow_null=True)
-    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
-
-    class Meta:
-        model = Baseline
-        fields = [
-            "id",
-            "outputIndicatorId",
-            "year1",
-            "year2",
-            "year3",
-            "year4",
-            "year5",
-            "createdAt",
-        ]
-
-
 class ProjectDocumentSerializer(serializers.ModelSerializer):
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     type = serializers.CharField(
@@ -220,9 +194,6 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
     outputIndicatorId = serializers.PrimaryKeyRelatedField(
         source="output_indicator", queryset=OutputIndicator.objects.all()
     )
-    baselineReference = serializers.FloatField(
-        source="baseline_reference", required=False, allow_null=True
-    )
     evidenceName = serializers.CharField(
         source="evidence_name", required=False, allow_blank=True
     )
@@ -239,7 +210,6 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
             "project",
             "outputIndicatorId",
             "year",
-            "baselineReference",
             "target",
             "achievement",
             "evidence",
@@ -258,19 +228,3 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = obj.evidence.url
         return request.build_absolute_uri(url) if request else url
-
-    def validate(self, attrs):
-        target = attrs.get("target", getattr(self.instance, "target", None))
-        baseline = attrs.get(
-            "baseline_reference", getattr(self.instance, "baseline_reference", None)
-        )
-        if target is not None and baseline is not None and target > baseline:
-            raise serializers.ValidationError(
-                {
-                    "target": (
-                        f"Target ({target}) cannot exceed the baseline "
-                        f"value ({baseline})."
-                    )
-                }
-            )
-        return attrs

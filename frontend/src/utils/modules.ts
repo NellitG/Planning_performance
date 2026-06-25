@@ -43,7 +43,6 @@ import {
   Activity,
   PackageOpen,
   BarChart2,
-  LineChart,
 } from "lucide-react";
 import type { ModuleConfig, NavNode, SidebarSection, ModuleKey } from "./types";
 
@@ -125,7 +124,6 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
         { label: "Key Activities", to: "/projects/key-activities", icon: Activity },
         { label: "Expected Outputs", to: "/projects/expected-outputs", icon: PackageOpen },
         { label: "Output Indicators", to: "/projects/output-indicators", icon: BarChart2 },
-        { label: "Baseline", to: "/projects/baseline", icon: LineChart },
       ],
     },
     {

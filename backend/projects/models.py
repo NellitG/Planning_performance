@@ -1,4 +1,3 @@
-from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -131,24 +130,6 @@ class OutputIndicator(models.Model):
         return self.text[:80]
 
 
-class Baseline(models.Model):
-    output_indicator = models.OneToOneField(
-        OutputIndicator, on_delete=models.CASCADE, related_name="baseline"
-    )
-    year_1 = models.FloatField(null=True, blank=True)
-    year_2 = models.FloatField(null=True, blank=True)
-    year_3 = models.FloatField(null=True, blank=True)
-    year_4 = models.FloatField(null=True, blank=True)
-    year_5 = models.FloatField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
-
-    def __str__(self):
-        return f"Baseline for {self.output_indicator_id}"
-
-
 class ProjectDocument(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="documents"
@@ -191,7 +172,6 @@ class IndicatorTracking(models.Model):
         OutputIndicator, on_delete=models.CASCADE, related_name="tracking"
     )
     year = models.PositiveSmallIntegerField()
-    baseline_reference = models.FloatField(null=True, blank=True)
     target = models.FloatField(null=True, blank=True)
     achievement = models.TextField(blank=True)
     evidence = models.FileField(upload_to="evidence/", null=True, blank=True)
@@ -202,25 +182,6 @@ class IndicatorTracking(models.Model):
     class Meta:
         ordering = ["year"]
         unique_together = ["project", "output_indicator", "year"]
-
-    def clean(self):
-        if (
-            self.target is not None
-            and self.baseline_reference is not None
-            and self.target > self.baseline_reference
-        ):
-            raise ValidationError(
-                {
-                    "target": (
-                        f"Target ({self.target}) cannot exceed the baseline "
-                        f"value ({self.baseline_reference})."
-                    )
-                }
-            )
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Tracking P{self.project_id} OI{self.output_indicator_id} Y{self.year}"

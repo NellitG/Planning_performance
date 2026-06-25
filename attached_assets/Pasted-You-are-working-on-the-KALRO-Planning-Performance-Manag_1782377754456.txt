@@ -1,0 +1,129 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and implement the following changes.
+
+### Remove Baseline Module
+
+Completely remove the **Baseline** module from the system.
+
+This includes:
+
+* Sidebar navigation item
+* Baseline pages
+* Baseline forms
+* Baseline tables
+* Baseline APIs
+* Baseline database models
+* Baseline relationships
+* Baseline routes
+* Baseline menu links
+* Baseline CRUD functionality
+
+After implementation, the sidebar structure should be:
+
+```text
+Projects
+│
+├── Key Result Areas
+├── Strategic Objectives
+├── Strategy
+├── Key Activities
+├── Expected Outputs
+└── Output Indicators
+```
+
+---
+
+### Remove Baseline Data Structure
+
+Remove all references to:
+
+```text
+Year 1
+Year 2
+Year 3
+Year 4
+Year 5
+```
+
+including:
+
+* Forms
+* Tables
+* Database fields
+* API responses
+* Validation rules
+* Business logic
+
+---
+
+### Modify Strategy Mapping Workflow
+
+Within the Project Details → Strategy Mapping workflow:
+
+When an Expected Output is selected and Output Indicators are displayed:
+
+Remove the table that contains:
+
+| Baseline (Years) | Target | Achievement | Evidence |
+| ---------------- | ------ | ----------- | -------- |
+
+Specifically remove:
+
+* Baseline column
+* Year 1–5 values
+* Baseline calculations
+* Baseline validation logic
+* Baseline lookup functionality
+
+---
+
+### Output Indicator Behavior
+
+When Output Indicators are displayed:
+
+* Show only the Output Indicators related to the selected Expected Output.
+* Preserve the existing checkbox selection functionality.
+* Preserve all hierarchy relationships.
+
+Hierarchy remains:
+
+```text
+Key Result Area
+    ↓
+Strategic Objective
+    ↓
+Strategy
+    ↓
+Key Activity
+    ↓
+Expected Output
+    ↓
+Output Indicator
+```
+
+---
+
+### Database Cleanup
+
+Remove:
+
+* Baseline model
+* Baseline serializers
+* Baseline viewsets
+* Baseline endpoints
+* Baseline migrations
+* Baseline foreign key relationships
+
+Ensure no orphaned references remain anywhere in the system.
+
+---
+
+### Final Expected Result
+
+After implementation:
+
+1. The Baseline module no longer exists anywhere in the application.
+2. The Year 1, Year 2, Year 3, Year 4, and Year 5 fields are completely removed.
+3. The Baseline tracking table is removed from the Projects Strategy Mapping workflow.
+4. Output Indicators continue to function normally under Expected Outputs.
+5. All related frontend, backend, API, database, routing, and validation references are removed cleanly.
+6. The remaining hierarchy remains intact and fully functional.

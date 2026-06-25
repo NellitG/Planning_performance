@@ -14,7 +14,6 @@ import {
   Square,
   BarChart2,
   Paperclip,
-  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -30,7 +29,6 @@ import {
   useKeyActivities,
   useExpectedOutputs,
   useOutputIndicators,
-  useBaselines,
   useProjectDocuments,
   useUploadDocument,
   useDeleteDocument,
@@ -48,9 +46,7 @@ const EVIDENCE_ACCEPTED = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg";
 
 interface TrackingYearRow {
   year: number;
-  baseline: number | null;
   target: string;
-  targetError: string;
   achievement: string;
   evidenceName: string | null;
   evidenceId: string | null;
@@ -259,15 +255,7 @@ interface OITrackingTableProps {
 
 function OITrackingTable({ oi, rows, onChange, onEvidenceUpload, onEvidenceRemove }: OITrackingTableProps) {
   const updateTarget = (year: number, val: string) => {
-    onChange(rows.map((r) => {
-      if (r.year !== year) return r;
-      const num = parseFloat(val);
-      let targetError = "";
-      if (val !== "" && !isNaN(num) && r.baseline !== null && num > r.baseline) {
-        targetError = `Target (${num}) exceeds baseline (${r.baseline})`;
-      }
-      return { ...r, target: val, targetError };
-    }));
+    onChange(rows.map((r) => r.year !== year ? r : { ...r, target: val }));
   };
 
   const updateAchievement = (year: number, val: string) => {
@@ -285,7 +273,7 @@ function OITrackingTable({ oi, rows, onChange, onEvidenceUpload, onEvidenceRemov
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-3 py-2 text-left font-semibold w-32">Baseline (Years)</th>
+              <th className="px-3 py-2 text-left font-semibold w-16">Year</th>
               <th className="px-3 py-2 text-left font-semibold w-40">Target</th>
               <th className="px-3 py-2 text-left font-semibold w-40">Achievement</th>
               <th className="px-3 py-2 text-left font-semibold">Evidence</th>
@@ -295,35 +283,18 @@ function OITrackingTable({ oi, rows, onChange, onEvidenceUpload, onEvidenceRemov
             {rows.map((row) => (
               <tr key={row.year} className="hover:bg-muted/10 transition-colors">
                 <td className="px-3 py-2">
-                  <div className="text-xs text-muted-foreground font-medium">Year {row.year}</div>
-                  <div className={cn("font-mono font-semibold text-sm", row.baseline !== null ? "text-primary" : "text-muted-foreground italic")}>
-                    {row.baseline !== null ? row.baseline : "—"}
-                  </div>
+                  <div className="text-xs font-medium text-muted-foreground">Year {row.year}</div>
                 </td>
                 <td className="px-3 py-2">
-                  <div className="space-y-1">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={row.target}
-                      onChange={(e) => updateTarget(row.year, e.target.value)}
-                      placeholder="Enter target"
-                      className={cn("h-7 text-xs", row.targetError ? "border-red-400 focus-visible:ring-red-300" : "")}
-                    />
-                    {row.targetError && (
-                      <div className="flex items-start gap-1 text-red-600">
-                        <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
-                        <span className="text-[10px]">{row.targetError}</span>
-                      </div>
-                    )}
-                    {!row.targetError && row.baseline !== null && row.target !== "" && !isNaN(parseFloat(row.target)) && (
-                      <div className="flex items-center gap-1 text-green-600">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" />
-                        <span className="text-[10px]">Valid</span>
-                      </div>
-                    )}
-                  </div>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={row.target}
+                    onChange={(e) => updateTarget(row.year, e.target.value)}
+                    placeholder="Enter target"
+                    className="h-7 text-xs"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <Input
@@ -351,17 +322,6 @@ function OITrackingTable({ oi, rows, onChange, onEvidenceUpload, onEvidenceRemov
           </tbody>
         </table>
       </div>
-
-      {rows.some((r) => r.baseline === null) && (
-        <div className="border-t border-border/50 bg-amber-50 px-3 py-2 flex items-center gap-2">
-          <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-          <p className="text-[10px] text-amber-700">
-            No baseline set for this indicator.{" "}
-            <Link to="/projects/baseline/new" className="underline font-medium">Add a baseline</Link>{" "}
-            to enable target validation.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
@@ -433,7 +393,6 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
   const { data: allKeyActivities = [] } = useKeyActivities();
   const { data: allExpectedOutputs = [] } = useExpectedOutputs();
   const { data: allOutputIndicators = [] } = useOutputIndicators();
-  const { data: allBaselines = [] } = useBaselines();
   const { data: mapping = null } = useProjectMapping(project.id);
   const { data: trackingRows = [] } = useProjectTracking(project.id);
   const saveMapping = useSaveMapping();
@@ -493,26 +452,20 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
     return m;
   }, [allOutputIndicators]);
 
-  // Initialize tracking rows for an OI from API data + baseline
+  // Initialize tracking rows for an OI from API data
   const initTrackingForOi = useCallback((oiId: string): TrackingYearRow[] => {
-    const baseline = allBaselines.find((b) => b.outputIndicatorId === oiId);
     const stored = trackingRows.filter((r) => r.outputIndicatorId === oiId);
     return [1, 2, 3, 4, 5].map((year) => {
-      const baselineVal: number | null = baseline
-        ? (baseline[`year${year}` as keyof typeof baseline] as number | null)
-        : null;
       const storedEntry = stored.find((e) => e.year === year);
       return {
         year,
-        baseline: baselineVal ?? null,
         target: storedEntry?.target != null ? String(storedEntry.target) : "",
-        targetError: "",
         achievement: storedEntry?.achievement ?? "",
         evidenceName: storedEntry?.evidenceName || null,
         evidenceId: storedEntry?.id ?? null,
       };
     });
-  }, [allBaselines, trackingRows]);
+  }, [trackingRows]);
 
   // Ensure tracking data is initialized for an OI
   const ensureTracking = useCallback((oiId: string) => {
@@ -603,13 +556,6 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
 
   const handleSave = async () => {
     if (selectedKraIds.length === 0) { toast.error("Please select at least one Key Result Area"); return; }
-
-    // Check for target validation errors
-    const hasErrors = Object.values(trackingData).some((rows) => rows.some((r) => r.targetError !== ""));
-    if (hasErrors) {
-      toast.error("Please fix target validation errors before saving");
-      return;
-    }
 
     const objIds = allObjectives.filter((o) => selectedKraIds.includes(o.componentId)).map((o) => o.id);
     const allOiIds = selectedExpectedOutputIds.flatMap((eoId) => (outputIndicatorsByEo[eoId] || []).map((i) => i.id));

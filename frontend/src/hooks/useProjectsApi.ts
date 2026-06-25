@@ -13,7 +13,6 @@ import type {
   KeyActivity,
   ExpectedOutput,
   OutputIndicator,
-  Baseline,
   ProjectDocument,
   ProjectMapping,
 } from "@/utils/types";
@@ -27,7 +26,6 @@ export const qk = {
   keyActivities: ["keyActivities"] as const,
   expectedOutputs: ["expectedOutputs"] as const,
   outputIndicators: ["outputIndicators"] as const,
-  baselines: ["baselines"] as const,
   documents: (projectId: string) => ["documents", projectId] as const,
   mapping: (projectId: string) => ["mapping", projectId] as const,
   tracking: (projectId: string) => ["tracking", projectId] as const,
@@ -416,56 +414,6 @@ export function useDeleteOutputIndicator() {
   });
 }
 
-/* ----------------------------------------------------------------- baselines */
-export function useBaselines() {
-  return useQuery({
-    queryKey: qk.baselines,
-    queryFn: () => api.get<Baseline[]>("/baselines/"),
-    staleTime: STALE,
-  });
-}
-
-interface BaselineInput {
-  outputIndicatorId: string;
-  year1: number | null;
-  year2: number | null;
-  year3: number | null;
-  year4: number | null;
-  year5: number | null;
-}
-
-export function useCreateBaseline() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: BaselineInput) =>
-      api.post<Baseline>("/baselines/", {
-        ...input,
-        outputIndicatorId: Number(input.outputIndicatorId),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.baselines }),
-  });
-}
-
-export function useUpdateBaseline() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...input }: BaselineInput & { id: string }) =>
-      api.put<Baseline>(`/baselines/${id}/`, {
-        ...input,
-        outputIndicatorId: Number(input.outputIndicatorId),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.baselines }),
-  });
-}
-
-export function useDeleteBaseline() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.del(`/baselines/${id}/`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.baselines }),
-  });
-}
-
 /* --------------------------------------------------------- project documents */
 export function useProjectDocuments(projectId: string | undefined) {
   return useQuery({
@@ -569,7 +517,6 @@ export interface TrackingRow {
   project: string;
   outputIndicatorId: string;
   year: number;
-  baselineReference: number | null;
   target: number | null;
   achievement: string;
   evidenceName: string;
