@@ -40,7 +40,7 @@ export default function Overview() {
           <div className="text-xs text-muted-foreground">Dashboard › Overview</div>
           <h1 className="mt-1 text-2xl font-semibold">Project Reporting Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time snapshot of NAPMIS programs across all counties.
+            Real-time snapshot of programs across all counties.
           </p>
         </div>
       </div>
