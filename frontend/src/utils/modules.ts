@@ -110,6 +110,7 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
       title: "Analytics",
       items: [
         { label: "Overview", to: "/", icon: LayoutDashboard },
+        
         { label: "Projects", to: "/projects", icon: FolderKanban },
         { label: "Notifications", to: "/notifications", icon: Bell },
         { label: "Partners", to: "/partners", icon: Handshake },
@@ -128,7 +129,7 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
       ],
     },
     {
-      title: "PMIS",
+      title: "Reports",
       items: [
         { label: "Technical Reports", to: "/technical-reports", icon: FileBarChart2 },
         { label: "Financial Reports", to: "/financial-reports", icon: Wallet },
