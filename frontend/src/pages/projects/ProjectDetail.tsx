@@ -12,13 +12,10 @@ import {
   Calendar,
   CheckSquare,
   Square,
-  BarChart2,
-  Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
@@ -34,32 +31,16 @@ import {
   useDeleteDocument,
   useProjectMapping,
   useSaveMapping,
-  useProjectTracking,
-  useSaveTracking,
-  useUploadEvidence,
 } from "@/hooks/useProjectsApi";
-import type { Project, OutputIndicator } from "@/utils/types";
+import type { Project } from "@/utils/types";
 
 const ACCEPTED = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg";
 const ACCEPTED_DISPLAY = "PDF, DOC, DOCX, XLS, XLSX, PNG, JPG (max 25 MB)";
-const EVIDENCE_ACCEPTED = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg";
-
-interface TrackingYearRow {
-  year: number;
-  target: string;
-  achievement: string;
-  evidenceName: string | null;
-  evidenceId: string | null;
-}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-}
-
-function uid(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 function StepBar({ step }: { step: number }) {
@@ -245,146 +226,6 @@ function Step1({ project, onNext }: { project: Project; onNext: () => void }) {
   );
 }
 
-interface OITrackingTableProps {
-  oi: OutputIndicator;
-  rows: TrackingYearRow[];
-  onChange: (updated: TrackingYearRow[]) => void;
-  onEvidenceUpload: (year: number, file: File, evidenceId: string) => void;
-  onEvidenceRemove: (year: number) => void;
-}
-
-function OITrackingTable({ oi, rows, onChange, onEvidenceUpload, onEvidenceRemove }: OITrackingTableProps) {
-  const updateTarget = (year: number, val: string) => {
-    onChange(rows.map((r) => r.year !== year ? r : { ...r, target: val }));
-  };
-
-  const updateAchievement = (year: number, val: string) => {
-    onChange(rows.map((r) => r.year !== year ? r : { ...r, achievement: val }));
-  };
-
-  return (
-    <div className="mt-2 rounded-lg border border-border bg-white overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
-        <BarChart2 className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-        <span className="text-xs font-semibold text-foreground truncate">{oi.text}</span>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-3 py-2 text-left font-semibold w-16">Year</th>
-              <th className="px-3 py-2 text-left font-semibold w-40">Target</th>
-              <th className="px-3 py-2 text-left font-semibold w-40">Achievement</th>
-              <th className="px-3 py-2 text-left font-semibold">Evidence</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50">
-            {rows.map((row) => (
-              <tr key={row.year} className="hover:bg-muted/10 transition-colors">
-                <td className="px-3 py-2">
-                  <div className="text-xs font-medium text-muted-foreground">Year {row.year}</div>
-                </td>
-                <td className="px-3 py-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={row.target}
-                    onChange={(e) => updateTarget(row.year, e.target.value)}
-                    placeholder="Enter target"
-                    className="h-7 text-xs"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <Input
-                    value={row.achievement}
-                    onChange={(e) => updateAchievement(row.year, e.target.value)}
-                    placeholder="Enter achievement"
-                    className="h-7 text-xs"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <EvidenceUploadCell
-                    row={row}
-                    onUpload={(file, evidenceId) => {
-                      onChange(rows.map((r) => r.year !== row.year ? r : { ...r, evidenceName: file.name, evidenceId }));
-                      onEvidenceUpload(row.year, file, evidenceId);
-                    }}
-                    onRemove={() => {
-                      onChange(rows.map((r) => r.year !== row.year ? r : { ...r, evidenceName: null, evidenceId: null }));
-                      onEvidenceRemove(row.year);
-                    }}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-interface EvidenceCellProps {
-  row: TrackingYearRow;
-  onUpload: (file: File, evidenceId: string) => void;
-  onRemove: () => void;
-}
-
-function EvidenceUploadCell({ row, onUpload, onRemove }: EvidenceCellProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const evId = uid();
-    onUpload(file, evId);
-    e.target.value = "";
-  };
-
-  if (row.evidenceName) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 px-2 py-1 min-w-0">
-          <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="text-[10px] truncate max-w-[100px]" title={row.evidenceName}>{row.evidenceName}</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => onRemove()}
-          className="rounded p-0.5 text-muted-foreground hover:text-red-500 hover:bg-red-50"
-          title="Remove"
-        >
-          <X className="h-3 w-3" />
-        </button>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="rounded p-0.5 text-primary hover:bg-primary/10"
-          title="Replace"
-        >
-          <Upload className="h-3 w-3" />
-        </button>
-        <input ref={inputRef} type="file" accept={EVIDENCE_ACCEPTED} className="hidden" onChange={handleFileChange} />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-1.5 text-[10px] text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-      >
-        <Upload className="h-3 w-3" /> Upload Evidence
-      </button>
-      <input ref={inputRef} type="file" accept={EVIDENCE_ACCEPTED} className="hidden" onChange={handleFileChange} />
-    </div>
-  );
-}
-
 function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
   const navigate = useNavigate();
   const { data: kras = [] } = useComponents();
@@ -394,23 +235,14 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
   const { data: allExpectedOutputs = [] } = useExpectedOutputs();
   const { data: allOutputIndicators = [] } = useOutputIndicators();
   const { data: mapping = null } = useProjectMapping(project.id);
-  const { data: trackingRows = [] } = useProjectTracking(project.id);
   const saveMapping = useSaveMapping();
-  const saveTracking = useSaveTracking();
-  const uploadEvidence = useUploadEvidence();
 
   const [selectedKraIds, setSelectedKraIds] = useState<string[]>([]);
   const [selectedStrategyIds, setSelectedStrategyIds] = useState<string[]>([]);
   const [selectedKeyActivityIds, setSelectedKeyActivityIds] = useState<string[]>([]);
   const [selectedExpectedOutputIds, setSelectedExpectedOutputIds] = useState<string[]>([]);
+  const [selectedOutputIndicatorIds, setSelectedOutputIndicatorIds] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-
-  // active OI tab per EO (for the tracking table selector)
-  const [activeOiByEo, setActiveOiByEo] = useState<Record<string, string>>({});
-  // tracking data per OI id
-  const [trackingData, setTrackingData] = useState<Record<string, TrackingYearRow[]>>({});
-  // Ref for evidence File objects, keyed by `oiId:year`
-  const evidenceFilesRef = useRef<Record<string, File>>({});
 
   useEffect(() => {
     if (mapping) {
@@ -418,6 +250,7 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
       setSelectedStrategyIds(mapping.strategyIds || []);
       setSelectedKeyActivityIds(mapping.keyActivityIds || []);
       setSelectedExpectedOutputIds(mapping.expectedOutputIds || []);
+      setSelectedOutputIndicatorIds(mapping.outputIndicatorIds || []);
       setSaved(true);
     }
   }, [mapping]);
@@ -452,35 +285,6 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
     return m;
   }, [allOutputIndicators]);
 
-  // Initialize tracking rows for an OI from API data
-  const initTrackingForOi = useCallback((oiId: string): TrackingYearRow[] => {
-    const stored = trackingRows.filter((r) => r.outputIndicatorId === oiId);
-    return [1, 2, 3, 4, 5].map((year) => {
-      const storedEntry = stored.find((e) => e.year === year);
-      return {
-        year,
-        target: storedEntry?.target != null ? String(storedEntry.target) : "",
-        achievement: storedEntry?.achievement ?? "",
-        evidenceName: storedEntry?.evidenceName || null,
-        evidenceId: storedEntry?.id ?? null,
-      };
-    });
-  }, [trackingRows]);
-
-  // Ensure tracking data is initialized for an OI
-  const ensureTracking = useCallback((oiId: string) => {
-    setTrackingData((prev) => {
-      if (prev[oiId]) return prev;
-      return { ...prev, [oiId]: initTrackingForOi(oiId) };
-    });
-  }, [initTrackingForOi]);
-
-  // When active OI tab changes, ensure tracking is initialized
-  const setActiveOi = (eoId: string, oiId: string) => {
-    ensureTracking(oiId);
-    setActiveOiByEo((prev) => ({ ...prev, [eoId]: oiId }));
-  };
-
   const toggleKra = (kraId: string) => {
     setSaved(false);
     const isChecking = !selectedKraIds.includes(kraId);
@@ -490,15 +294,12 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
       const kraStratIds = (objectivesByKra[kraId] || []).flatMap((o) => (strategiesByObj[o.id] || []).map((s) => s.id));
       const kraKaIds = kraStratIds.flatMap((sid) => (keyActsByStrategy[sid] || []).map((a) => a.id));
       const kraEoIds = kraKaIds.flatMap((kid) => (expectedOutputsByKa[kid] || []).map((e) => e.id));
+      const kraOiIds = kraEoIds.flatMap((eoId) => (outputIndicatorsByEo[eoId] || []).map((i) => i.id));
       setSelectedKraIds((p) => p.filter((k) => k !== kraId));
       setSelectedStrategyIds((p) => p.filter((s) => !kraStratIds.includes(s)));
       setSelectedKeyActivityIds((p) => p.filter((a) => !kraKaIds.includes(a)));
       setSelectedExpectedOutputIds((p) => p.filter((e) => !kraEoIds.includes(e)));
-      setActiveOiByEo((prev) => {
-        const updated = { ...prev };
-        kraEoIds.forEach((eoId) => delete updated[eoId]);
-        return updated;
-      });
+      setSelectedOutputIndicatorIds((p) => p.filter((i) => !kraOiIds.includes(i)));
     }
   };
 
@@ -510,14 +311,11 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
     } else {
       const kaIds = (keyActsByStrategy[stratId] || []).map((a) => a.id);
       const eoIds = kaIds.flatMap((kid) => (expectedOutputsByKa[kid] || []).map((e) => e.id));
+      const oiIds = eoIds.flatMap((eoId) => (outputIndicatorsByEo[eoId] || []).map((i) => i.id));
       setSelectedStrategyIds((p) => p.filter((s) => s !== stratId));
       setSelectedKeyActivityIds((p) => p.filter((a) => !kaIds.includes(a)));
       setSelectedExpectedOutputIds((p) => p.filter((e) => !eoIds.includes(e)));
-      setActiveOiByEo((prev) => {
-        const updated = { ...prev };
-        eoIds.forEach((eoId) => delete updated[eoId]);
-        return updated;
-      });
+      setSelectedOutputIndicatorIds((p) => p.filter((i) => !oiIds.includes(i)));
     }
   };
 
@@ -528,37 +326,37 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
       setSelectedKeyActivityIds((p) => [...p, kaId]);
     } else {
       const eoIds = (expectedOutputsByKa[kaId] || []).map((e) => e.id);
+      const oiIds = eoIds.flatMap((eoId) => (outputIndicatorsByEo[eoId] || []).map((i) => i.id));
       setSelectedKeyActivityIds((p) => p.filter((a) => a !== kaId));
       setSelectedExpectedOutputIds((p) => p.filter((e) => !eoIds.includes(e)));
-      setActiveOiByEo((prev) => {
-        const updated = { ...prev };
-        eoIds.forEach((eoId) => delete updated[eoId]);
-        return updated;
-      });
+      setSelectedOutputIndicatorIds((p) => p.filter((i) => !oiIds.includes(i)));
     }
   };
 
   const toggleExpectedOutput = (eoId: string) => {
     setSaved(false);
     const isChecking = !selectedExpectedOutputIds.includes(eoId);
+    const oiIds = (outputIndicatorsByEo[eoId] || []).map((i) => i.id);
     if (isChecking) {
       setSelectedExpectedOutputIds((p) => [...p, eoId]);
-      // Auto-activate first OI for tracking
-      const firstOi = (outputIndicatorsByEo[eoId] || [])[0];
-      if (firstOi) {
-        setActiveOi(eoId, firstOi.id);
-      }
+      setSelectedOutputIndicatorIds((p) => [...new Set([...p, ...oiIds])]);
     } else {
       setSelectedExpectedOutputIds((p) => p.filter((e) => e !== eoId));
-      setActiveOiByEo((prev) => { const updated = { ...prev }; delete updated[eoId]; return updated; });
+      setSelectedOutputIndicatorIds((p) => p.filter((i) => !oiIds.includes(i)));
     }
+  };
+
+  const toggleOutputIndicator = (oiId: string) => {
+    setSaved(false);
+    setSelectedOutputIndicatorIds((p) =>
+      p.includes(oiId) ? p.filter((i) => i !== oiId) : [...p, oiId],
+    );
   };
 
   const handleSave = async () => {
     if (selectedKraIds.length === 0) { toast.error("Please select at least one Key Result Area"); return; }
 
     const objIds = allObjectives.filter((o) => selectedKraIds.includes(o.componentId)).map((o) => o.id);
-    const allOiIds = selectedExpectedOutputIds.flatMap((eoId) => (outputIndicatorsByEo[eoId] || []).map((i) => i.id));
 
     try {
       await saveMapping.mutateAsync({
@@ -568,39 +366,8 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
         strategyIds: selectedStrategyIds,
         keyActivityIds: selectedKeyActivityIds,
         expectedOutputIds: selectedExpectedOutputIds,
-        outputIndicatorIds: allOiIds,
+        outputIndicatorIds: selectedOutputIndicatorIds,
       });
-
-      // Save tracking data for each OI, then upload any pending evidence files
-      for (const oiId of allOiIds) {
-        const rows = trackingData[oiId];
-        if (!rows) continue;
-        const entries = rows.map((r) => ({
-          year: r.year,
-          target: r.target !== "" && !isNaN(parseFloat(r.target)) ? parseFloat(r.target) : null,
-          achievement: r.achievement,
-          evidenceName: r.evidenceName ?? "",
-        }));
-        const savedRows = await saveTracking.mutateAsync({
-          projectId: project.id,
-          outputIndicatorId: oiId,
-          entries,
-        });
-
-        // Upload evidence for years that have a pending file
-        for (const r of rows) {
-          const file = evidenceFilesRef.current[`${oiId}:${r.year}`];
-          if (!file) continue;
-          const target = savedRows.find((sr) => sr.year === r.year);
-          if (target) {
-            await uploadEvidence.mutateAsync({
-              trackingId: target.id,
-              projectId: project.id,
-              file,
-            });
-          }
-        }
-      }
 
       toast.success("Project mapping saved successfully");
       navigate("/projects");
@@ -616,7 +383,7 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
           <div>
             <h3 className="text-base font-semibold">Strategy Mapping</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Select KRAs to reveal the full planning hierarchy. Check strategies, key activities, outputs, and select indicators with targets.
+              Select KRAs to reveal the full planning hierarchy. Check strategies, key activities, expected outputs, and output indicators.
             </p>
           </div>
           {selectedKraIds.length > 0 && (
@@ -744,7 +511,6 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
                                                         ) : eoList.map((eo) => {
                                                           const isEoChecked = selectedExpectedOutputIds.includes(eo.id);
                                                           const oiList = outputIndicatorsByEo[eo.id] || [];
-                                                          const activeOiId = activeOiByEo[eo.id];
 
                                                           return (
                                                             <div key={eo.id}>
@@ -761,8 +527,8 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
                                                               </button>
 
                                                               {isEoChecked && (
-                                                                <div className="ml-4 mt-1.5 mb-1.5 border-l-2 border-gray-200 pl-3 space-y-1.5">
-                                                                  <div className="flex items-center gap-1.5">
+                                                                <div className="ml-4 mt-1 mb-1 border-l-2 border-gray-200 pl-3 space-y-1">
+                                                                  <div className="flex items-center gap-1.5 pb-0.5">
                                                                     <span className="text-[10px] font-bold uppercase tracking-widest text-black">Output Indicators</span>
                                                                   </div>
 
@@ -771,52 +537,23 @@ function Step2({ project, onBack }: { project: Project; onBack: () => void }) {
                                                                       No output indicators.{" "}
                                                                       <Link to="/projects/output-indicators/new" className="underline text-primary">Add one</Link>.
                                                                     </p>
-                                                                  ) : (
-                                                                    <div className="space-y-2">
-                                                                      {/* OI selector — tabs if multiple */}
-                                                                      {oiList.length > 1 && (
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                          {oiList.map((oi: OutputIndicator) => (
-                                                                            <button
-                                                                              key={oi.id}
-                                                                              type="button"
-                                                                              onClick={() => setActiveOi(eo.id, oi.id)}
-                                                                              className={cn(
-                                                                                "rounded-md px-2.5 py-1 text-[10px] font-medium border transition-colors truncate max-w-[180px]",
-                                                                                activeOiId === oi.id
-                                                                                  ? "bg-primary text-white border-primary"
-                                                                                  : "bg-muted text-muted-foreground border-border hover:border-primary/40 hover:text-foreground",
-                                                                              )}
-                                                                              title={oi.text}
-                                                                            >
-                                                                              {oi.text}
-                                                                            </button>
-                                                                          ))}
-                                                                        </div>
-                                                                      )}
-
-                                                                      {/* Tracking table for active OI */}
-                                                                      {oiList.map((oi: OutputIndicator) => {
-                                                                        const isActive = oiList.length === 1 ? true : activeOiId === oi.id;
-                                                                        if (!isActive) return null;
-                                                                        const rows = trackingData[oi.id] || initTrackingForOi(oi.id);
-                                                                        return (
-                                                                          <OITrackingTable
-                                                                            key={oi.id}
-                                                                            oi={oi}
-                                                                            rows={rows}
-                                                                            onChange={(updated) => setTrackingData((prev) => ({ ...prev, [oi.id]: updated }))}
-                                                                            onEvidenceUpload={(year, file) => {
-                                                                              evidenceFilesRef.current[`${oi.id}:${year}`] = file;
-                                                                            }}
-                                                                            onEvidenceRemove={(year) => {
-                                                                              delete evidenceFilesRef.current[`${oi.id}:${year}`];
-                                                                            }}
-                                                                          />
-                                                                        );
-                                                                      })}
-                                                                    </div>
-                                                                  )}
+                                                                  ) : oiList.map((oi) => {
+                                                                    const isOiChecked = selectedOutputIndicatorIds.includes(oi.id);
+                                                                    return (
+                                                                      <button
+                                                                        key={oi.id}
+                                                                        type="button"
+                                                                        onClick={() => toggleOutputIndicator(oi.id)}
+                                                                        className={cn(
+                                                                          "w-full flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors",
+                                                                          isOiChecked ? "border-violet-200 bg-violet-50/50" : "border-border bg-background hover:border-violet-200 hover:bg-muted/20",
+                                                                        )}
+                                                                      >
+                                                                        {isOiChecked ? <CheckSquare className="h-3.5 w-3.5 shrink-0 text-violet-600" /> : <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                                                        <span className="text-xs">{oi.text}</span>
+                                                                      </button>
+                                                                    );
+                                                                  })}
                                                                 </div>
                                                               )}
                                                             </div>
