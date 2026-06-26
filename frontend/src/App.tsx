@@ -78,6 +78,10 @@ const ExpectedOutputs = lazy(() => import("@/pages/projects/expected-outputs/Exp
 const ExpectedOutputForm = lazy(() => import("@/pages/projects/expected-outputs/ExpectedOutputForm"));
 const OutputIndicators = lazy(() => import("@/pages/projects/output-indicators/OutputIndicators"));
 const OutputIndicatorForm = lazy(() => import("@/pages/projects/output-indicators/OutputIndicatorForm"));
+const MainActivities = lazy(() => import("@/pages/projects/main-activities/MainActivities"));
+const MainActivityForm = lazy(() => import("@/pages/projects/main-activities/MainActivityForm"));
+const SubActivities = lazy(() => import("@/pages/projects/sub-activities/SubActivities"));
+const SubActivityForm = lazy(() => import("@/pages/projects/sub-activities/SubActivityForm"));
 
 const FinancialReports = lazy(() => import("@/pages/reports/FinancialReports"));
 const TechnicalReports = lazy(() => import("@/pages/reports/TechnicalReports"));
@@ -158,6 +162,16 @@ function AppRoutes() {
         <Route path="/projects/output-indicators" element={<OutputIndicators />} />
         <Route path="/projects/output-indicators/new" element={<OutputIndicatorForm mode="create" />} />
         <Route path="/projects/output-indicators/:id/edit" element={<OutputIndicatorForm mode="edit" />} />
+
+        <Route path="/projects/main-activities" element={<MainActivities />} />
+        <Route path="/projects/main-activities/new" element={<MainActivityForm mode="create" />} />
+        <Route path="/projects/main-activities/:id/view" element={<MainActivityForm mode="view" />} />
+        <Route path="/projects/main-activities/:id/edit" element={<MainActivityForm mode="edit" />} />
+
+        <Route path="/projects/sub-activities" element={<SubActivities />} />
+        <Route path="/projects/sub-activities/new" element={<SubActivityForm mode="create" />} />
+        <Route path="/projects/sub-activities/:id/view" element={<SubActivityForm mode="view" />} />
+        <Route path="/projects/sub-activities/:id/edit" element={<SubActivityForm mode="edit" />} />
 
         <Route path="/strategic-objectives/dashboard" element={<SODashboard />} />
         <Route path="/strategic-objectives/kpis" element={<SOKPIs />} />

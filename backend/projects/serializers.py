@@ -11,6 +11,8 @@ from .models import (
     ProjectDocument,
     ProjectMapping,
     IndicatorTracking,
+    MainActivity,
+    SubActivity,
 )
 
 
@@ -228,3 +230,19 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = obj.evidence.url
         return request.build_absolute_uri(url) if request else url
+
+
+class MainActivitySerializer(serializers.ModelSerializer):
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = MainActivity
+        fields = ["id", "name", "createdAt"]
+
+
+class SubActivitySerializer(serializers.ModelSerializer):
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = SubActivity
+        fields = ["id", "name", "createdAt"]

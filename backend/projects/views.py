@@ -8,24 +8,28 @@ from .models import (
     IndicatorTracking,
     KeyActivity,
     KeyResultArea,
+    MainActivity,
     OutputIndicator,
     Project,
     ProjectDocument,
     ProjectMapping,
     Strategy,
     StrategicObjective,
+    SubActivity,
 )
 from .serializers import (
     ExpectedOutputSerializer,
     IndicatorTrackingSerializer,
     KeyActivitySerializer,
     KeyResultAreaSerializer,
+    MainActivitySerializer,
     OutputIndicatorSerializer,
     ProjectDocumentSerializer,
     ProjectMappingSerializer,
     ProjectSerializer,
     StrategicObjectiveSerializer,
     StrategySerializer,
+    SubActivitySerializer,
 )
 
 
@@ -206,3 +210,13 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MainActivityViewSet(viewsets.ModelViewSet):
+    queryset = MainActivity.objects.all()
+    serializer_class = MainActivitySerializer
+
+
+class SubActivityViewSet(viewsets.ModelViewSet):
+    queryset = SubActivity.objects.all()
+    serializer_class = SubActivitySerializer

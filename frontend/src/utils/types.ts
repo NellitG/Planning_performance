@@ -74,6 +74,18 @@ export interface StoreItem {
   createdAt: string;
 }
 
+export interface MainActivity {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface SubActivity {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface KRAComponent extends StoreItem {
   title: string;
 }

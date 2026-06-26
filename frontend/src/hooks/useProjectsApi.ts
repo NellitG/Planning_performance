@@ -15,6 +15,8 @@ import type {
   OutputIndicator,
   ProjectDocument,
   ProjectMapping,
+  MainActivity,
+  SubActivity,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
@@ -26,6 +28,8 @@ export const qk = {
   keyActivities: ["keyActivities"] as const,
   expectedOutputs: ["expectedOutputs"] as const,
   outputIndicators: ["outputIndicators"] as const,
+  mainActivities: ["mainActivities"] as const,
+  subActivities: ["subActivities"] as const,
   documents: (projectId: string) => ["documents", projectId] as const,
   mapping: (projectId: string) => ["mapping", projectId] as const,
   tracking: (projectId: string) => ["tracking", projectId] as const,
@@ -582,6 +586,74 @@ export function useUploadEvidence() {
     },
     onSuccess: (_d, vars) =>
       qc.invalidateQueries({ queryKey: qk.tracking(vars.projectId) }),
+  });
+}
+
+/* ---------------------------------------------------------- main activities */
+export function useMainActivities() {
+  return useQuery({
+    queryKey: qk.mainActivities,
+    queryFn: () => api.get<MainActivity[]>("/main-activities/"),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateMainActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.post<MainActivity>("/main-activities/", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
+  });
+}
+
+export function useUpdateMainActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.put<MainActivity>(`/main-activities/${id}/`, { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
+  });
+}
+
+export function useDeleteMainActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/main-activities/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
+  });
+}
+
+/* ----------------------------------------------------------- sub activities */
+export function useSubActivities() {
+  return useQuery({
+    queryKey: qk.subActivities,
+    queryFn: () => api.get<SubActivity[]>("/sub-activities/"),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateSubActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.post<SubActivity>("/sub-activities/", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
+  });
+}
+
+export function useUpdateSubActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.put<SubActivity>(`/sub-activities/${id}/`, { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
+  });
+}
+
+export function useDeleteSubActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/sub-activities/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
   });
 }
 

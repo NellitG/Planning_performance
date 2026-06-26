@@ -5,12 +5,14 @@ from .models import (
     IndicatorTracking,
     KeyActivity,
     KeyResultArea,
+    MainActivity,
     OutputIndicator,
     Project,
     ProjectDocument,
     ProjectMapping,
     Strategy,
     StrategicObjective,
+    SubActivity,
 )
 
 admin.site.register(Project)
@@ -23,3 +25,5 @@ admin.site.register(OutputIndicator)
 admin.site.register(ProjectDocument)
 admin.site.register(ProjectMapping)
 admin.site.register(IndicatorTracking)
+admin.site.register(MainActivity)
+admin.site.register(SubActivity)

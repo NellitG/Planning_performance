@@ -1,0 +1,138 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects module** and implement the following enhancements.
+
+### 1. Add a New Sidebar Module: Main Activities
+
+Create a new module named **Main Activities** immediately below the **Financial Reports** module in the Projects sidebar.
+
+Updated sidebar structure:
+
+```text
+Projects
+│
+├── ...
+├── Financial Reports
+├── Main Activities
+└── Sub Activity
+```
+
+---
+
+### 2. Main Activities Interface
+
+Create a dedicated **Main Activities** page.
+
+The interface should include:
+
+* A page title: **Main Activities**
+* A responsive data table listing all Main Activities
+* Search functionality
+* Pagination
+* An **Add New Activity** button positioned above the table
+
+Suggested table columns:
+
+| Activity Name | Date Created | Actions |
+| ------------- | ------------ | ------- |
+
+Actions:
+
+* View
+* Edit
+* Delete
+
+---
+
+### 3. Create Main Activity Interface
+
+When the user clicks **Add New Activity**, navigate to a dedicated page (not a modal or popup).
+
+The form should contain:
+
+* Activity Name (text input)
+
+Buttons:
+
+* Save
+* Cancel
+
+Upon saving:
+
+* Persist the Main Activity.
+* Display a success notification.
+* Redirect back to the Main Activities listing.
+* Refresh the table to include the newly created activity.
+
+---
+
+### 4. Add a New Sidebar Module: Sub Activity
+
+Create another module named **Sub Activity** immediately below the **Main Activities** module.
+
+---
+
+### 5. Sub Activity Interface
+
+Create a dedicated **Sub Activity** page.
+
+The interface should include:
+
+* A page title: **Sub Activity**
+* A responsive data table listing all Sub Activities
+* Search functionality
+* Pagination
+* An **Add New Sub Activity** button positioned above the table
+
+Suggested table columns:
+
+| Sub Activity Name | Date Created | Actions |
+| ----------------- | ------------ | ------- |
+
+Actions:
+
+* View
+* Edit
+* Delete
+
+---
+
+### 6. Create Sub Activity Interface
+
+When the user clicks **Add New Sub Activity**, navigate to a dedicated page (not a modal or popup).
+
+The form should contain:
+
+* Sub Activity Name (text input)
+
+Buttons:
+
+* Save
+* Cancel
+
+Upon saving:
+
+* Persist the Sub Activity.
+* Display a success notification.
+* Redirect back to the Sub Activity listing.
+* Refresh the table to include the newly created sub activity.
+
+---
+
+### User Interface Requirements
+
+* Maintain the existing KALRO green theme.
+* Use React and TailwindCSS.
+* Create dedicated pages for listing and creation.
+* Do not use modal or popup interfaces.
+* Ensure responsive layouts.
+* Implement validation for required fields.
+* Support full CRUD functionality (Create, Read, Update, Delete) for both Main Activities and Sub Activities.
+
+### Final Expected Result
+
+After implementation:
+
+1. A new **Main Activities** module appears below **Financial Reports**.
+2. Users can create, view, edit, and delete Main Activities.
+3. A new **Sub Activity** module appears below **Main Activities**.
+4. Users can create, view, edit, and delete Sub Activities.
+5. Both modules have dedicated listing pages and creation pages, following the existing design and navigation patterns of the Projects module.

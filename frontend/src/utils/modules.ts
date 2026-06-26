@@ -43,6 +43,8 @@ import {
   Activity,
   PackageOpen,
   BarChart2,
+  ListTodo,
+  Layers2,
 } from "lucide-react";
 import type { ModuleConfig, NavNode, SidebarSection, ModuleKey } from "./types";
 
@@ -131,6 +133,8 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
       items: [
         { label: "Technical Reports", to: "/technical-reports", icon: FileBarChart2 },
         { label: "Financial Reports", to: "/financial-reports", icon: Wallet },
+        { label: "Main Activities", to: "/projects/main-activities", icon: ListTodo },
+        { label: "Sub Activity", to: "/projects/sub-activities", icon: Layers2 },
         { label: "Project Staff", to: "/project-staff", icon: Users },
       ],
     },
