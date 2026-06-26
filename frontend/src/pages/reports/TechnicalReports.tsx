@@ -31,12 +31,12 @@ interface TechnicalReport {
 }
 
 const reports: TechnicalReport[] = [
-  { id: "TR-2025-001", project: "Climate-Smart Agriculture Initiative", quarter: "Q1 FY2025/26", submitted: "Oct 15, 2025", category: "Research", progress: "75%", status: "Approved" },
-  { id: "TR-2025-002", project: "Drought-Tolerant Crops Program", quarter: "Q1 FY2025/26", submitted: "Oct 18, 2025", category: "Development", progress: "60%", status: "Under Review" },
-  { id: "TR-2025-003", project: "Livestock Value Chain Improvement", quarter: "Q2 FY2025/26", submitted: "Jan 12, 2026", category: "Innovation", progress: "88%", status: "Draft" },
-  { id: "TR-2025-004", project: "Irrigation Systems Enhancement", quarter: "Q2 FY2025/26", submitted: "Jan 14, 2026", category: "Infrastructure", progress: "92%", status: "Submitted" },
-  { id: "TR-2025-005", project: "Post-Harvest Loss Reduction", quarter: "Q3 FY2025/26", submitted: "Apr 8, 2026", category: "Research", progress: "45%", status: "Approved" },
-  { id: "TR-2025-006", project: "Market Access Program", quarter: "Q3 FY2025/26", submitted: "Apr 11, 2026", category: "Capacity Building", progress: "68%", status: "Under Review" },
+  { id: "TR-2025-001", project: "Report 1", quarter: "Q1 FY2025/26", submitted: "Oct 15, 2025", category: "Research", progress: "75%", status: "Approved" },
+  { id: "TR-2025-002", project: "Report 2", quarter: "Q1 FY2025/26", submitted: "Oct 18, 2025", category: "Development", progress: "60%", status: "Under Review" },
+  { id: "TR-2025-003", project: "Report 3", quarter: "Q2 FY2025/26", submitted: "Jan 12, 2026", category: "Innovation", progress: "88%", status: "Draft" },
+  { id: "TR-2025-004", project: "Report 4", quarter: "Q2 FY2025/26", submitted: "Jan 14, 2026", category: "Infrastructure", progress: "92%", status: "Submitted" },
+  { id: "TR-2025-005", project: "Report 5", quarter: "Q3 FY2025/26", submitted: "Apr 8, 2026", category: "Research", progress: "45%", status: "Approved" },
+  { id: "TR-2025-006", project: "Report 6", quarter: "Q3 FY2025/26", submitted: "Apr 11, 2026", category: "Capacity Building", progress: "68%", status: "Under Review" },
 ];
 
 export default function TechnicalReports() {
@@ -60,7 +60,7 @@ export default function TechnicalReports() {
       </div>
       <h1 className="mb-5 text-2xl font-semibold">Technical Reports</h1>
 
-      <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border bg-white p-1 shadow-sm">
+      <div className="mb-4 flex gap-1 overflow-x-auto rounded-lg border p-1 shadow-sm">
         {primaryTabs.map((t) => (
           <button
             key={t}
@@ -68,7 +68,7 @@ export default function TechnicalReports() {
             className={cn(
               "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition",
               tab === t
-                ? "bg-[var(--brand-green)] text-white shadow-sm"
+                ? "bg-[(--brand-green)] text-black shadow-sm"
                 : "text-muted-foreground hover:bg-muted"
             )}
           >
@@ -110,7 +110,7 @@ export default function TechnicalReports() {
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Download className="h-4 w-4" /> Export
               </Button>
-              <Button asChild size="sm" className="gap-1.5 bg-[var(--brand-green)] text-white hover:opacity-90">
+              <Button asChild size="sm" className="gap-1.5 text-white">
                 <Link to="/new-report"><Plus className="h-4 w-4" /> New Report</Link>
               </Button>
             </div>
@@ -147,7 +147,7 @@ export default function TechnicalReports() {
                     </td>
                     <td className="py-3 text-muted-foreground">{r.category}</td>
                     <td className="py-3 text-muted-foreground">{r.submitted}</td>
-                    <td className="py-3 font-semibold text-[var(--brand-green)]">{r.progress}</td>
+                    <td className="py-3 font-semibold text-[(--brand-green)]">{r.progress}</td>
                     <td className="py-3">
                       <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", statusTone[r.status])}>
                         {r.status}
