@@ -241,8 +241,12 @@ class MainActivitySerializer(serializers.ModelSerializer):
 
 
 class SubActivitySerializer(serializers.ModelSerializer):
+    mainActivityId = serializers.PrimaryKeyRelatedField(
+        source="main_activity", queryset=MainActivity.objects.all()
+    )
+    mainActivityName = serializers.CharField(source="main_activity.name", read_only=True)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = SubActivity
-        fields = ["id", "name", "createdAt"]
+        fields = ["id", "mainActivityId", "mainActivityName", "name", "createdAt"]

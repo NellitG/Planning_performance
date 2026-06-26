@@ -635,7 +635,8 @@ export function useSubActivities() {
 export function useCreateSubActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.post<SubActivity>("/sub-activities/", { name }),
+    mutationFn: ({ mainActivityId, name }: { mainActivityId: string; name: string }) =>
+      api.post<SubActivity>("/sub-activities/", { mainActivityId: Number(mainActivityId), name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
   });
 }
@@ -643,8 +644,8 @@ export function useCreateSubActivity() {
 export function useUpdateSubActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      api.put<SubActivity>(`/sub-activities/${id}/`, { name }),
+    mutationFn: ({ id, mainActivityId, name }: { id: string; mainActivityId: string; name: string }) =>
+      api.put<SubActivity>(`/sub-activities/${id}/`, { mainActivityId: Number(mainActivityId), name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
   });
 }

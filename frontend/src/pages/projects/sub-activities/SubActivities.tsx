@@ -18,7 +18,9 @@ export default function SubActivities() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = items.filter((a) =>
-    !q || a.name.toLowerCase().includes(q.toLowerCase()),
+    !q ||
+    a.name.toLowerCase().includes(q.toLowerCase()) ||
+    a.mainActivityName.toLowerCase().includes(q.toLowerCase()),
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -37,7 +39,7 @@ export default function SubActivities() {
     <div className="space-y-6">
       <PageHeader
         title="Sub Activity"
-        description="Manage Sub Activities for the Projects module."
+        description="Manage Sub Activities linked to Main Activities."
         actions={
           <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
             <Link to="/projects/sub-activities/new">
@@ -66,7 +68,7 @@ export default function SubActivities() {
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search sub activities..."
+              placeholder="Search by name or main activity..."
               value={q}
               onChange={(e) => { setQ(e.target.value); setPage(1); }}
               className="pl-9"
@@ -82,6 +84,7 @@ export default function SubActivities() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">#</TableHead>
+                <TableHead>Main Activity</TableHead>
                 <TableHead>Sub Activity Name</TableHead>
                 <TableHead>Date Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -90,14 +93,21 @@ export default function SubActivities() {
             <TableBody>
               {pageItems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
-                    {q ? "No sub activities match your search." : "No Sub Activities yet. Click 'Add New Sub Activity' to get started."}
+                  <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                    {q
+                      ? "No sub activities match your search."
+                      : "No Sub Activities yet. Click 'Add New Sub Activity' to get started."}
                   </TableCell>
                 </TableRow>
               )}
               {pageItems.map((item, idx) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-muted-foreground text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {item.mainActivityName}
+                    </span>
+                  </TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(item.createdAt).toLocaleDateString()}

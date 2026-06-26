@@ -82,6 +82,8 @@ export interface MainActivity {
 
 export interface SubActivity {
   id: string;
+  mainActivityId: string;
+  mainActivityName: string;
   name: string;
   createdAt: string;
 }
