@@ -30,12 +30,12 @@ interface FinancialReport {
 }
 
 const reports: FinancialReport[] = [
-  { id: "FR-2025-001", project: "Climate-Smart Agriculture Initiative", quarter: "Q1 FY2025/26", submitted: "Oct 15, 2025", budget: "KES 24.5M", utilized: "KES 18.2M", rate: "74.3%", status: "Approved" },
-  { id: "FR-2025-002", project: "Drought-Tolerant Crops Program", quarter: "Q1 FY2025/26", submitted: "Oct 18, 2025", budget: "KES 18.0M", utilized: "KES 12.6M", rate: "70.0%", status: "Under Review" },
-  { id: "FR-2025-003", project: "Livestock Value Chain Improvement", quarter: "Q2 FY2025/26", submitted: "Jan 12, 2026", budget: "KES 32.1M", utilized: "KES 28.7M", rate: "89.4%", status: "Draft" },
-  { id: "FR-2025-004", project: "Irrigation Systems Enhancement", quarter: "Q2 FY2025/26", submitted: "Jan 14, 2026", budget: "KES 45.8M", utilized: "KES 41.2M", rate: "89.9%", status: "Approved" },
-  { id: "FR-2025-005", project: "Post-Harvest Loss Reduction", quarter: "Q3 FY2025/26", submitted: "Apr 8, 2026", budget: "KES 12.4M", utilized: "KES 9.1M", rate: "73.4%", status: "Rejected" },
-  { id: "FR-2025-006", project: "Market Access Program", quarter: "Q3 FY2025/26", submitted: "Apr 11, 2026", budget: "KES 8.6M", utilized: "KES 7.3M", rate: "84.9%", status: "Under Review" },
+  { id: "FR-2025-001", project: "Financial Report 1", quarter: "Q1 FY2025/26", submitted: "Oct 15, 2025", budget: "KES 24.5M", utilized: "KES 18.2M", rate: "74.3%", status: "Approved" },
+  { id: "FR-2025-002", project: "Financial Report 2", quarter: "Q1 FY2025/26", submitted: "Oct 18, 2025", budget: "KES 18.0M", utilized: "KES 12.6M", rate: "70.0%", status: "Under Review" },
+  { id: "FR-2025-003", project: "Financial Report 3", quarter: "Q2 FY2025/26", submitted: "Jan 12, 2026", budget: "KES 32.1M", utilized: "KES 28.7M", rate: "89.4%", status: "Draft" },
+  { id: "FR-2025-004", project: "Financial Report 4", quarter: "Q2 FY2025/26", submitted: "Jan 14, 2026", budget: "KES 45.8M", utilized: "KES 41.2M", rate: "89.9%", status: "Approved" },
+  { id: "FR-2025-005", project: "Financial Report 5", quarter: "Q3 FY2025/26", submitted: "Apr 8, 2026", budget: "KES 12.4M", utilized: "KES 9.1M", rate: "73.4%", status: "Rejected" },
+  { id: "FR-2025-006", project: "Financial Report 6", quarter: "Q3 FY2025/26", submitted: "Apr 11, 2026", budget: "KES 8.6M", utilized: "KES 7.3M", rate: "84.9%", status: "Under Review" },
 ];
 
 export default function FinancialReports() {
