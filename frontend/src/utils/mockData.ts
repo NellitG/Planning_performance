@@ -1,18 +1,18 @@
 import type { Project, FundUtilization, ProjectCategory, QuarterlyProgress, Notification, ActivityItem, FinancialReport, User, UserRole, UserStatus, ProjectStatus } from "./types";
 
 export const projects: Project[] = [
-  { id: "P-001", name: "National Agricultural Productivity Project", startDate: "2023-01-15", endDate: "2026-12-31", status: "Active", logo: "NAPP" },
-  { id: "P-002", name: "Youth Mainstreaming in Agriculture Program (YMAP)", startDate: "2022-06-01", endDate: "2025-05-31", status: "Active", logo: "YMAP" },
-  { id: "P-003", name: "Smallholder Insurance Scheme", startDate: "2021-03-10", endDate: "2024-09-30", status: "Completed", logo: "SIS" },
-  { id: "P-004", name: "Mama Kitchen Garden Initiative", startDate: "2024-02-01", endDate: "2027-01-31", status: "Active", logo: "MKG" },
-  { id: "P-005", name: "Farm Inputs Subsidy Programme", startDate: "2023-09-01", endDate: "2026-08-31", status: "Delayed", logo: "FISP" },
-  { id: "P-006", name: "SACCOs & FPOs Strengthening Project", startDate: "2024-07-15", endDate: "2027-06-30", status: "Pending", logo: "SFP" },
-  { id: "P-007", name: "Rural Value Chain Development", startDate: "2022-11-01", endDate: "2025-10-31", status: "Active", logo: "RVC" },
-  { id: "P-008", name: "Climate-Smart Agriculture Initiative", startDate: "2023-04-01", endDate: "2026-03-31", status: "Active", logo: "CSA" },
-  { id: "P-009", name: "Coastal Fisheries Resilience Program", startDate: "2022-02-20", endDate: "2025-02-19", status: "Delayed", logo: "CFR" },
-  { id: "P-010", name: "Dairy Productivity Enhancement", startDate: "2023-08-01", endDate: "2026-07-31", status: "Active", logo: "DPE" },
-  { id: "P-011", name: "Horticulture Export Initiative", startDate: "2024-01-10", endDate: "2026-12-31", status: "Pending", logo: "HEI" },
-  { id: "P-012", name: "Agro-Forestry Restoration Plan", startDate: "2021-11-01", endDate: "2024-10-31", status: "Completed", logo: "AFR" },
+  { id: "P-001", name: "Project 1", startDate: "2023-01-15", endDate: "2026-12-31", status: "Active", logo: "NAPP" },
+  { id: "P-002", name: "Project 2", startDate: "2022-06-01", endDate: "2025-05-31", status: "Active", logo: "YMAP" },
+  { id: "P-003", name: "Project 3", startDate: "2021-03-10", endDate: "2024-09-30", status: "Completed", logo: "SIS" },
+  { id: "P-004", name: "Project 4", startDate: "2024-02-01", endDate: "2027-01-31", status: "Active", logo: "MKG" },
+  { id: "P-005", name: "Project 5", startDate: "2023-09-01", endDate: "2026-08-31", status: "Delayed", logo: "FISP" },
+  { id: "P-006", name: "Project 6", startDate: "2024-07-15", endDate: "2027-06-30", status: "Pending", logo: "SFP" },
+  { id: "P-007", name: "Project 7", startDate: "2022-11-01", endDate: "2025-10-31", status: "Active", logo: "RVC" },
+  { id: "P-008", name: "Project 8", startDate: "2023-04-01", endDate: "2026-03-31", status: "Active", logo: "CSA" },
+  { id: "P-009", name: "Project 9", startDate: "2022-02-20", endDate: "2025-02-19", status: "Delayed", logo: "CFR" },
+  { id: "P-010", name: "Project 10", startDate: "2023-08-01", endDate: "2026-07-31", status: "Active", logo: "DPE" },
+  { id: "P-011", name: "Project 11", startDate: "2024-01-10", endDate: "2026-12-31", status: "Pending", logo: "HEI" },
+  { id: "P-012", name: "Project 12", startDate: "2021-11-01", endDate: "2024-10-31", status: "Completed", logo: "AFR" },
 ];
 
 export const fundUtilization: FundUtilization[] = [
