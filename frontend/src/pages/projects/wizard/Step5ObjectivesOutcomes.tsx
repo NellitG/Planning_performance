@@ -64,7 +64,7 @@ export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={onNext} className="bg-green-700 text-primary-foreground">
           Save & Continue <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
