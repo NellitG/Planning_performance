@@ -94,7 +94,7 @@ export default function Step4TimelineFinance({ data, onChange, onNext, onBack }:
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={handleNext} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={handleNext} className="bg-green-700 text-primary-foreground">
           Save & Continue <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
