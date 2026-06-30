@@ -1,0 +1,277 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects** module and redesign the **Add New Project** interface into a multi-step project creation wizard.
+
+Replace the current project creation form with a guided step-by-step workflow while preserving the existing project creation functionality.
+
+---
+
+# PROJECT CREATION WIZARD
+
+The project creation process should be divided into the following steps.
+
+---
+
+## Step 1 – Identification
+
+Create a page titled **Identification** with the following fields:
+
+* Project Title (Text Input)
+* Project Coordinator (Text Input)
+* Project Type (Dropdown)
+
+  * Research
+  * Development
+  * Collaborative
+  * Multidisciplinary
+  * Corporate
+  * Other
+* Project Status (Dropdown)
+
+  * Not Started
+  * Ongoing
+  * Active
+  * Completed
+  * Suspended
+* Scale (Dropdown)
+
+  * Small (< 5M)
+  * Medium (5M – 10M)
+  * Large (> 10M)
+* Description (Multi-line Text Area)
+
+Buttons:
+
+* Save & Continue
+
+---
+
+## Step 2 – Implementation Unit
+
+Create a page titled **Implementation Unit**.
+
+### Implementation Unit
+
+Display the following options as checkboxes:
+
+* Headquarters
+* Institute
+* KALRO Seeds
+
+Dynamic behavior:
+
+* When **Headquarters** is selected, display a **Directorate** dropdown.
+* When **Institute** is selected, display the following cascading dropdowns:
+
+  * Institute
+  * Centre
+  * Sub-Centre
+
+### Value Chain
+
+Display a multi-select dropdown allowing users to select more than one value chain.
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 3 – Strategic Alignment
+
+Create a page titled **Strategic Alignment**.
+
+Display the planning hierarchy in the following order:
+
+```text
+Key Result Area (KRA)
+    ↓
+Strategic Objective
+    ↓
+Strategy
+    ↓
+Expected Outputs
+```
+
+Requirements:
+
+* Display each Key Result Area.
+* Under each KRA, display its Strategic Objectives.
+* Under each Strategic Objective, display its Strategies.
+* Under each Strategy, display the related Expected Outputs as checkboxes.
+* Allow users to select one or more Expected Outputs.
+* Preserve the hierarchy in a clear expandable tree structure.
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 4 – Timeline & Finance
+
+Create a page titled **Timeline & Finance**.
+
+Fields:
+
+* Start Date
+* Expected End Date
+* Completion Rate (%)
+* Expected Budget
+* Disbursed Amount
+* Utilized Amount
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 5 – Objectives & Outcomes
+
+Create a page titled **Objectives & Outcomes**.
+
+Fields:
+
+* Background (Multi-line Text Area)
+* Objectives (Multi-line Text Area)
+* Expected Outcomes (Multi-line Text Area)
+* Sustainability (Multi-line Text Area)
+* Collaborators (Multi-line Text Area)
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 6 – Beneficiary Targets
+
+Create a page titled **Beneficiary Targets**.
+
+Fields:
+
+* Total Beneficiaries
+* Women
+* Youth
+* VMGs
+* PWDs
+
+Validation Rules:
+
+* Women must not exceed Total Beneficiaries.
+* Youth must not exceed Total Beneficiaries.
+* VMGs must not exceed Total Beneficiaries.
+* PWDs must not exceed Total Beneficiaries.
+* Display validation errors immediately if any value exceeds the total.
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 7 – Project Locations
+
+Create a page titled **Project Locations**.
+
+Display an **Add Location** button.
+
+When clicked, dynamically add a new location entry containing:
+
+* County (Dropdown)
+* Sub-County (Dropdown)
+* Ward (Dropdown)
+
+Requirements:
+
+* Allow users to add multiple project locations.
+* Allow users to remove location entries before saving.
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 8 – Funding Sources
+
+Create a page titled **Funding Sources**.
+
+Fields:
+
+* Source Name (Text Input)
+* Partner (Dropdown)
+* Type (Dropdown)
+* Amount
+* Disbursed
+* Utilized
+
+Requirements:
+
+* Allow users to add multiple funding sources.
+* Allow users to remove funding source entries before saving.
+
+Buttons:
+
+* Back
+* Save & Continue
+
+---
+
+## Step 9 – Project Documents
+
+Create a page titled **Project Documents**.
+
+Fields:
+
+* Document Title
+* Document Type
+* Description
+* File Upload
+
+Display an **Add Document** button to allow users to upload multiple project documents.
+
+Requirements:
+
+* Each document entry should include its own metadata and uploaded file.
+* Support multiple document uploads within the same project.
+
+Buttons:
+
+* Back
+* **Finish & Create**
+
+---
+
+# PROJECT CREATION
+
+When the user clicks **Finish & Create**:
+
+* Validate all steps.
+* Save all project information as a single project record.
+* Save all related entities (implementation units, strategic alignment, beneficiary targets, locations, funding sources, and documents).
+* Display a success notification.
+* Redirect the user to the Projects listing page.
+* Display the newly created project in the projects table.
+
+---
+
+# USER EXPERIENCE REQUIREMENTS
+
+* Use a stepper or wizard interface showing progress through all nine steps.
+* Allow users to navigate back to previous steps without losing entered data.
+* Persist form data between steps until the project is successfully created.
+* Apply the existing KALRO green theme.
+* Maintain responsive layouts.
+* Use dedicated pages within the wizard rather than modal dialogs.
+* Implement appropriate validation on all required fields.
+* Ensure the interface is intuitive, scalable, and consistent with the rest of the Projects module.
+
+### Final Expected Result
+
+The **Add New Project** feature should become a comprehensive nine-step project creation wizard that captures all required project information, validates user input, supports dynamic and repeatable sections where required, and creates a complete project record when the user clicks **Finish & Create**.

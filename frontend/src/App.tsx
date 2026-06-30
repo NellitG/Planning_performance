@@ -16,6 +16,7 @@ const Overview = lazy(() => import("@/pages/dashboard/Overview"));
 
 const Projects = lazy(() => import("@/pages/projects/Projects"));
 const NewProject = lazy(() => import("@/pages/projects/NewProject"));
+const ProjectWizard = lazy(() => import("@/pages/projects/wizard/ProjectWizard"));
 
 const SODashboard = lazy(() => import("@/pages/strategic-objectives/SODashboard"));
 const SOKPIs = lazy(() => import("@/pages/strategic-objectives/KPIs"));
@@ -133,7 +134,7 @@ function AppRoutes() {
         <Route index element={<Overview />} />
 
         <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/new" element={<NewProject />} />
+        <Route path="/projects/new" element={<ProjectWizard />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/view" element={<ProjectView />} />
         <Route path="/projects/:id/edit" element={<NewProject />} />

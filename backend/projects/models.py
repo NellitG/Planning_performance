@@ -3,10 +3,26 @@ from django.db import models
 
 class Project(models.Model):
     STATUS_CHOICES = [
+        ("Not Started", "Not Started"),
+        ("Ongoing", "Ongoing"),
         ("Active", "Active"),
         ("Completed", "Completed"),
+        ("Suspended", "Suspended"),
         ("Delayed", "Delayed"),
         ("Pending", "Pending"),
+    ]
+    PROJECT_TYPE_CHOICES = [
+        ("Research", "Research"),
+        ("Development", "Development"),
+        ("Collaborative", "Collaborative"),
+        ("Multidisciplinary", "Multidisciplinary"),
+        ("Corporate", "Corporate"),
+        ("Other", "Other"),
+    ]
+    SCALE_CHOICES = [
+        ("Small", "Small (< 5M)"),
+        ("Medium", "Medium (5M – 10M)"),
+        ("Large", "Large (> 10M)"),
     ]
 
     project_name = models.CharField(max_length=500)
@@ -14,7 +30,35 @@ class Project(models.Model):
     description = models.TextField(blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Not Started")
+
+    project_coordinator = models.CharField(max_length=500, blank=True)
+    project_type = models.CharField(max_length=50, blank=True)
+    scale = models.CharField(max_length=20, blank=True)
+
+    implementation_units = models.JSONField(default=dict, blank=True)
+    value_chains = models.JSONField(default=list, blank=True)
+
+    completion_rate = models.FloatField(null=True, blank=True)
+    expected_budget = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    disbursed_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    utilized_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+
+    background = models.TextField(blank=True)
+    project_objectives = models.TextField(blank=True)
+    expected_outcomes = models.TextField(blank=True)
+    sustainability = models.TextField(blank=True)
+    collaborators = models.TextField(blank=True)
+
+    total_beneficiaries = models.IntegerField(null=True, blank=True)
+    women = models.IntegerField(null=True, blank=True)
+    youth = models.IntegerField(null=True, blank=True)
+    vmgs = models.IntegerField(null=True, blank=True)
+    pwds = models.IntegerField(null=True, blank=True)
+
+    locations = models.JSONField(default=list, blank=True)
+    funding_sources = models.JSONField(default=list, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -135,6 +179,8 @@ class ProjectDocument(models.Model):
         Project, on_delete=models.CASCADE, related_name="documents"
     )
     name = models.CharField(max_length=500)
+    description = models.TextField(blank=True)
+    document_type = models.CharField(max_length=120, blank=True)
     file = models.FileField(upload_to="project_documents/", null=True, blank=True)
     size = models.BigIntegerField(default=0)
     file_type = models.CharField(max_length=120, blank=True)

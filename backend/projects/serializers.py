@@ -18,10 +18,76 @@ from .models import (
 
 class ProjectSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="project_name")
+    coordinator = serializers.CharField(
+        source="project_coordinator", required=False, allow_blank=True, default=""
+    )
+    projectType = serializers.CharField(
+        source="project_type", required=False, allow_blank=True, default=""
+    )
+    scale = serializers.CharField(required=False, allow_blank=True, default="")
     startDate = serializers.DateField(
         source="start_date", required=False, allow_null=True
     )
     endDate = serializers.DateField(source="end_date", required=False, allow_null=True)
+
+    implementationUnits = serializers.JSONField(
+        source="implementation_units", required=False, default=dict
+    )
+    valueChains = serializers.JSONField(
+        source="value_chains", required=False, default=list
+    )
+
+    completionRate = serializers.FloatField(
+        source="completion_rate", required=False, allow_null=True
+    )
+    expectedBudget = serializers.DecimalField(
+        source="expected_budget",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    disbursedAmount = serializers.DecimalField(
+        source="disbursed_amount",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    utilizedAmount = serializers.DecimalField(
+        source="utilized_amount",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+
+    background = serializers.CharField(required=False, allow_blank=True, default="")
+    projectObjectives = serializers.CharField(
+        source="project_objectives", required=False, allow_blank=True, default=""
+    )
+    expectedOutcomes = serializers.CharField(
+        source="expected_outcomes", required=False, allow_blank=True, default=""
+    )
+    sustainability = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+    collaborators = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+
+    totalBeneficiaries = serializers.IntegerField(
+        source="total_beneficiaries", required=False, allow_null=True
+    )
+    women = serializers.IntegerField(required=False, allow_null=True)
+    youth = serializers.IntegerField(required=False, allow_null=True)
+    vmgs = serializers.IntegerField(required=False, allow_null=True)
+    pwds = serializers.IntegerField(required=False, allow_null=True)
+
+    locations = serializers.JSONField(required=False, default=list)
+    fundingSources = serializers.JSONField(
+        source="funding_sources", required=False, default=list
+    )
 
     class Meta:
         model = Project
@@ -30,9 +96,30 @@ class ProjectSerializer(serializers.ModelSerializer):
             "name",
             "logo",
             "description",
+            "status",
+            "coordinator",
+            "projectType",
+            "scale",
             "startDate",
             "endDate",
-            "status",
+            "implementationUnits",
+            "valueChains",
+            "completionRate",
+            "expectedBudget",
+            "disbursedAmount",
+            "utilizedAmount",
+            "background",
+            "projectObjectives",
+            "expectedOutcomes",
+            "sustainability",
+            "collaborators",
+            "totalBeneficiaries",
+            "women",
+            "youth",
+            "vmgs",
+            "pwds",
+            "locations",
+            "fundingSources",
         ]
 
 
@@ -133,6 +220,10 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
     type = serializers.CharField(
         source="file_type", required=False, allow_blank=True, default=""
     )
+    documentType = serializers.CharField(
+        source="document_type", required=False, allow_blank=True, default=""
+    )
+    description = serializers.CharField(required=False, allow_blank=True, default="")
     fileUrl = serializers.SerializerMethodField()
     uploadedAt = serializers.DateTimeField(source="created_at", read_only=True)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
@@ -147,6 +238,8 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
             "fileUrl",
             "size",
             "type",
+            "documentType",
+            "description",
             "uploadedAt",
             "createdAt",
         ]
