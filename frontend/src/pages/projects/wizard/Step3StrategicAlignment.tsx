@@ -68,7 +68,7 @@ export default function Step3StrategicAlignment({ data, onChange, onNext, onBack
         )}
 
         {hasContent && (
-          <div className="space-y-1 max-h-[500px] overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-500px overflow-y-auto pr-1">
             {kras.map((kra: KRAComponent) => {
               const kraObjectives = objectivesByKra(kra.id);
               return (
@@ -135,7 +135,7 @@ export default function Step3StrategicAlignment({ data, onChange, onNext, onBack
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={onNext} className="bg-green-700 text-primary-foreground">
           Save & Continue <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
