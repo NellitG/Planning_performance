@@ -60,9 +60,9 @@ function StepperHeader({ current }: { current: number }) {
                 <div
                   className={[
                     "h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-all",
-                    done ? "bg-primary border-primary text-primary-foreground" : "",
+                    done ? "bg-green-500 border-primary text-primary-foreground" : "",
                     active
-                      ? "bg-primary border-primary text-primary-foreground ring-4 ring-primary/20"
+                      ? "bg-green-500 border-green-500 text-primary-foreground ring-4 ring-primary/20"
                       : "",
                     !done && !active ? "bg-background border-border text-muted-foreground" : "",
                   ].join(" ")}
@@ -82,7 +82,7 @@ function StepperHeader({ current }: { current: number }) {
                 <div
                   className={[
                     "h-0.5 w-8 mx-1 mb-4 transition-colors",
-                    done ? "bg-primary" : "bg-border",
+                    done ? "bg-green-500" : "bg-border",
                   ].join(" ")}
                 />
               )}
@@ -233,14 +233,14 @@ export default function ProjectWizard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 justify-left">
         <Button asChild variant="outline" size="sm">
           <Link to="/projects">
             <ArrowLeft className="h-4 w-4" /> Back to Projects
           </Link>
         </Button>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Add New Project</h1>
+          <h1 className="text-xl text-center font-semibold text-foreground">Add New Project</h1>
           <p className="text-sm text-muted-foreground">
             Step {currentStep} of {STEPS.length} —{" "}
             {STEPS[currentStep - 1].label}
