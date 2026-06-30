@@ -33,7 +33,7 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
+      <div className="rounded-xl border border-border p-6 shadow-sm space-y-5">
         <h2 className="text-base font-semibold text-foreground">Identification</h2>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Project Title" required error={errors.title}>
@@ -54,7 +54,7 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
             <select
               value={data.projectType}
               onChange={(e) => { onChange({ projectType: e.target.value }); setErrors((p) => ({ ...p, projectType: "" })); }}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">— Select Project Type —</option>
               {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -64,7 +64,7 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
             <select
               value={data.status}
               onChange={(e) => { onChange({ status: e.target.value }); setErrors((p) => ({ ...p, status: "" })); }}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               <option value="">— Select Status —</option>
               {PROJECT_STATUSES_WIZARD.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -74,7 +74,7 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
             <select
               value={data.scale}
               onChange={(e) => onChange({ scale: e.target.value })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               <option value="">— Select Scale —</option>
               {SCALE_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -92,7 +92,7 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleNext} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={handleNext} className="bg-green-700 text-primary-foreground">
           Save & Continue <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
