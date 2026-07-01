@@ -73,14 +73,18 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
     <div className="space-y-6">
       <PageHeader
         title={
-          mode === "create" ? "Add New Sub Activity"
-          : mode === "edit" ? "Edit Sub Activity"
-          : "View Sub Activity"
+          mode === "create"
+            ? "Create Sub Activity"
+            : mode === "edit"
+              ? "Edit Sub Activity"
+              : "View Sub Activity"
         }
         description={
-          mode === "create" ? "Select a Main Activity, then enter a Sub Activity name."
-          : mode === "edit" ? "Update the Sub Activity details."
-          : "Sub Activity details."
+          mode === "create"
+            ? "Select a Main Activity, then enter a Sub Activity name."
+            : mode === "edit"
+              ? "Update the Sub Activity details."
+              : "Sub Activity details."
         }
         actions={
           <Button asChild variant="outline">
@@ -101,7 +105,10 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
             </Label>
             {isView ? (
               <Input
-                value={mainActivities.find((m) => String(m.id) === mainActivityId)?.name ?? mainActivityId}
+                value={
+                  mainActivities.find((m) => String(m.id) === mainActivityId)?.name ??
+                  mainActivityId
+                }
                 disabled
               />
             ) : (
@@ -155,12 +162,19 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
 
         {!isView && (
           <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/projects/sub-activities")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/projects/sub-activities")}
+            >
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               <Save className="h-4 w-4" />
-              {mode === "create" ? "Save Sub Activity" : "Update Sub Activity"}
+              {mode === "create" ? "Save" : "Update Sub Activity"}
             </Button>
           </div>
         )}
