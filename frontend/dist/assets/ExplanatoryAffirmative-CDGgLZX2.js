@@ -1,0 +1,1 @@
+import{j as t}from"./index-B-FBZI5X.js";import{P as o}from"./PagePlaceholder-BJhkvejd.js";import"./card-utNqyvDF.js";function e(){return t.jsx(o,{title:"Explanatory Notes — Affirmative Action",description:"Explanatory notes for affirmative action indicators."})}export{e as default};

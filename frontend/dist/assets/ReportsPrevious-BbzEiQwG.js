@@ -1,1 +1,0 @@
-import{j as r}from"./index-C0iYtnpp.js";import{P as o}from"./PagePlaceholder-CUyOfde_.js";import"./card-j453l3Na.js";function s(){return r.jsx(o,{title:"Previous Reports",description:"Historical performance contract reports archive."})}export{s as default};

@@ -13,6 +13,7 @@ from .models import (
     IndicatorTracking,
     MainActivity,
     SubActivity,
+    SubSubActivity,
 )
 
 
@@ -367,4 +368,70 @@ class SubActivitySerializer(serializers.ModelSerializer):
                 {"valueChain": "Please select a value chain."}
             )
 
+        return attrs
+
+
+class SubSubActivitySerializer(serializers.ModelSerializer):
+    subActivityId = serializers.PrimaryKeyRelatedField(
+        source="sub_activity", queryset=SubActivity.objects.all()
+    )
+    subActivityName = serializers.CharField(source="sub_activity.name", read_only=True)
+    category = serializers.CharField(source="sub_activity.category", read_only=True)
+    valueChain = serializers.CharField(
+        source="value_chain", required=False, allow_blank=True, default=""
+    )
+    approvedActivityBudget = serializers.DecimalField(
+        source="approved_activity_budget",
+        max_digits=20,
+        decimal_places=2,
+        min_value=0,
+    )
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = SubSubActivity
+        fields = [
+            "id",
+            "subActivityId",
+            "subActivityName",
+            "category",
+            "valueChain",
+            "name",
+            "approvedActivityBudget",
+            "createdAt",
+        ]
+        extra_kwargs = {"name": {"required": False, "allow_blank": True, "default": ""}}
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        sub_activity = attrs.get(
+            "sub_activity", getattr(self.instance, "sub_activity", None)
+        )
+        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
+        value_chain = attrs.get(
+            "value_chain", getattr(self.instance, "value_chain", "")
+        ).strip()
+
+        if sub_activity and sub_activity.category == "Value Chain":
+            if not name:
+                raise serializers.ValidationError(
+                    {"name": "Sub-Sub Activity name is required for Value Chain activities."}
+                )
+            if not value_chain:
+                raise serializers.ValidationError(
+                    {"valueChain": "Please select a value chain."}
+                )
+            allowed = [
+                item.strip()
+                for item in sub_activity.value_chain.split(",")
+                if item.strip()
+            ]
+            if value_chain not in allowed:
+                raise serializers.ValidationError(
+                    {"valueChain": "Select a value chain assigned to this Sub Activity."}
+                )
+        else:
+            attrs["value_chain"] = ""
+
+        attrs["name"] = name
         return attrs

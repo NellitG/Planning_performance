@@ -249,6 +249,25 @@ class SubActivity(models.Model):
         return self.name
 
 
+class SubSubActivity(models.Model):
+    sub_activity = models.ForeignKey(
+        SubActivity, on_delete=models.CASCADE, related_name="sub_sub_activities"
+    )
+    value_chain = models.CharField(max_length=120, blank=True)
+    name = models.CharField(max_length=500, blank=True)
+    approved_activity_budget = models.DecimalField(max_digits=20, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Sub-Sub Activity"
+        verbose_name_plural = "Sub-Sub Activities"
+
+    def __str__(self):
+        return self.name or f"{self.sub_activity.name} budget"
+
+
 class IndicatorTracking(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="tracking"

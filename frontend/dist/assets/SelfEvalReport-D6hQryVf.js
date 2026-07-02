@@ -1,1 +1,0 @@
-import{j as e}from"./index-C0iYtnpp.js";import{P as t}from"./PagePlaceholder-CUyOfde_.js";import"./card-j453l3Na.js";function a(){return e.jsx(t,{title:"Self-Evaluation Report",description:"Final self-evaluation report with compiled scores."})}export{a as default};

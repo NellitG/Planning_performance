@@ -83,6 +83,8 @@ const MainActivities = lazy(() => import("@/pages/projects/main-activities/MainA
 const MainActivityForm = lazy(() => import("@/pages/projects/main-activities/MainActivityForm"));
 const SubActivities = lazy(() => import("@/pages/projects/sub-activities/SubActivities"));
 const SubActivityForm = lazy(() => import("@/pages/projects/sub-activities/SubActivityForm"));
+const SubSubActivities = lazy(() => import("@/pages/projects/sub-sub-activities/SubSubActivities"));
+const SubSubActivityForm = lazy(() => import("@/pages/projects/sub-sub-activities/SubSubActivityForm"));
 
 const FinancialReports = lazy(() => import("@/pages/reports/FinancialReports"));
 const TechnicalReports = lazy(() => import("@/pages/reports/TechnicalReports"));
@@ -173,6 +175,11 @@ function AppRoutes() {
         <Route path="/projects/sub-activities/new" element={<SubActivityForm mode="create" />} />
         <Route path="/projects/sub-activities/:id/view" element={<SubActivityForm mode="view" />} />
         <Route path="/projects/sub-activities/:id/edit" element={<SubActivityForm mode="edit" />} />
+
+        <Route path="/projects/sub-sub-activities" element={<SubSubActivities />} />
+        <Route path="/projects/sub-sub-activities/new" element={<SubSubActivityForm mode="create" />} />
+        <Route path="/projects/sub-sub-activities/:id/view" element={<SubSubActivityForm mode="view" />} />
+        <Route path="/projects/sub-sub-activities/:id/edit" element={<SubSubActivityForm mode="edit" />} />
 
         <Route path="/strategic-objectives/dashboard" element={<SODashboard />} />
         <Route path="/strategic-objectives/kpis" element={<SOKPIs />} />

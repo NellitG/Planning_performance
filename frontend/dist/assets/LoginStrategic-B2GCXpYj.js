@@ -1,0 +1,1 @@
+import{j as t}from"./index-B-FBZI5X.js";import{L as o}from"./LoginForm-TEc6gZKl.js";import"./eye-CvwN-3tx.js";import"./loader-circle-9TYE6pyD.js";import"./arrow-right-BrgAxBZ2.js";import"./arrow-left-ZSoRzlPT.js";function a(){return t.jsx(o,{moduleKey:"strategic-objectives"})}export{a as default};

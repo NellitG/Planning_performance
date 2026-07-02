@@ -1,0 +1,1 @@
+import{j as t}from"./index-B-FBZI5X.js";import{P as o}from"./PagePlaceholder-BJhkvejd.js";import"./card-utNqyvDF.js";function a(){return t.jsx(o,{title:"Submit for Negotiation",description:"Submit the performance contract for negotiation review."})}export{a as default};

@@ -13,6 +13,7 @@ from .models import (
     Strategy,
     StrategicObjective,
     SubActivity,
+    SubSubActivity,
 )
 
 admin.site.register(Project)
@@ -27,3 +28,4 @@ admin.site.register(ProjectMapping)
 admin.site.register(IndicatorTracking)
 admin.site.register(MainActivity)
 admin.site.register(SubActivity)
+admin.site.register(SubSubActivity)

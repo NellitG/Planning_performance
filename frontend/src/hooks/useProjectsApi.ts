@@ -17,6 +17,7 @@ import type {
   ProjectMapping,
   MainActivity,
   SubActivity,
+  SubSubActivity,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
@@ -30,6 +31,7 @@ export const qk = {
   outputIndicators: ["outputIndicators"] as const,
   mainActivities: ["mainActivities"] as const,
   subActivities: ["subActivities"] as const,
+  subSubActivities: ["subSubActivities"] as const,
   documents: (projectId: string) => ["documents", projectId] as const,
   mapping: (projectId: string) => ["mapping", projectId] as const,
   tracking: (projectId: string) => ["tracking", projectId] as const,
@@ -687,6 +689,57 @@ export function useDeleteSubActivity() {
   return useMutation({
     mutationFn: (id: string) => api.del(`/sub-activities/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
+  });
+}
+
+/* ------------------------------------------------------- sub-sub activities */
+export interface SubSubActivityInput {
+  subActivityId: string;
+  valueChain: string;
+  name: string;
+  approvedActivityBudget: string;
+}
+
+export function useSubSubActivities() {
+  return useQuery({
+    queryKey: qk.subSubActivities,
+    queryFn: () => api.get<SubSubActivity[]>("/sub-sub-activities/"),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateSubSubActivities() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (items: SubSubActivityInput[]) =>
+      api.post<SubSubActivity[]>(
+        "/sub-sub-activities/",
+        items.map((item) => ({
+          ...item,
+          subActivityId: Number(item.subActivityId),
+        })),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subSubActivities }),
+  });
+}
+
+export function useUpdateSubSubActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...item }: SubSubActivityInput & { id: string }) =>
+      api.put<SubSubActivity>(`/sub-sub-activities/${id}/`, {
+        ...item,
+        subActivityId: Number(item.subActivityId),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subSubActivities }),
+  });
+}
+
+export function useDeleteSubSubActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/sub-sub-activities/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subSubActivities }),
   });
 }
 

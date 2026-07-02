@@ -90,6 +90,17 @@ export interface SubActivity {
   createdAt: string;
 }
 
+export interface SubSubActivity {
+  id: string;
+  subActivityId: string;
+  subActivityName: string;
+  category: string;
+  valueChain: string;
+  name: string;
+  approvedActivityBudget: string;
+  createdAt: string;
+}
+
 export interface KRAComponent extends StoreItem {
   title: string;
 }

@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -16,6 +17,7 @@ from .models import (
     Strategy,
     StrategicObjective,
     SubActivity,
+    SubSubActivity,
 )
 from .serializers import (
     ExpectedOutputSerializer,
@@ -30,6 +32,7 @@ from .serializers import (
     StrategicObjectiveSerializer,
     StrategySerializer,
     SubActivitySerializer,
+    SubSubActivitySerializer,
 )
 
 
@@ -40,7 +43,8 @@ class BulkCreateMixin:
         many = isinstance(request.data, list)
         serializer = self.get_serializer(data=request.data, many=many)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        with transaction.atomic():
+            serializer.save()
         headers = self.get_success_headers(serializer.data)
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
@@ -220,3 +224,9 @@ class MainActivityViewSet(viewsets.ModelViewSet):
 class SubActivityViewSet(viewsets.ModelViewSet):
     queryset = SubActivity.objects.all()
     serializer_class = SubActivitySerializer
+
+
+class SubSubActivityViewSet(BulkCreateMixin, viewsets.ModelViewSet):
+    queryset = SubSubActivity.objects.select_related("sub_activity").all()
+    serializer_class = SubSubActivitySerializer
+    filterset_fields = ["sub_activity", "value_chain"]

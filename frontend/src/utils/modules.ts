@@ -135,6 +135,7 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
         { label: "Financial Reports", to: "/financial-reports", icon: Wallet },
         { label: "Main Activities", to: "/projects/main-activities", icon: ListTodo },
         { label: "Sub Activity", to: "/projects/sub-activities", icon: Layers2 },
+        { label: "Sub-Sub Activity", to: "/projects/sub-sub-activities", icon: GitBranch },
         { label: "Project Staff", to: "/project-staff", icon: Users },
       ],
     },
