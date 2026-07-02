@@ -1,0 +1,1 @@
+import{j as e}from"./index-C0iYtnpp.js";import{P as r}from"./PagePlaceholder-CUyOfde_.js";import"./card-j453l3Na.js";function a(){return e.jsx(r,{title:"Explanatory Notes — Service Delivery",description:"Explanatory notes for service delivery indicators."})}export{a as default};

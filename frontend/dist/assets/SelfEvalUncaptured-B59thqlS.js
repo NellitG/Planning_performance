@@ -1,1 +1,0 @@
-import{j as t}from"./index-BQr9Z7MP.js";import{P as e}from"./PagePlaceholder-DTT2vNtn.js";import"./card-BA23MEDR.js";function i(){return t.jsx(e,{title:"Self-Evaluation — Uncaptured",description:"Indicators pending self-evaluation capture."})}export{i as default};

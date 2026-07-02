@@ -17,6 +17,25 @@ interface SubActivityFormProps {
   mode?: "create" | "edit" | "view";
 }
 
+const CATEGORIES = ["Value Chain", "Project Coordination", "ICT"] as const;
+
+const VALUE_CHAINS = [
+  "Cowpeas",
+  "Dual Purpose Fodder Sorghum & Range Grasses",
+  "Tomato",
+  "Green Grams",
+  "Rice",
+  "Indigenous Chicken",
+  "Sunflower",
+  "Forages (Dairy)",
+  "Cashew",
+  "Range Seeds",
+  "Coffee",
+  "Potato",
+  "Sim Sim",
+  "NRM",
+];
+
 export default function SubActivityForm({ mode = "create" }: SubActivityFormProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -27,7 +46,14 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
 
   const [mainActivityId, setMainActivityId] = useState("");
   const [name, setName] = useState("");
-  const [errors, setErrors] = useState<{ mainActivityId?: string; name?: string }>({});
+  const [category, setCategory] = useState("");
+  const [valueChain, setValueChain] = useState("");
+  const [errors, setErrors] = useState<{
+    mainActivityId?: string;
+    name?: string;
+    category?: string;
+    valueChain?: string;
+  }>({});
 
   useEffect(() => {
     if ((mode === "edit" || mode === "view") && id && items.length) {
@@ -35,6 +61,8 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
       if (item) {
         setMainActivityId(String(item.mainActivityId));
         setName(item.name);
+        setCategory(item.category ?? "");
+        setValueChain(item.valueChain ?? "");
       } else {
         toast.error("Sub Activity not found");
         navigate("/projects/sub-activities");
@@ -46,6 +74,10 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
     const e: typeof errors = {};
     if (!mainActivityId) e.mainActivityId = "Please select a Main Activity";
     if (!name.trim()) e.name = "Sub Activity name is required";
+    if (!category) e.category = "Please select a Category";
+    if (category === "Value Chain" && !valueChain) {
+      e.valueChain = "Please select a Value Chain";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -53,12 +85,18 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    const payload = {
+      mainActivityId,
+      name: name.trim(),
+      category,
+      valueChain: category === "Value Chain" ? valueChain : "",
+    };
     try {
       if (mode === "create") {
-        await createItem.mutateAsync({ mainActivityId, name: name.trim() });
+        await createItem.mutateAsync(payload);
         toast.success("Sub Activity created successfully");
       } else {
-        await updateItem.mutateAsync({ id: id!, mainActivityId, name: name.trim() });
+        await updateItem.mutateAsync({ id: id!, ...payload });
         toast.success("Sub Activity updated successfully");
       }
       navigate("/projects/sub-activities");
@@ -158,6 +196,70 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
             />
             {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
           </div>
+
+          <div className="space-y-1.5 max-w-md">
+            <Label htmlFor="category">
+              Category {!isView && <span className="text-red-600">*</span>}
+            </Label>
+            {isView ? (
+              <Input value={category} disabled />
+            ) : (
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => {
+                  const nextCategory = e.target.value;
+                  setCategory(nextCategory);
+                  if (nextCategory !== "Value Chain") setValueChain("");
+                  setErrors((prev) => ({
+                    ...prev,
+                    category: undefined,
+                    valueChain: undefined,
+                  }));
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">- Select Category -</option>
+                {CATEGORIES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.category && <p className="text-xs text-red-600">{errors.category}</p>}
+          </div>
+
+          {category === "Value Chain" && (
+            <div className="space-y-1.5 max-w-md">
+              <Label htmlFor="valueChain">
+                Value Chain {!isView && <span className="text-red-600">*</span>}
+              </Label>
+              {isView ? (
+                <Input value={valueChain} disabled />
+              ) : (
+                <select
+                  id="valueChain"
+                  value={valueChain}
+                  onChange={(e) => {
+                    setValueChain(e.target.value);
+                    setErrors((prev) => ({ ...prev, valueChain: undefined }));
+                  }}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">- Select Value Chain -</option>
+                  {VALUE_CHAINS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {errors.valueChain && (
+                <p className="text-xs text-red-600">{errors.valueChain}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {!isView && (

@@ -1,1 +1,0 @@
-import{j as r}from"./index-BQr9Z7MP.js";import{P as t}from"./PagePlaceholder-DTT2vNtn.js";import"./card-BA23MEDR.js";function i(){return r.jsx(t,{title:"Matrix — Core Mandate",description:"Core mandate matrix indicators."})}export{i as default};

@@ -85,6 +85,8 @@ export interface SubActivity {
   mainActivityId: string;
   mainActivityName: string;
   name: string;
+  category: string;
+  valueChain: string;
   createdAt: string;
 }
 

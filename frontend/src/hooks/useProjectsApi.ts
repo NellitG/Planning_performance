@@ -635,8 +635,23 @@ export function useSubActivities() {
 export function useCreateSubActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ mainActivityId, name }: { mainActivityId: string; name: string }) =>
-      api.post<SubActivity>("/sub-activities/", { mainActivityId: Number(mainActivityId), name }),
+    mutationFn: ({
+      mainActivityId,
+      name,
+      category,
+      valueChain,
+    }: {
+      mainActivityId: string;
+      name: string;
+      category: string;
+      valueChain: string;
+    }) =>
+      api.post<SubActivity>("/sub-activities/", {
+        mainActivityId: Number(mainActivityId),
+        name,
+        category,
+        valueChain,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
   });
 }
@@ -644,8 +659,25 @@ export function useCreateSubActivity() {
 export function useUpdateSubActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, mainActivityId, name }: { id: string; mainActivityId: string; name: string }) =>
-      api.put<SubActivity>(`/sub-activities/${id}/`, { mainActivityId: Number(mainActivityId), name }),
+    mutationFn: ({
+      id,
+      mainActivityId,
+      name,
+      category,
+      valueChain,
+    }: {
+      id: string;
+      mainActivityId: string;
+      name: string;
+      category: string;
+      valueChain: string;
+    }) =>
+      api.put<SubActivity>(`/sub-activities/${id}/`, {
+        mainActivityId: Number(mainActivityId),
+        name,
+        category,
+        valueChain,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.subActivities }),
   });
 }

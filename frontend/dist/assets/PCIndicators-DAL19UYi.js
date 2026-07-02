@@ -1,0 +1,1 @@
+import{j as t}from"./index-C0iYtnpp.js";import{P as r}from"./PagePlaceholder-CUyOfde_.js";import"./card-j453l3Na.js";function i(){return t.jsx(r,{title:"PC Indicators",description:"Performance contract indicators management."})}export{i as default};

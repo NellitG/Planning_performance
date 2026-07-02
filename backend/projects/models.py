@@ -225,10 +225,18 @@ class MainActivity(models.Model):
 
 
 class SubActivity(models.Model):
+    CATEGORY_CHOICES = [
+        ("Value Chain", "Value Chain"),
+        ("Project Coordination", "Project Coordination"),
+        ("ICT", "ICT"),
+    ]
+
     main_activity = models.ForeignKey(
         MainActivity, on_delete=models.CASCADE, related_name="sub_activities"
     )
     name = models.CharField(max_length=500)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True)
+    value_chain = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

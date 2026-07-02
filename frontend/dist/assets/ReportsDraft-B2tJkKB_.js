@@ -1,0 +1,1 @@
+import{j as r}from"./index-C0iYtnpp.js";import{P as t}from"./PagePlaceholder-CUyOfde_.js";import"./card-j453l3Na.js";function s(){return r.jsx(t,{title:"Draft Reports",description:"Performance contract reports in draft stage."})}export{s as default};

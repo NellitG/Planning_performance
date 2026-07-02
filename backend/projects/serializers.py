@@ -338,8 +338,33 @@ class SubActivitySerializer(serializers.ModelSerializer):
         source="main_activity", queryset=MainActivity.objects.all()
     )
     mainActivityName = serializers.CharField(source="main_activity.name", read_only=True)
+    valueChain = serializers.CharField(
+        source="value_chain", required=False, allow_blank=True, default=""
+    )
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = SubActivity
-        fields = ["id", "mainActivityId", "mainActivityName", "name", "createdAt"]
+        fields = [
+            "id",
+            "mainActivityId",
+            "mainActivityName",
+            "name",
+            "category",
+            "valueChain",
+            "createdAt",
+        ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        category = attrs.get("category", getattr(self.instance, "category", ""))
+        value_chain = attrs.get("value_chain", getattr(self.instance, "value_chain", ""))
+
+        if category != "Value Chain":
+            attrs["value_chain"] = ""
+        elif not value_chain:
+            raise serializers.ValidationError(
+                {"valueChain": "Please select a value chain."}
+            )
+
+        return attrs
