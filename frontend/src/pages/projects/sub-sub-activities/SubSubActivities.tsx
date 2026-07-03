@@ -1,75 +1,157 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Layers3,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useDeleteSubSubActivity, useSubSubActivities } from "@/hooks/useProjectsApi";
-import type { SubSubActivity } from "@/utils/types";
+import { cn } from "@/lib/utils";
+import {
+  useDeleteSubSubActivity,
+  useMainActivities,
+  useSubActivities,
+  useSubSubActivities,
+} from "@/hooks/useProjectsApi";
+import type { MainActivity, SubActivity, SubSubActivity } from "@/utils/types";
 
-const PAGE_SIZE = 10;
-const money = new Intl.NumberFormat("en-KE", {
-  style: "currency",
-  currency: "KES",
-  minimumFractionDigits: 2,
-});
+const PAGE_SIZE = 8;
 
-interface SubActivityGroup {
-  id: string;
-  name: string;
-  records: SubSubActivity[];
+interface MainActivityNode {
+  mainActivity: MainActivity;
+  subActivities: Array<{
+    subActivity: SubActivity;
+    subSubActivities: SubSubActivity[];
+  }>;
 }
 
 export default function SubSubActivities() {
   const { data: items = [] } = useSubSubActivities();
+  const { data: mainActivities = [] } = useMainActivities();
+  const { data: subActivities = [] } = useSubActivities();
   const deleteItem = useDeleteSubSubActivity();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const groups = useMemo<SubActivityGroup[]>(() => {
-    const grouped = new Map<string, SubActivityGroup>();
-    items.forEach((item) => {
-      const current = grouped.get(item.subActivityId);
-      if (current) {
-        current.records.push(item);
-      } else {
-        grouped.set(item.subActivityId, {
-          id: item.subActivityId,
-          name: item.subActivityName,
-          records: [item],
+  const treeData = useMemo<MainActivityNode[]>(() => {
+    const mainActivityMap = new Map<string, MainActivity>();
+    mainActivities.forEach((activity) => {
+      mainActivityMap.set(String(activity.id), activity);
+    });
+
+    const byMainActivity = new Map<string, MainActivityNode>();
+
+    mainActivities.forEach((activity) => {
+      byMainActivity.set(String(activity.id), {
+        mainActivity: activity,
+        subActivities: [],
+      });
+    });
+
+    subActivities.forEach((subActivity) => {
+      const mainActivityId = String(subActivity.mainActivityId);
+      const parent = byMainActivity.get(mainActivityId);
+      if (!parent) {
+        const fallbackMainActivity = mainActivityMap.get(mainActivityId) ?? {
+          id: mainActivityId,
+          name: subActivity.mainActivityName,
+          createdAt: subActivity.createdAt,
+        };
+        byMainActivity.set(mainActivityId, {
+          mainActivity: fallbackMainActivity,
+          subActivities: [],
         });
       }
+      byMainActivity.get(mainActivityId)?.subActivities.push({
+        subActivity,
+        subSubActivities: [],
+      });
     });
-    return Array.from(grouped.values());
-  }, [items]);
 
-  const filteredGroups = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return groups;
-    return groups
-      .map((group) => {
-        if (group.name.toLowerCase().includes(term)) return group;
-        const records = group.records.filter((item) =>
-          [item.category, item.valueChain, item.name].join(" ").toLowerCase().includes(term),
+    items.forEach((item) => {
+      const parent = Array.from(byMainActivity.values()).find((group) =>
+        group.subActivities.some((child) => String(child.subActivity.id) === String(item.subActivityId)),
+      );
+      if (parent) {
+        const child = parent.subActivities.find(
+          (entry) => String(entry.subActivity.id) === String(item.subActivityId),
         );
-        return records.length > 0 ? { ...group, records } : null;
-      })
-      .filter((group): group is SubActivityGroup => group !== null);
-  }, [groups, query]);
+        if (child) {
+          child.subSubActivities.push(item);
+        }
+      }
+    });
 
-  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / PAGE_SIZE));
+    return Array.from(byMainActivity.values()).filter(
+      (node) => node.mainActivity || node.subActivities.length > 0,
+    );
+  }, [items, mainActivities, subActivities]);
+
+  const filteredTree = useMemo<MainActivityNode[]>(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return treeData;
+
+    return treeData
+      .map((node) => {
+        const mainMatches = node.mainActivity.name.toLowerCase().includes(term);
+        const filteredSubActivities = node.subActivities
+          .map((child) => {
+            const subMatches = [
+              child.subActivity.name,
+              child.subActivity.category,
+              child.subActivity.valueChain,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(term);
+
+            const matchingSubSubActivities = (mainMatches ? child.subSubActivities : child.subSubActivities.filter((item) =>
+              [item.name, item.category, item.valueChain].join(" ").toLowerCase().includes(term),
+            ));
+
+            if (mainMatches || subMatches || matchingSubSubActivities.length > 0) {
+              return {
+                ...child,
+                subSubActivities: mainMatches ? child.subSubActivities : matchingSubSubActivities,
+              };
+            }
+            return null;
+          })
+          .filter((child): child is (typeof node.subActivities)[number] => child !== null);
+
+        if (mainMatches || filteredSubActivities.length > 0) {
+          return {
+            ...node,
+            subActivities: filteredSubActivities,
+          };
+        }
+        return null;
+      })
+      .filter((node): node is MainActivityNode => node !== null);
+  }, [query, treeData]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTree.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const visibleGroups = filteredGroups.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-  const filteredRecordCount = filteredGroups.reduce(
-    (total, group) => total + group.records.length,
+  const visibleTree = filteredTree.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const filteredSubSubCount = filteredTree.reduce(
+    (total, node) => total + node.subActivities.reduce((sum, child) => sum + child.subSubActivities.length, 0),
     0,
   );
+
+  const toggleExpand = (id: string) => {
+    setExpanded((current) => ({ ...current, [id]: !current[id] }));
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -86,9 +168,9 @@ export default function SubSubActivities() {
     <div className="space-y-6">
       <PageHeader
         title="Sub-Sub Activity"
-        description="Manage activities, value-chain relationships, and approved budgets."
+        description="Explore the hierarchy of main activities, sub activities, and sub-sub activities."
         actions={
-          <Button asChild>
+          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
             <Link to="/projects/sub-sub-activities/new">
               <Plus className="h-4 w-4" /> Add New Sub-Sub Activity
             </Link>
@@ -106,151 +188,198 @@ export default function SubSubActivities() {
                 setQuery(event.target.value);
                 setPage(1);
               }}
-              placeholder="Search Sub-Sub Activities..."
+              placeholder="Search main activities, sub activities, or sub-sub activities..."
               className="pl-9"
             />
           </div>
           <span className="text-sm text-muted-foreground">
-            {filteredGroups.length} Sub Activit{filteredGroups.length === 1 ? "y" : "ies"} ·{" "}
-            {filteredRecordCount} record{filteredRecordCount === 1 ? "" : "s"}
+            {filteredTree.length} main activit{filteredTree.length === 1 ? "y" : "ies"} · {filteredSubSubCount} record
+            {filteredSubSubCount === 1 ? "" : "s"}
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-1050px text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Sub Activity</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Value Chain</th>
-                <th className="px-4 py-3">Activity Name</th>
-                <th className="px-4 py-3 text-right">Approved Budget</th>
-                <th className="px-4 py-3">Created At</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {visibleGroups.map((group) => {
-                const isOpen = expanded[group.id] ?? Boolean(query);
-                return (
-                  <Fragment key={group.id}>
-                    <tr className="bg-muted/20 hover:bg-muted/40">
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          aria-expanded={isOpen}
-                          onClick={() =>
-                            setExpanded((current) => ({ ...current, [group.id]: !isOpen }))
-                          }
-                          className="flex w-full items-center gap-2 text-left font-semibold"
-                        >
-                          <ChevronRight
-                            className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
-                          />
-                          <span>{group.name}</span>
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                            {group.records.length}
-                          </span>
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {group.records[0]?.category}
-                      </td>
-                      <td colSpan={5} className="px-4 py-3 text-xs text-muted-foreground">
-                        Click the Sub Activity to {isOpen ? "hide" : "view"} its records
-                      </td>
-                    </tr>
+        <div className="divide-y divide-border">
+          {visibleTree.length === 0 && (
+            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+              {query
+                ? "No sub-sub activity hierarchy matches your search."
+                : "No Sub-Sub Activities yet. Click 'Add New Sub-Sub Activity' to get started."}
+            </div>
+          )}
 
-                    {isOpen &&
-                      group.records.map((item, index) => (
-                        <tr key={item.id} className="bg-card hover:bg-muted/30">
-                          <td className="px-4 py-3 pl-10 text-muted-foreground">
-                            Record {index + 1}
-                          </td>
-                          <td className="px-4 py-3">{item.category}</td>
-                          <td className="px-4 py-3">
-                            {item.valueChain || (
-                              <span className="text-muted-foreground">Not applicable</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {item.name || (
-                              <span className="text-muted-foreground">Not specified</span>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-medium">
-                            {money.format(Number(item.approvedActivityBudget))}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
-                            {new Date(item.createdAt).toLocaleDateString("en-KE")}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end gap-1">
-                              {deleteId === item.id ? (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleDelete(item.id)}
-                                  >
-                                    Delete
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setDeleteId(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button asChild size="icon" variant="ghost" title="View">
-                                    <Link to={`/projects/sub-sub-activities/${item.id}/view`}>
-                                      <Eye className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                  <Button asChild size="icon" variant="ghost" title="Edit">
-                                    <Link to={`/projects/sub-sub-activities/${item.id}/edit`}>
-                                      <Pencil className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    title="Delete"
-                                    className="text-red-600 hover:text-red-700"
-                                    onClick={() => setDeleteId(item.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
+          {visibleTree.map((node, nodeIndex) => {
+            const mainId = `main-${node.mainActivity.id}`;
+            const isMainOpen = expanded[mainId] ?? Boolean(query);
+            const categories = Array.from(
+              new Set(
+                node.subActivities.flatMap((child) => [child.subActivity.category, ...child.subSubActivities.map((item) => item.category)]),
+              ),
+            ).filter(Boolean);
+            const subSubCount = node.subActivities.reduce(
+              (sum, child) => sum + child.subSubActivities.length,
+              0,
+            );
+
+            return (
+              <div key={node.mainActivity.id}>
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(mainId)}
+                  className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40"
+                >
+                  <span className="mt-0.5 w-6 shrink-0 text-xs font-medium text-muted-foreground">
+                    {(currentPage - 1) * PAGE_SIZE + nodeIndex + 1}
+                  </span>
+                  {isMainOpen ? (
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        Main Activity
+                      </span>
+                      <span className="text-sm font-semibold text-foreground">{node.mainActivity.name}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Category: {categories.length > 0 ? categories.join(", ") : "Not specified"}
+                    </p>
+                  </div>
+                  <div className="hidden items-center gap-3 text-sm text-muted-foreground sm:flex">
+                    <span>{node.subActivities.length} sub activit{node.subActivities.length === 1 ? "y" : "ies"}</span>
+                    <span>{subSubCount} sub-sub activit{subSubCount === 1 ? "y" : "ies"}</span>
+                  </div>
+                </button>
+
+                {isMainOpen && (
+                  <div className="border-t border-border/50 bg-muted/20 px-4 py-3">
+                    {node.subActivities.length === 0 ? (
+                      <div className="px-4 py-4 text-sm text-muted-foreground">
+                        No sub activities linked to this main activity yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {node.subActivities.map((child, childIndex) => {
+                          const subId = `sub-${child.subActivity.id}`;
+                          const isSubOpen = expanded[subId] ?? Boolean(query);
+                          return (
+                            <div key={child.subActivity.id} className="rounded-lg border border-border/60 bg-card/80">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpand(subId)}
+                                className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/30"
+                              >
+                                <span className="mt-0.5 w-6 shrink-0 text-xs font-medium text-muted-foreground">
+                                  {childIndex + 1}
+                                </span>
+                                {isSubOpen ? (
+                                  <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                      Sub Activity
+                                    </span>
+                                    <span className="text-sm font-medium text-foreground">
+                                      {child.subActivity.name}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    Category: {child.subActivity.category || "Not specified"}
+                                  </p>
+                                </div>
+                                <div className="hidden items-center gap-3 text-sm text-muted-foreground sm:flex">
+                                  <span>{child.subSubActivities.length} sub-sub activit{child.subSubActivities.length === 1 ? "y" : "ies"}</span>
+                                </div>
+                              </button>
+
+                              {isSubOpen && (
+                                <div className="border-t border-border/50 bg-muted/20 px-4 py-3">
+                                  {child.subSubActivities.length === 0 ? (
+                                    <div className="px-4 py-3 text-sm text-muted-foreground">
+                                      No sub-sub activities linked to this sub activity yet.
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {child.subSubActivities.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          className="flex flex-col gap-3 rounded-lg border border-border/50 bg-card/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                          <div className="flex min-w-0 items-start gap-3">
+                                            <Layers3 className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" />
+                                            <div className="min-w-0">
+                                              <p className="text-sm font-medium text-foreground">
+                                                {item.name || "Untitled sub-sub activity"}
+                                              </p>
+                                              <p className="mt-1 text-xs text-muted-foreground">
+                                                Category: {item.category || "Not specified"} • Value chain: {item.valueChain || "Not applicable"}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 sm:shrink-0">
+                                            {deleteId === item.id ? (
+                                              <>
+                                                <span className="mr-1 text-xs text-muted-foreground">
+                                                  Confirm delete?
+                                                </span>
+                                                <Button size="sm" variant="destructive" onClick={() => handleDelete(item.id)}>
+                                                  Yes
+                                                </Button>
+                                                <Button size="sm" variant="outline" onClick={() => setDeleteId(null)}>
+                                                  No
+                                                </Button>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                                  <Link to={`/projects/sub-sub-activities/${item.id}/view`}>
+                                                    <Eye className="h-3.5 w-3.5" />
+                                                  </Link>
+                                                </Button>
+                                                <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                                  <Link to={`/projects/sub-sub-activities/${item.id}/edit`}>
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                  </Link>
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-8 w-8 p-0 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                                  onClick={() => setDeleteId(item.id)}
+                                                >
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </Fragment>
-                );
-              })}
-              {visibleGroups.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                    {query
-                      ? "No Sub-Sub Activities match your search."
-                      : "No Sub-Sub Activities yet."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex flex-col gap-3 border-t border-border p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="text-muted-foreground">
-            {filteredGroups.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–
-            {Math.min(currentPage * PAGE_SIZE, filteredGroups.length)} of {filteredGroups.length}{" "}
-            Sub Activities
+            {filteredTree.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–
+            {Math.min(currentPage * PAGE_SIZE, filteredTree.length)} of {filteredTree.length} main activit
+            {filteredTree.length === 1 ? "y" : "ies"}
           </span>
           <div className="flex items-center gap-2">
             <Button
