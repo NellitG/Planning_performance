@@ -132,6 +132,32 @@ export interface OutputIndicator extends StoreItem {
   keyActivityId: string;
   expectedOutputId: string;
   text: string;
+  cumulativeTarget?: string;
+  year1Target?: string;
+  year2Target?: string;
+  year3Target?: string;
+  year4Target?: string;
+  year5Target?: string;
+  totalBudgetMillions?: string;
+  budgetYear1?: string;
+  budgetYear2?: string;
+  budgetYear3?: string;
+  budgetYear4?: string;
+  budgetYear5?: string;
+}
+
+export interface OutcomeIndicator {
+  id: string;
+  text: string;
+  baselineValue: string;
+  midtermTarget: string;
+  endtermTarget: string;
+}
+
+export interface Outcome extends StoreItem {
+  kraId: string;
+  text: string;
+  indicators: OutcomeIndicator[];
 }
 
 export interface TrackingEntry {
@@ -224,6 +250,7 @@ export interface SidebarSectionItem {
   label: string;
   to: string;
   icon: LucideIcon;
+  children?: SidebarSectionItem[];
 }
 
 export interface SidebarSection {
