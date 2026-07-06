@@ -165,6 +165,49 @@ class OutputIndicator(models.Model):
         blank=True,
     )
     text = models.TextField()
+    cumulative_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    year_1_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    year_2_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    year_3_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    year_4_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    year_5_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_budget_millions = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    budget_year_1 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    budget_year_2 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    budget_year_3 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    budget_year_4 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    budget_year_5 = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return self.text[:80]
+
+
+class Outcome(models.Model):
+    key_result_area = models.ForeignKey(
+        KeyResultArea, on_delete=models.CASCADE, related_name="outcomes"
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return self.text[:80]
+
+
+class OutcomeIndicator(models.Model):
+    outcome = models.ForeignKey(
+        Outcome, on_delete=models.CASCADE, related_name="indicators"
+    )
+    text = models.TextField()
+    baseline_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    midterm_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    endterm_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

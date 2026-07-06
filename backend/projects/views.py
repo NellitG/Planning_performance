@@ -11,6 +11,8 @@ from .models import (
     KeyResultArea,
     MainActivity,
     OutputIndicator,
+    Outcome,
+    OutcomeIndicator,
     Project,
     ProjectDocument,
     ProjectMapping,
@@ -26,6 +28,8 @@ from .serializers import (
     KeyResultAreaSerializer,
     MainActivitySerializer,
     OutputIndicatorSerializer,
+    OutcomeIndicatorSerializer,
+    OutcomeSerializer,
     ProjectDocumentSerializer,
     ProjectMappingSerializer,
     ProjectSerializer,
@@ -132,6 +136,18 @@ class OutputIndicatorViewSet(BulkCreateMixin, viewsets.ModelViewSet):
         qs = self.queryset.filter(expected_output_id=eo_id)
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
+
+
+class OutcomeViewSet(BulkCreateMixin, viewsets.ModelViewSet):
+    queryset = Outcome.objects.select_related("key_result_area").prefetch_related("indicators").all()
+    serializer_class = OutcomeSerializer
+    filterset_fields = ["key_result_area"]
+
+
+class OutcomeIndicatorViewSet(BulkCreateMixin, viewsets.ModelViewSet):
+    queryset = OutcomeIndicator.objects.select_related("outcome").all()
+    serializer_class = OutcomeIndicatorSerializer
+    filterset_fields = ["outcome"]
 
 
 class ProjectDocumentViewSet(viewsets.ModelViewSet):

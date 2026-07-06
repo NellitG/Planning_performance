@@ -8,6 +8,8 @@ from .views import (
     KeyResultAreaViewSet,
     MainActivityViewSet,
     OutputIndicatorViewSet,
+    OutcomeIndicatorViewSet,
+    OutcomeViewSet,
     ProjectDocumentViewSet,
     ProjectMappingViewSet,
     ProjectViewSet,
@@ -25,6 +27,8 @@ router.register(r"strategies", StrategyViewSet)
 router.register(r"key-activities", KeyActivityViewSet)
 router.register(r"expected-outputs", ExpectedOutputViewSet)
 router.register(r"output-indicators", OutputIndicatorViewSet)
+router.register(r"outcomes", OutcomeViewSet)
+router.register(r"outcome-indicators", OutcomeIndicatorViewSet)
 router.register(r"project-documents", ProjectDocumentViewSet)
 router.register(r"project-mappings", ProjectMappingViewSet)
 router.register(r"indicator-tracking", IndicatorTrackingViewSet)

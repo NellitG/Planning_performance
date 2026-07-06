@@ -8,6 +8,8 @@ from .models import (
     KeyActivity,
     ExpectedOutput,
     OutputIndicator,
+    Outcome,
+    OutcomeIndicator,
     ProjectDocument,
     ProjectMapping,
     IndicatorTracking,
@@ -202,6 +204,42 @@ class OutputIndicatorSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    cumulativeTarget = serializers.DecimalField(
+        source="cumulative_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    year1Target = serializers.DecimalField(
+        source="year_1_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    year2Target = serializers.DecimalField(
+        source="year_2_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    year3Target = serializers.DecimalField(
+        source="year_3_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    year4Target = serializers.DecimalField(
+        source="year_4_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    year5Target = serializers.DecimalField(
+        source="year_5_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    totalBudgetMillions = serializers.DecimalField(
+        source="total_budget_millions", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    budgetYear1 = serializers.DecimalField(
+        source="budget_year_1", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    budgetYear2 = serializers.DecimalField(
+        source="budget_year_2", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    budgetYear3 = serializers.DecimalField(
+        source="budget_year_3", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    budgetYear4 = serializers.DecimalField(
+        source="budget_year_4", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    budgetYear5 = serializers.DecimalField(
+        source="budget_year_5", max_digits=12, decimal_places=2, required=False, default=0
+    )
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
@@ -212,8 +250,78 @@ class OutputIndicatorSerializer(serializers.ModelSerializer):
             "keyActivityId",
             "expectedOutputId",
             "text",
+            "cumulativeTarget",
+            "year1Target",
+            "year2Target",
+            "year3Target",
+            "year4Target",
+            "year5Target",
+            "totalBudgetMillions",
+            "budgetYear1",
+            "budgetYear2",
+            "budgetYear3",
+            "budgetYear4",
+            "budgetYear5",
             "createdAt",
         ]
+
+
+class OutcomeIndicatorSerializer(serializers.ModelSerializer):
+    outcomeId = serializers.PrimaryKeyRelatedField(
+        source="outcome", queryset=Outcome.objects.all(), required=False, allow_null=True
+    )
+    baselineValue = serializers.DecimalField(
+        source="baseline_value", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    midtermTarget = serializers.DecimalField(
+        source="midterm_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    endtermTarget = serializers.DecimalField(
+        source="endterm_target", max_digits=12, decimal_places=2, required=False, default=0
+    )
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = OutcomeIndicator
+        fields = [
+            "id",
+            "outcomeId",
+            "text",
+            "baselineValue",
+            "midtermTarget",
+            "endtermTarget",
+            "createdAt",
+        ]
+
+
+class OutcomeSerializer(serializers.ModelSerializer):
+    kraId = serializers.PrimaryKeyRelatedField(
+        source="key_result_area", queryset=KeyResultArea.objects.all()
+    )
+    indicators = OutcomeIndicatorSerializer(many=True, required=False)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = Outcome
+        fields = ["id", "kraId", "text", "indicators", "createdAt"]
+
+    def create(self, validated_data):
+        indicators_data = validated_data.pop("indicators", [])
+        outcome = Outcome.objects.create(**validated_data)
+        for indicator_data in indicators_data:
+            OutcomeIndicator.objects.create(outcome=outcome, **indicator_data)
+        return outcome
+
+    def update(self, instance, validated_data):
+        indicators_data = validated_data.pop("indicators", None)
+        instance.key_result_area = validated_data.get("key_result_area", instance.key_result_area)
+        instance.text = validated_data.get("text", instance.text)
+        instance.save()
+        if indicators_data is not None:
+            instance.indicators.all().delete()
+            for indicator_data in indicators_data:
+                OutcomeIndicator.objects.create(outcome=instance, **indicator_data)
+        return instance
 
 
 class ProjectDocumentSerializer(serializers.ModelSerializer):
