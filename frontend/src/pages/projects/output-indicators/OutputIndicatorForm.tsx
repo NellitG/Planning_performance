@@ -12,6 +12,18 @@ import { useStrategies, useKeyActivities, useExpectedOutputs, useOutputIndicator
 interface RowItem {
   _key: string;
   text: string;
+  cumulativeTarget: string;
+  year1Target: string;
+  year2Target: string;
+  year3Target: string;
+  year4Target: string;
+  year5Target: string;
+  totalBudgetMillions: string;
+  budgetYear1: string;
+  budgetYear2: string;
+  budgetYear3: string;
+  budgetYear4: string;
+  budgetYear5: string;
   error: string;
 }
 
@@ -37,7 +49,7 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
   const [keyActivityId, setKeyActivityId] = useState("");
   const [expectedOutputId, setExpectedOutputId] = useState("");
 
-  const [rows, setRows] = useState<RowItem[]>([{ _key: uid(), text: "", error: "" }]);
+  const [rows, setRows] = useState<RowItem[]>([{ _key: uid(), text: "", cumulativeTarget: "", year1Target: "", year2Target: "", year3Target: "", year4Target: "", year5Target: "", totalBudgetMillions: "", budgetYear1: "", budgetYear2: "", budgetYear3: "", budgetYear4: "", budgetYear5: "", error: "" }]);
 
   const keyActivities = strategyId ? allKeyActivities.filter((a) => a.strategyId === strategyId) : [];
   const expectedOutputs = strategyId ? allExpectedOutputs.filter((o) => o.strategyId === strategyId) : [];
@@ -49,7 +61,7 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
         setStrategyId(item.strategyId);
         setKeyActivityId(item.keyActivityId || "");
         setExpectedOutputId(item.expectedOutputId || "");
-        setRows([{ _key: uid(), text: item.text, error: "" }]);
+        setRows([{ _key: uid(), text: item.text, cumulativeTarget: item.cumulativeTarget ?? "", year1Target: item.year1Target ?? "", year2Target: item.year2Target ?? "", year3Target: item.year3Target ?? "", year4Target: item.year4Target ?? "", year5Target: item.year5Target ?? "", totalBudgetMillions: item.totalBudgetMillions ?? "", budgetYear1: item.budgetYear1 ?? "", budgetYear2: item.budgetYear2 ?? "", budgetYear3: item.budgetYear3 ?? "", budgetYear4: item.budgetYear4 ?? "", budgetYear5: item.budgetYear5 ?? "", error: "" }]);
       } else {
         toast.error("Output indicator not found");
         navigate("/projects/output-indicators");
@@ -67,9 +79,9 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
     }
   }, [strategyId, allKeyActivities, allExpectedOutputs]);
 
-  const addRow = () => setRows((r) => [...r, { _key: uid(), text: "", error: "" }]);
+  const addRow = () => setRows((r) => [...r, { _key: uid(), text: "", cumulativeTarget: "", year1Target: "", year2Target: "", year3Target: "", year4Target: "", year5Target: "", totalBudgetMillions: "", budgetYear1: "", budgetYear2: "", budgetYear3: "", budgetYear4: "", budgetYear5: "", error: "" }]);
   const removeRow = (key: string) => { if (rows.length > 1) setRows((r) => r.filter((row) => row._key !== key)); };
-  const updateRow = (key: string, value: string) => setRows((r) => r.map((row) => row._key === key ? { ...row, text: value, error: "" } : row));
+  const updateRow = (key: string, field: keyof RowItem, value: string) => setRows((r) => r.map((row) => row._key === key ? { ...row, [field]: value, error: "" } : row));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,12 +94,12 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
 
     try {
       if (mode === "edit") {
-        await updateIndicator.mutateAsync({ id: id!, strategyId, keyActivityId, expectedOutputId, text: rows[0].text });
+        await updateIndicator.mutateAsync({ id: id!, strategyId, keyActivityId, expectedOutputId, text: rows[0].text, cumulativeTarget: rows[0].cumulativeTarget, year1Target: rows[0].year1Target, year2Target: rows[0].year2Target, year3Target: rows[0].year3Target, year4Target: rows[0].year4Target, year5Target: rows[0].year5Target, totalBudgetMillions: rows[0].totalBudgetMillions, budgetYear1: rows[0].budgetYear1, budgetYear2: rows[0].budgetYear2, budgetYear3: rows[0].budgetYear3, budgetYear4: rows[0].budgetYear4, budgetYear5: rows[0].budgetYear5 });
         toast.success("Output indicator updated successfully");
       } else {
         const saved = rows.filter((r) => r.text.trim());
         for (const r of saved) {
-          await createIndicator.mutateAsync({ strategyId, keyActivityId, expectedOutputId, text: r.text });
+          await createIndicator.mutateAsync({ strategyId, keyActivityId, expectedOutputId, text: r.text, cumulativeTarget: r.cumulativeTarget, year1Target: r.year1Target, year2Target: r.year2Target, year3Target: r.year3Target, year4Target: r.year4Target, year5Target: r.year5Target, totalBudgetMillions: r.totalBudgetMillions, budgetYear1: r.budgetYear1, budgetYear2: r.budgetYear2, budgetYear3: r.budgetYear3, budgetYear4: r.budgetYear4, budgetYear5: r.budgetYear5 });
         }
         toast.success(saved.length === 1 ? "Output indicator created" : `${saved.length} output indicators created`);
       }
@@ -204,19 +216,74 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
               </Button>
             )}
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {rows.map((row, idx) => (
-              <div key={row._key} className="flex items-start gap-2">
-                {rows.length > 1 && <span className="mt-2.5 text-xs text-muted-foreground w-5 shrink-0 text-right">{idx + 1}.</span>}
-                <div className="flex-1 space-y-1">
-                  <Input value={row.text} onChange={(e) => updateRow(row._key, e.target.value)} placeholder="e.g. % increase in farmer adoption rate" className={row.error ? "border-red-400" : ""} />
-                  {row.error && <p className="text-xs text-red-600">{row.error}</p>}
+              <div key={row._key} className="rounded-lg border border-border/70 bg-background/70 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-medium">Indicator {idx + 1}</p>
+                  {rows.length > 1 && mode === "create" && (
+                    <Button type="button" variant="ghost" size="sm" className="text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeRow(row._key)}>
+                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+                    </Button>
+                  )}
                 </div>
-                {rows.length > 1 && mode === "create" && (
-                  <Button type="button" variant="ghost" size="sm" className="mt-0.5 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeRow(row._key)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Indicator Name</Label>
+                    <Input value={row.text} onChange={(e) => updateRow(row._key, "text", e.target.value)} placeholder="e.g. % increase in farmer adoption rate" className={row.error ? "border-red-400" : ""} />
+                    {row.error && <p className="text-xs text-red-600">{row.error}</p>}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label>Cumulative Target</Label>
+                      <Input type="number" value={row.cumulativeTarget} onChange={(e) => updateRow(row._key, "cumulativeTarget", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Year 1</Label>
+                      <Input type="number" value={row.year1Target} onChange={(e) => updateRow(row._key, "year1Target", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Year 2</Label>
+                      <Input type="number" value={row.year2Target} onChange={(e) => updateRow(row._key, "year2Target", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Year 3</Label>
+                      <Input type="number" value={row.year3Target} onChange={(e) => updateRow(row._key, "year3Target", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Year 4</Label>
+                      <Input type="number" value={row.year4Target} onChange={(e) => updateRow(row._key, "year4Target", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Year 5</Label>
+                      <Input type="number" value={row.year5Target} onChange={(e) => updateRow(row._key, "year5Target", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Total Budget (Millions)</Label>
+                      <Input type="number" value={row.totalBudgetMillions} onChange={(e) => updateRow(row._key, "totalBudgetMillions", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Budget Year 1</Label>
+                      <Input type="number" value={row.budgetYear1} onChange={(e) => updateRow(row._key, "budgetYear1", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Budget Year 2</Label>
+                      <Input type="number" value={row.budgetYear2} onChange={(e) => updateRow(row._key, "budgetYear2", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Budget Year 3</Label>
+                      <Input type="number" value={row.budgetYear3} onChange={(e) => updateRow(row._key, "budgetYear3", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Budget Year 4</Label>
+                      <Input type="number" value={row.budgetYear4} onChange={(e) => updateRow(row._key, "budgetYear4", e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Budget Year 5</Label>
+                      <Input type="number" value={row.budgetYear5} onChange={(e) => updateRow(row._key, "budgetYear5", e.target.value)} placeholder="0" />
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
