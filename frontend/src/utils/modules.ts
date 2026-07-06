@@ -126,6 +126,16 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
         { label: "Key Activities", to: "/projects/key-activities", icon: Activity },
         { label: "Expected Outputs", to: "/projects/expected-outputs", icon: PackageOpen },
         { label: "Output Indicators", to: "/projects/output-indicators", icon: BarChart2 },
+        { label: "Outcome", to: "/projects/outcomes", icon: Target },
+        {
+          label: "Strategic Plan",
+          to: "/projects/strategic-plan/implementation-matrix",
+          icon: FileText,
+          children: [
+            { label: "Implementation Matrix", to: "/projects/strategic-plan/implementation-matrix", icon: Table2 },
+            { label: "Outcome Matrix", to: "/projects/strategic-plan/outcome-matrix", icon: Table2 },
+          ],
+        },
       ],
     },
     {
@@ -149,6 +159,56 @@ export const SIDEBAR_SECTIONS: Record<string, SidebarSection[]> = {
 };
 
 export const SIDEBAR_TREE: Record<string, NavNode[]> = {
+  projects: [
+    {
+      label: "Analytics",
+      icon: LayoutDashboard,
+      children: [
+        { label: "Overview", to: "/", icon: LayoutDashboard },
+        { label: "Projects", to: "/projects", icon: FolderKanban },
+        { label: "Notifications", to: "/notifications", icon: Bell },
+        { label: "Partners", to: "/partners", icon: Handshake },
+      ],
+    },
+    {
+      label: "Planning",
+      icon: FileText,
+      children: [
+        { label: "Key Result Areas", to: "/projects/components", icon: Boxes },
+        { label: "Strategic Objectives", to: "/projects/strategic-objectives", icon: Target },
+        { label: "Strategy", to: "/projects/strategy", icon: GitBranch },
+        { label: "Key Activities", to: "/projects/key-activities", icon: Activity },
+        { label: "Expected Outputs", to: "/projects/expected-outputs", icon: PackageOpen },
+        { label: "Output Indicators", to: "/projects/output-indicators", icon: BarChart2 },
+        { label: "Outcome", to: "/projects/outcomes", icon: Target },
+        {
+          label: "Strategic Plan",
+          icon: FileText,
+          children: [
+            { label: "Implementation Matrix", to: "/projects/strategic-plan/implementation-matrix", icon: Table2 },
+            { label: "Outcome Matrix", to: "/projects/strategic-plan/outcome-matrix", icon: Table2 },
+          ],
+        },
+      ],
+    },
+    {
+      label: "Reports",
+      icon: FileBarChart2,
+      children: [
+        { label: "Technical Reports", to: "/technical-reports", icon: FileBarChart2 },
+        { label: "Financial Reports", to: "/financial-reports", icon: Wallet },
+        { label: "Main Activities", to: "/projects/main-activities", icon: ListTodo },
+        { label: "Sub Activity", to: "/projects/sub-activities", icon: Layers2 },
+        { label: "Sub-Sub Activity", to: "/projects/sub-sub-activities", icon: GitBranch },
+        { label: "Project Staff", to: "/project-staff", icon: Users },
+      ],
+    },
+    {
+      label: "Administration",
+      icon: ShieldCheck,
+      children: [{ label: "User Management", to: "/user-management", icon: ShieldCheck }],
+    },
+  ],
   "performance-contracts": [
     {
       label: "Dashboard",
