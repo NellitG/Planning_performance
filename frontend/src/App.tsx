@@ -79,6 +79,10 @@ const ExpectedOutputs = lazy(() => import("@/pages/projects/expected-outputs/Exp
 const ExpectedOutputForm = lazy(() => import("@/pages/projects/expected-outputs/ExpectedOutputForm"));
 const OutputIndicators = lazy(() => import("@/pages/projects/output-indicators/OutputIndicators"));
 const OutputIndicatorForm = lazy(() => import("@/pages/projects/output-indicators/OutputIndicatorForm"));
+const Outcomes = lazy(() => import("@/pages/projects/outcomes/Outcomes"));
+const OutcomeForm = lazy(() => import("@/pages/projects/outcomes/OutcomeForm"));
+const ImplementationMatrix = lazy(() => import("@/pages/projects/strategic-plan/ImplementationMatrix"));
+const OutcomeMatrix = lazy(() => import("@/pages/projects/strategic-plan/OutcomeMatrix"));
 const MainActivities = lazy(() => import("@/pages/projects/main-activities/MainActivities"));
 const MainActivityForm = lazy(() => import("@/pages/projects/main-activities/MainActivityForm"));
 const SubActivities = lazy(() => import("@/pages/projects/sub-activities/SubActivities"));
@@ -165,6 +169,13 @@ function AppRoutes() {
         <Route path="/projects/output-indicators" element={<OutputIndicators />} />
         <Route path="/projects/output-indicators/new" element={<OutputIndicatorForm mode="create" />} />
         <Route path="/projects/output-indicators/:id/edit" element={<OutputIndicatorForm mode="edit" />} />
+
+        <Route path="/projects/outcomes" element={<Outcomes />} />
+        <Route path="/projects/outcomes/new" element={<OutcomeForm mode="create" />} />
+        <Route path="/projects/outcomes/:id/edit" element={<OutcomeForm mode="edit" />} />
+
+        <Route path="/projects/strategic-plan/implementation-matrix" element={<ImplementationMatrix />} />
+        <Route path="/projects/strategic-plan/outcome-matrix" element={<OutcomeMatrix />} />
 
         <Route path="/projects/main-activities" element={<MainActivities />} />
         <Route path="/projects/main-activities/new" element={<MainActivityForm mode="create" />} />
