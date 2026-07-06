@@ -18,6 +18,7 @@ import type {
   MainActivity,
   SubActivity,
   SubSubActivity,
+  Outcome,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
@@ -29,6 +30,7 @@ export const qk = {
   keyActivities: ["keyActivities"] as const,
   expectedOutputs: ["expectedOutputs"] as const,
   outputIndicators: ["outputIndicators"] as const,
+  outcomes: ["outcomes"] as const,
   mainActivities: ["mainActivities"] as const,
   subActivities: ["subActivities"] as const,
   subSubActivities: ["subSubActivities"] as const,
@@ -370,17 +372,53 @@ export function useCreateOutputIndicator() {
       keyActivityId,
       expectedOutputId,
       text,
+      cumulativeTarget,
+      year1Target,
+      year2Target,
+      year3Target,
+      year4Target,
+      year5Target,
+      totalBudgetMillions,
+      budgetYear1,
+      budgetYear2,
+      budgetYear3,
+      budgetYear4,
+      budgetYear5,
     }: {
       strategyId: string;
       keyActivityId: string;
       expectedOutputId: string;
       text: string;
+      cumulativeTarget?: string;
+      year1Target?: string;
+      year2Target?: string;
+      year3Target?: string;
+      year4Target?: string;
+      year5Target?: string;
+      totalBudgetMillions?: string;
+      budgetYear1?: string;
+      budgetYear2?: string;
+      budgetYear3?: string;
+      budgetYear4?: string;
+      budgetYear5?: string;
     }) =>
       api.post<OutputIndicator>("/output-indicators/", {
         strategyId: nullableId(strategyId),
         keyActivityId: nullableId(keyActivityId),
         expectedOutputId: Number(expectedOutputId),
         text,
+        cumulativeTarget,
+        year1Target,
+        year2Target,
+        year3Target,
+        year4Target,
+        year5Target,
+        totalBudgetMillions,
+        budgetYear1,
+        budgetYear2,
+        budgetYear3,
+        budgetYear4,
+        budgetYear5,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.outputIndicators }),
   });
@@ -395,18 +433,54 @@ export function useUpdateOutputIndicator() {
       keyActivityId,
       expectedOutputId,
       text,
+      cumulativeTarget,
+      year1Target,
+      year2Target,
+      year3Target,
+      year4Target,
+      year5Target,
+      totalBudgetMillions,
+      budgetYear1,
+      budgetYear2,
+      budgetYear3,
+      budgetYear4,
+      budgetYear5,
     }: {
       id: string;
       strategyId: string;
       keyActivityId: string;
       expectedOutputId: string;
       text: string;
+      cumulativeTarget?: string;
+      year1Target?: string;
+      year2Target?: string;
+      year3Target?: string;
+      year4Target?: string;
+      year5Target?: string;
+      totalBudgetMillions?: string;
+      budgetYear1?: string;
+      budgetYear2?: string;
+      budgetYear3?: string;
+      budgetYear4?: string;
+      budgetYear5?: string;
     }) =>
       api.put<OutputIndicator>(`/output-indicators/${id}/`, {
         strategyId: nullableId(strategyId),
         keyActivityId: nullableId(keyActivityId),
         expectedOutputId: Number(expectedOutputId),
         text,
+        cumulativeTarget,
+        year1Target,
+        year2Target,
+        year3Target,
+        year4Target,
+        year5Target,
+        totalBudgetMillions,
+        budgetYear1,
+        budgetYear2,
+        budgetYear3,
+        budgetYear4,
+        budgetYear5,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.outputIndicators }),
   });
@@ -417,6 +491,49 @@ export function useDeleteOutputIndicator() {
   return useMutation({
     mutationFn: (id: string) => api.del(`/output-indicators/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.outputIndicators }),
+  });
+}
+
+/* -------------------------------------------------------------- outcomes */
+export function useOutcomes() {
+  return useQuery({
+    queryKey: qk.outcomes,
+    queryFn: () => api.get<Outcome[]>("/outcomes/"),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateOutcome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ kraId, text, indicators }: { kraId: string; text: string; indicators: Array<{ text: string; baselineValue: string; midtermTarget: string; endtermTarget: string }> }) =>
+      api.post<Outcome>("/outcomes/", {
+        kraId: Number(kraId),
+        text,
+        indicators,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.outcomes }),
+  });
+}
+
+export function useUpdateOutcome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, kraId, text, indicators }: { id: string; kraId: string; text: string; indicators: Array<{ text: string; baselineValue: string; midtermTarget: string; endtermTarget: string }> }) =>
+      api.put<Outcome>(`/outcomes/${id}/`, {
+        kraId: Number(kraId),
+        text,
+        indicators,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.outcomes }),
+  });
+}
+
+export function useDeleteOutcome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/outcomes/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.outcomes }),
   });
 }
 
