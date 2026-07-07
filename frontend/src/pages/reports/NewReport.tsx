@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
+
 }
 
 function Field({ label, ...props }: FieldProps) {
@@ -55,11 +56,12 @@ export default function NewReport() {
   const [activities, setActivities] = useState<ActivityRow[]>([
     { id: crypto.randomUUID(), output: "", activity: "", achievement: "" },
   ]);
-  const [allocated, setAllocated] = useState(0);
+  const [disbursed, setDisbursed] = useState(0);
   const [received, setReceived] = useState(0);
   const [utilized, setUtilized] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [balance, setBalance] = useState(0);
 
   const absorbed = useMemo(
     () => (received > 0 ? ((utilized / received) * 100).toFixed(1) : "0.0"),
@@ -105,14 +107,21 @@ export default function NewReport() {
           <Link to="/technical-reports">
             <Button variant="outline">Cancel</Button>
           </Link>
-          <Button onClick={submit} className="bg-[var(--brand-navy)] hover:opacity-90">
+          <Button onClick={submit} className="bg-[(--brand-navy)] hover:opacity-90">
             Submit Report
           </Button>
         </div>
       </div>
 
       <form onSubmit={submit} className="space-y-5">
-        <Section index={1} title="Project Information">
+        <Section index={1} title="Project Duration">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label="Start Date" type="date" />
+            <Field label="End Date" type="date" />
+            {/* <Field label="Duration" placeholder="e.g. 36 months" /> */}
+          </div>
+        </Section>
+        {/* <Section index={1} title="Project Information">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Quarter" placeholder="Q1" />
             <Field label="Financial Year" placeholder="2025/2026" />
@@ -123,9 +132,40 @@ export default function NewReport() {
             <Field label="Value Chain" placeholder="Dairy" />
             <Field label="Project Title" placeholder="Full title" />
           </div>
+        </Section> */}
+
+        <Section index={2} title="Financial Tracking">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Amount disbursed (b)</Label>
+              <Input type="number" value={disbursed || ""} onChange={(e) => setDisbursed(+e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Amount Utilized (c)</Label>
+              <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(+e.target.value)} />
+            </div>
+            {/* <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Funds utilized (c)</Label>
+              <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(+e.target.value)} />
+            </div> */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">% utilization (c/b × 100)</Label>
+              <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-[var(--brand-green)]">
+                {utilized > 0 ? ((utilized / disbursed) * 100).toFixed(1) : "0.0"}%
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Balance (b - c)</Label>
+              <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-[var(--brand-green)]">
+                {balance == 0 ? ((disbursed - utilized) ).toFixed(1) : "0.0"}
+              </div>
+            </div>
+            
+            </div>
         </Section>
 
-        <Section index={2} title="Strategic Alignment">
+        <Section index={3} title="Strategic Alignment">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Field label="Key Result Area" />
             <Field label="Strategic Objective" />
@@ -133,15 +173,8 @@ export default function NewReport() {
           </div>
         </Section>
 
-        <Section index={3} title="Project Duration">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Start Date" type="date" />
-            <Field label="End Date" type="date" />
-            <Field label="Duration" placeholder="e.g. 36 months" />
-          </div>
-        </Section>
 
-        <Section index={4} title="Team Information">
+        {/* <Section index={4} title="Team Information">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Lead Institute / Centre" />
             <Field label="Principal Investigator" />
@@ -150,9 +183,19 @@ export default function NewReport() {
             <Field label="Email" type="email" />
             <Field label="Telephone" type="tel" />
           </div>
+        </Section> */}
+
+        <Section index={4} title="Status">
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Status" />
+            <select className="w-full rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 focus:border-emerald-500 focus:outline-none">
+                <option value="on-going">On going</option>
+                <option value="complete">Complete</option>
+              </select>
+          </div>
         </Section>
 
-        <Section index={5} title="Beneficiary Information">
+        {/* <Section index={4} title="Beneficiary Information">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Counties Targeted" />
             <Field label="Sub-county" />
@@ -163,9 +206,9 @@ export default function NewReport() {
             <Field label="VMGs" type="number" />
             <Field label="PWDs" type="number" />
           </div>
-        </Section>
+        </Section> */}
 
-        <Section index={6} title="Project Progress">
+        {/* <Section index={5} title="Project Progress">
           <div className="space-y-3">
             <AnimatePresence initial={false}>
               {activities.map((a, idx) => (
@@ -199,12 +242,12 @@ export default function NewReport() {
               <Plus className="h-4 w-4" /> Add Activity Row
             </Button>
           </div>
-        </Section>
+        </Section> */}
 
-        <Section index={7} title="Outcomes & Sustainability">
+        <Section index={6} title="Outcomes & Sustainability">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Expected outcomes</Label>
+              <Label className="text-xs font-medium">Pending Activity</Label>
               <Textarea rows={4} />
             </div>
             <div className="space-y-1.5">
@@ -212,47 +255,34 @@ export default function NewReport() {
               <Textarea rows={4} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Sustainability measures</Label>
+              <Label className="text-xs font-medium">Challenges</Label>
+              <Textarea rows={4} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Corrective Actions</Label>
+              <Textarea rows={4} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Remarks</Label>
               <Textarea rows={4} />
             </div>
           </div>
         </Section>
 
-        <Section index={8} title="Financial Tracking">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Funds allocated (b)</Label>
-              <Input type="number" value={allocated || ""} onChange={(e) => setAllocated(+e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Funds received</Label>
-              <Input type="number" value={received || ""} onChange={(e) => setReceived(+e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Funds utilized (c)</Label>
-              <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(+e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Proportion absorbed (c/b × 100)</Label>
-              <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-[var(--brand-green)]">
-                {absorbed}%
-              </div>
-            </div>
-          </div>
-        </Section>
+        
 
-        {[
-          { i: 9, t: "Challenges & Corrective Actions" },
-          { i: 10, t: "Lessons Learned" },
-          { i: 11, t: "Recommendations" },
-          { i: 12, t: "Way Forward" },
+        {/* {[
+          { i: 7, t: "Challenges & Corrective Actions" },
+          { i: 8, t: "Lessons Learned" },
+          { i: 9, t: "Recommendations" },
+          { i: 10, t: "Way Forward" },
         ].map((s) => (
           <Section key={s.i} index={s.i} title={s.t}>
             <Textarea rows={4} placeholder={`Describe ${s.t.toLowerCase()}…`} />
           </Section>
-        ))}
+        ))} */}
 
-        <Section index={13} title="Publications">
+        <Section index={7} title="Attach Evidence">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -262,7 +292,7 @@ export default function NewReport() {
             }`}
           >
             <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-            <div className="text-sm font-medium">Drag &amp; drop publications here</div>
+            <div className="text-sm font-medium">Drag &amp; drop your evidence here</div>
             <div className="text-xs text-muted-foreground">PDF, DOCX, PPTX up to 25 MB each</div>
             <label className="mt-3 inline-flex">
               <input
