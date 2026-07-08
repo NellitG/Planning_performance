@@ -77,6 +77,17 @@ export interface StoreItem {
 export interface MainActivity {
   id: string;
   name: string;
+  indicators?: MainActivityIndicator[];
+  createdAt: string;
+}
+
+export interface MainActivityIndicator {
+  id: string;
+  mainActivityId: string;
+  category: string;
+  valueChain: string;
+  indicator: string;
+  target: string;
   createdAt: string;
 }
 
@@ -99,6 +110,30 @@ export interface SubSubActivity {
   name: string;
   approvedActivityBudget: string;
   createdAt: string;
+}
+
+export interface TechnicalReport {
+  id: string;
+  title: string;
+  mainActivityId: string | null;
+  subActivityId: string | null;
+  mainActivityName?: string;
+  subActivityName?: string;
+  subSubActivities: Array<{ id?: string; name: string; approvedActivityBudget?: string | number }>;
+  indicators: Array<{ id?: string; indicator: string; target?: string }>;
+  reportingPeriod: string;
+  startDate: string | null;
+  endDate: string | null;
+  disbursedAmount?: string | number | null;
+  utilizedAmount?: string | number | null;
+  percentageUtilization?: string | number | null;
+  status: string;
+  achievement: string;
+  remarks: string;
+  supportingInformation?: string;
+  supportingDocuments?: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface KRAComponent extends StoreItem {
