@@ -6,6 +6,7 @@ from .views import (
     IndicatorTrackingViewSet,
     KeyActivityViewSet,
     KeyResultAreaViewSet,
+    MainActivityIndicatorViewSet,
     MainActivityViewSet,
     OutputIndicatorViewSet,
     OutcomeIndicatorViewSet,
@@ -17,6 +18,7 @@ from .views import (
     StrategyViewSet,
     SubActivityViewSet,
     SubSubActivityViewSet,
+    TechnicalReportViewSet,
 )
 
 router = DefaultRouter()
@@ -33,8 +35,10 @@ router.register(r"project-documents", ProjectDocumentViewSet)
 router.register(r"project-mappings", ProjectMappingViewSet)
 router.register(r"indicator-tracking", IndicatorTrackingViewSet)
 router.register(r"main-activities", MainActivityViewSet)
+router.register(r"main-activity-indicators", MainActivityIndicatorViewSet)
 router.register(r"sub-activities", SubActivityViewSet)
 router.register(r"sub-sub-activities", SubSubActivityViewSet)
+router.register(r"technical-reports", TechnicalReportViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),

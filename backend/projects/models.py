@@ -267,6 +267,32 @@ class MainActivity(models.Model):
         return self.name
 
 
+class MainActivityIndicator(models.Model):
+    CATEGORY_CHOICES = [
+        ("ICT", "ICT"),
+        ("Value Chain", "Value Chain"),
+        ("Project Coordination", "Project Coordination"),
+    ]
+
+    main_activity = models.ForeignKey(
+        MainActivity, on_delete=models.CASCADE, related_name="indicators"
+    )
+    category = models.CharField(max_length=40, choices=CATEGORY_CHOICES, default="ICT")
+    value_chain = models.CharField(max_length=120, blank=True)
+    indicator = models.CharField(max_length=500)
+    target = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Main Activity Indicator"
+        verbose_name_plural = "Main Activity Indicators"
+
+    def __str__(self):
+        return self.indicator[:80]
+
+
 class SubActivity(models.Model):
     CATEGORY_CHOICES = [
         ("Value Chain", "Value Chain"),
@@ -309,6 +335,46 @@ class SubSubActivity(models.Model):
 
     def __str__(self):
         return self.name or f"{self.sub_activity.name} budget"
+
+
+class TechnicalReport(models.Model):
+    STATUS_CHOICES = [
+        ("Draft", "Draft"),
+        ("Submitted", "Submitted"),
+        ("Under Review", "Under Review"),
+        ("Approved", "Approved"),
+    ]
+
+    title = models.CharField(max_length=500)
+    main_activity = models.ForeignKey(
+        MainActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
+    )
+    sub_activity = models.ForeignKey(
+        SubActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
+    )
+    sub_sub_activities = models.JSONField(default=list, blank=True)
+    indicators = models.JSONField(default=list, blank=True)
+    reporting_period = models.CharField(max_length=120, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    disbursed_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    utilized_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    percentage_utilization = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Draft")
+    achievement = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
+    supporting_information = models.TextField(blank=True)
+    supporting_documents = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Technical Report"
+        verbose_name_plural = "Technical Reports"
+
+    def __str__(self):
+        return self.title
 
 
 class IndicatorTracking(models.Model):

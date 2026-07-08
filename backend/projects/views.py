@@ -1,5 +1,6 @@
 from django.db import transaction
-from rest_framework import status, viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ from .models import (
     KeyActivity,
     KeyResultArea,
     MainActivity,
+    MainActivityIndicator,
     OutputIndicator,
     Outcome,
     OutcomeIndicator,
@@ -20,12 +22,14 @@ from .models import (
     StrategicObjective,
     SubActivity,
     SubSubActivity,
+    TechnicalReport,
 )
 from .serializers import (
     ExpectedOutputSerializer,
     IndicatorTrackingSerializer,
     KeyActivitySerializer,
     KeyResultAreaSerializer,
+    MainActivityIndicatorSerializer,
     MainActivitySerializer,
     OutputIndicatorSerializer,
     OutcomeIndicatorSerializer,
@@ -37,6 +41,7 @@ from .serializers import (
     StrategySerializer,
     SubActivitySerializer,
     SubSubActivitySerializer,
+    TechnicalReportSerializer,
 )
 
 
@@ -232,9 +237,36 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class TechnicalReportViewSet(viewsets.ModelViewSet):
+    queryset = TechnicalReport.objects.select_related("main_activity", "sub_activity").all()
+    serializer_class = TechnicalReportSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["main_activity", "sub_activity", "status"]
+    search_fields = [
+        "title",
+        "reporting_period",
+        "main_activity__name",
+        "sub_activity__name",
+    ]
+    ordering_fields = [
+        "title",
+        "reporting_period",
+        "created_at",
+        "status",
+        "main_activity__name",
+        "sub_activity__name",
+    ]
+
+
 class MainActivityViewSet(viewsets.ModelViewSet):
     queryset = MainActivity.objects.all()
     serializer_class = MainActivitySerializer
+
+
+class MainActivityIndicatorViewSet(viewsets.ModelViewSet):
+    queryset = MainActivityIndicator.objects.select_related("main_activity").all()
+    serializer_class = MainActivityIndicatorSerializer
+    filterset_fields = ["main_activity", "category", "value_chain"]
 
 
 class SubActivityViewSet(viewsets.ModelViewSet):

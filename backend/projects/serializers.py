@@ -14,8 +14,10 @@ from .models import (
     ProjectMapping,
     IndicatorTracking,
     MainActivity,
+    MainActivityIndicator,
     SubActivity,
     SubSubActivity,
+    TechnicalReport,
 )
 
 
@@ -434,12 +436,166 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
 
+class TechnicalReportSerializer(serializers.ModelSerializer):
+    mainActivityId = serializers.PrimaryKeyRelatedField(
+        source="main_activity",
+        queryset=MainActivity.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    subActivityId = serializers.PrimaryKeyRelatedField(
+        source="sub_activity",
+        queryset=SubActivity.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    mainActivityName = serializers.CharField(source="main_activity.name", read_only=True)
+    subActivityName = serializers.CharField(source="sub_activity.name", read_only=True)
+    subSubActivities = serializers.JSONField(source="sub_sub_activities", required=False, default=list)
+    supportingDocuments = serializers.JSONField(source="supporting_documents", required=False, default=list)
+    reportingPeriod = serializers.CharField(source="reporting_period", required=False, allow_blank=True, default="")
+    startDate = serializers.DateField(source="start_date", required=False, allow_null=True)
+    endDate = serializers.DateField(source="end_date", required=False, allow_null=True)
+    disbursedAmount = serializers.DecimalField(
+        source="disbursed_amount",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        default=0,
+    )
+    utilizedAmount = serializers.DecimalField(
+        source="utilized_amount",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        default=0,
+    )
+    percentageUtilization = serializers.DecimalField(
+        source="percentage_utilization",
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        default=0,
+    )
+    supportingInformation = serializers.CharField(
+        source="supporting_information", required=False, allow_blank=True, default=""
+    )
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+
+    class Meta:
+        model = TechnicalReport
+        fields = [
+            "id",
+            "title",
+            "mainActivityId",
+            "subActivityId",
+            "mainActivityName",
+            "subActivityName",
+            "subSubActivities",
+            "indicators",
+            "reportingPeriod",
+            "startDate",
+            "endDate",
+            "disbursedAmount",
+            "utilizedAmount",
+            "percentageUtilization",
+            "status",
+            "achievement",
+            "remarks",
+            "supportingInformation",
+            "supportingDocuments",
+            "createdAt",
+            "updatedAt",
+        ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        title = attrs.get("title", getattr(self.instance, "title", "")).strip()
+        if not title:
+            raise serializers.ValidationError({"title": "Report title is required."})
+
+        main_activity = attrs.get("main_activity", getattr(self.instance, "main_activity", None))
+        sub_activity = attrs.get("sub_activity", getattr(self.instance, "sub_activity", None))
+        reporting_period = attrs.get(
+            "reporting_period", getattr(self.instance, "reporting_period", "")
+        ).strip()
+
+        if not getattr(self, "partial", False):
+            if not main_activity:
+                raise serializers.ValidationError(
+                    {"mainActivityId": "Main Activity is required."}
+                )
+            if not sub_activity:
+                raise serializers.ValidationError(
+                    {"subActivityId": "Sub Activity is required."}
+                )
+            if not reporting_period:
+                raise serializers.ValidationError(
+                    {"reportingPeriod": "Reporting period is required."}
+                )
+
+        if main_activity and sub_activity and sub_activity.main_activity_id != main_activity.id:
+            raise serializers.ValidationError(
+                {"subActivityId": "Select a Sub Activity under the selected Main Activity."}
+            )
+
+        start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError({"endDate": "End date cannot be before start date."})
+
+        disbursed = attrs.get("disbursed_amount", getattr(self.instance, "disbursed_amount", 0)) or 0
+        utilized = attrs.get("utilized_amount", getattr(self.instance, "utilized_amount", 0)) or 0
+        if utilized < 0 or disbursed < 0:
+            raise serializers.ValidationError(
+                {"utilizedAmount": "Amounts cannot be negative."}
+            )
+
+        attrs["title"] = title
+        attrs["reporting_period"] = reporting_period
+        return attrs
+
+
+class MainActivityIndicatorSerializer(serializers.ModelSerializer):
+    mainActivityId = serializers.PrimaryKeyRelatedField(
+        source="main_activity", queryset=MainActivity.objects.all(), required=False, allow_null=True
+    )
+    valueChain = serializers.CharField(source="value_chain", required=False, allow_blank=True, default="")
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = MainActivityIndicator
+        fields = ["id", "mainActivityId", "category", "valueChain", "indicator", "target", "createdAt"]
+
+
 class MainActivitySerializer(serializers.ModelSerializer):
+    indicators = MainActivityIndicatorSerializer(many=True, required=False)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = MainActivity
-        fields = ["id", "name", "createdAt"]
+        fields = ["id", "name", "indicators", "createdAt"]
+
+    def create(self, validated_data):
+        indicators_data = validated_data.pop("indicators", [])
+        main_activity = MainActivity.objects.create(**validated_data)
+        for indicator_data in indicators_data:
+            MainActivityIndicator.objects.create(main_activity=main_activity, **indicator_data)
+        return main_activity
+
+    def update(self, instance, validated_data):
+        indicators_data = validated_data.pop("indicators", None)
+        instance.name = validated_data.get("name", instance.name)
+        instance.save()
+        if indicators_data is not None:
+            instance.indicators.all().delete()
+            for indicator_data in indicators_data:
+                MainActivityIndicator.objects.create(main_activity=instance, **indicator_data)
+        return instance
 
 
 class SubActivitySerializer(serializers.ModelSerializer):
