@@ -16,9 +16,11 @@ import type {
   ProjectDocument,
   ProjectMapping,
   MainActivity,
+  MainActivityIndicator,
   SubActivity,
   SubSubActivity,
   Outcome,
+  TechnicalReport,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
@@ -32,8 +34,10 @@ export const qk = {
   outputIndicators: ["outputIndicators"] as const,
   outcomes: ["outcomes"] as const,
   mainActivities: ["mainActivities"] as const,
+  mainActivityIndicators: ["mainActivityIndicators"] as const,
   subActivities: ["subActivities"] as const,
   subSubActivities: ["subSubActivities"] as const,
+  technicalReports: ["technicalReports"] as const,
   documents: (projectId: string) => ["documents", projectId] as const,
   mapping: (projectId: string) => ["mapping", projectId] as const,
   tracking: (projectId: string) => ["tracking", projectId] as const,
@@ -720,7 +724,8 @@ export function useMainActivities() {
 export function useCreateMainActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.post<MainActivity>("/main-activities/", { name }),
+    mutationFn: ({ name, indicators }: { name: string; indicators?: Array<{ category: string; valueChain?: string; indicator: string; target: string }> }) =>
+      api.post<MainActivity>("/main-activities/", { name, indicators }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
   });
 }
@@ -728,8 +733,8 @@ export function useCreateMainActivity() {
 export function useUpdateMainActivity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      api.put<MainActivity>(`/main-activities/${id}/`, { name }),
+    mutationFn: ({ id, name, indicators }: { id: string; name: string; indicators?: Array<{ category: string; valueChain?: string; indicator: string; target: string }> }) =>
+      api.put<MainActivity>(`/main-activities/${id}/`, { name, indicators }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
   });
 }
@@ -739,6 +744,14 @@ export function useDeleteMainActivity() {
   return useMutation({
     mutationFn: (id: string) => api.del(`/main-activities/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainActivities }),
+  });
+}
+
+export function useMainActivityIndicators() {
+  return useQuery({
+    queryKey: qk.mainActivityIndicators,
+    queryFn: () => api.get<MainActivityIndicator[]>('/main-activity-indicators/'),
+    staleTime: STALE,
   });
 }
 
@@ -815,6 +828,39 @@ export interface SubSubActivityInput {
   valueChain: string;
   name: string;
   approvedActivityBudget: string;
+}
+
+export function useTechnicalReports() {
+  return useQuery({
+    queryKey: qk.technicalReports,
+    queryFn: () => api.get<TechnicalReport[]>("/technical-reports/"),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateTechnicalReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<TechnicalReport>) => api.post<TechnicalReport>("/technical-reports/", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+  });
+}
+
+export function useUpdateTechnicalReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: Partial<TechnicalReport> & { id: string }) =>
+      api.patch<TechnicalReport>(`/technical-reports/${id}/`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+  });
+}
+
+export function useDeleteTechnicalReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/technical-reports/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+  });
 }
 
 export function useSubSubActivities() {
