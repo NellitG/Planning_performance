@@ -1,0 +1,1 @@
+import{j as i}from"./index-lD2g2AGD.js";import{P as r}from"./PagePlaceholder-Dx7Fd4p9.js";import"./card-KgUIQwP2.js";function s(){return i.jsx(r,{title:"Presidential Priorities Matrix",description:"Presidential directives and priorities tracking."})}export{s as default};

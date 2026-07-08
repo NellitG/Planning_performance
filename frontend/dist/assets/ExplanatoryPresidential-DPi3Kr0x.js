@@ -1,0 +1,1 @@
+import{j as r}from"./index-lD2g2AGD.js";import{P as t}from"./PagePlaceholder-Dx7Fd4p9.js";import"./card-KgUIQwP2.js";function a(){return r.jsx(t,{title:"Explanatory Notes — Presidential Priorities",description:"Explanatory notes for presidential priority indicators."})}export{a as default};

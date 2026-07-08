@@ -1,0 +1,1 @@
+import{j as i}from"./index-lD2g2AGD.js";import{P as a}from"./PagePlaceholder-Dx7Fd4p9.js";import"./card-KgUIQwP2.js";function o(){return i.jsx(a,{title:"Matrix — Financial",description:"Financial performance matrix indicators."})}export{o as default};

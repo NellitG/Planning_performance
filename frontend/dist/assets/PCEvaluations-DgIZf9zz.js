@@ -1,1 +1,0 @@
-import{j as t}from"./index-B-FBZI5X.js";import{P as o}from"./PagePlaceholder-BJhkvejd.js";import"./card-utNqyvDF.js";function s(){return t.jsx(o,{title:"Evaluations",description:"Performance contract evaluations and scores."})}export{s as default};
