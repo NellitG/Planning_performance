@@ -1,0 +1,11 @@
+- [ ] Inspect backend models/serializers for Projects, ProjectDocuments, TechnicalReports, and any existing draft/edit endpoints
+- [ ] Implement Projects wizard Step 1/2/4/5/6/8/9 UI+state+payload changes
+- [ ] Implement wizard draft auto-save + resume support (persist currentStepCompleted and entered data)
+- [ ] Implement direct step navigation for Project editing (prepopulate steps; step-level saves)
+- [ ] Update document upload to support multiple files per document entry and per-entry removal
+- [ ] Add Projects listing action: Download PDF (and Project Details page button). Implement PDF generation server-side or client-side.
+- [ ] Technical Reports: New Report - add Select Project dropdown + associate report to selected project
+- [ ] Technical Reports: Reporting Period change to Quarter + Financial Year dropdowns (configurable list)
+- [ ] Update backend APIs/serializers for new fields, revised payloads, and multi-file documents if needed
+- [ ] Run frontend/backend lint/tests/build and verify workflows end-to-end
+
