@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import type { StepProps } from "./types";
-import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD, SCALE_OPTIONS } from "./data";
+import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD } from "./data";
 import { useState } from "react";
 
 function Field({ label, error, required, children }: { label: string; error?: string; required?: boolean; children: React.ReactNode }) {
@@ -70,18 +70,8 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
               {PROJECT_STATUSES_WIZARD.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
-          <Field label="Scale">
-            <select
-              value={data.scale}
-              onChange={(e) => onChange({ scale: e.target.value })}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            >
-              <option value="">— Select Scale —</option>
-              {SCALE_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </Field>
         </div>
-        <Field label="Description">
+        <Field label="Project Description">
           <Textarea
             rows={4}
             value={data.description}

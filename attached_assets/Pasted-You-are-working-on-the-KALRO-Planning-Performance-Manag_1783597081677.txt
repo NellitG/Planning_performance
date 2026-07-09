@@ -1,0 +1,297 @@
+You are working on the KALRO Planning, Performance Management (PPM) System. Focus exclusively on the **Projects** and **Technical Reports** modules and implement the following enhancements.
+
+---
+
+# PROJECTS MODULE
+
+Modify the existing **Add New Project** wizard while preserving the current nine-step workflow.
+
+## Step 1 – Identification
+
+Implement the following changes:
+
+* Remove the **Scale** input field completely.
+* Rename the **Description** field to **Project Description**.
+
+Retain all other fields and functionality.
+
+---
+
+## Step 2 – Project Implementation Centres
+
+Rename the step title from:
+
+```text
+Implementation Unit
+```
+
+to:
+
+```text
+Project Implementation Centres
+```
+
+### Headquarters
+
+Retain the **Headquarters** checkbox.
+
+When selected:
+
+* Replace the **Select Directorate** dropdown with a **Project Coordination** dropdown.
+
+The dropdown should contain options such as:
+
+* FSRP
+* NAVCDP
+* Other
+
+If the user selects **Other**, display a text input field allowing them to specify the project coordination unit.
+
+### Institute
+
+Retain the Institute option and its cascading dropdowns:
+
+* Institute
+* Centre
+* Sub-Centre
+
+### KALRO Seeds
+
+Remove the **KALRO Seeds** option completely.
+
+---
+
+## Step 4 – Timeline & Finance
+
+Modify this step as follows:
+
+Remove:
+
+* Completion Rate
+* Disbursed Amount
+* Utilized Amount
+
+Rename:
+
+* **Expected Budget** → **Budget**
+
+Retain:
+
+* Start Date
+* Expected End Date
+* Budget
+
+---
+
+## Step 5 – Project Objectives
+
+Rename the step title from:
+
+```text
+Objectives & Outcomes
+```
+
+to:
+
+```text
+Project Objectives
+```
+
+Modify the fields:
+
+Remove:
+
+* Sustainability
+
+Rename:
+
+* Expected Outcomes → Expected Outputs
+
+The final fields should be:
+
+* Background
+* Objectives
+* Expected Outputs
+* Collaborators
+
+---
+
+## Step 6 – Beneficiary Targets
+
+Modify the form as follows:
+
+Add:
+
+* Men
+
+Rename:
+
+* Youth → **Youth (Men & Female ≤35)**
+
+Remove:
+
+* VMGs
+
+Retain:
+
+* Total
+* Women
+* PWDs
+
+Validation Rules:
+
+The following values must never exceed **Total**:
+
+* Women
+* Men
+* Youth (Men & Female ≤35)
+* PWDs
+
+Display validation errors if exceeded.
+
+---
+
+## Step 8 – Funding Sources
+
+Rename:
+
+* Partner → Funding Agency
+
+The Funding Agency dropdown should include:
+
+* Existing agencies
+* Other
+
+When **Other** is selected:
+
+Display a text input field allowing the user to specify the funding agency.
+
+Retain all other funding fields.
+
+---
+
+## Step 9 – Project Documents
+
+Enhance the document upload functionality.
+
+Requirements:
+
+* Allow uploading multiple files under a single document entry.
+* Support selecting multiple files at once.
+* Display uploaded files as a list.
+* Allow users to remove individual files before saving.
+
+---
+
+# PROJECT WIZARD IMPROVEMENTS
+
+Implement automatic draft saving throughout the project creation process.
+
+Requirements:
+
+* Automatically save progress after each completed step.
+* Allow users to leave the wizard and continue later from the last completed step.
+* Restore all previously entered data when the user returns.
+
+---
+
+# PROJECT EDITING
+
+Enhance the Edit Project functionality.
+
+Requirements:
+
+* Users should be able to open any previously created project.
+* Allow direct navigation to any of the nine steps without completing them sequentially.
+* Prepopulate every step with existing project data.
+* Allow updates to any section independently.
+* Save changes without affecting other completed steps.
+
+---
+
+# PROJECT LIST ENHANCEMENT
+
+After a project has been successfully created:
+
+Modify the Projects listing table.
+
+Add a new action:
+
+* Download PDF
+
+Requirements:
+
+* Generate a professionally formatted PDF summary of the completed project.
+* Include all information captured across the nine project creation steps.
+* Download the PDF directly from the Projects list.
+* Make the same PDF summary available from the Project Details page.
+
+---
+
+# TECHNICAL REPORTS MODULE
+
+Modify the **New Report** interface.
+
+---
+
+## Project Selection
+
+At the beginning of the New Report form, add a dropdown:
+
+```text
+Select Project
+```
+
+Populate the dropdown dynamically with all previously created projects.
+
+The selected project should be associated with the report.
+
+---
+
+## Reporting Period
+
+Replace the existing reporting period input with two separate dropdowns.
+
+### Quarter
+
+Dropdown options:
+
+* Quarter 1
+* Quarter 2
+* Quarter 3
+* Quarter 4
+
+### Financial Year
+
+Dropdown options such as:
+
+* 2023/2024
+* 2024/2025
+* 2025/2026
+* 2026/2027
+
+The list should be configurable to support future financial years.
+
+---
+
+# User Experience Requirements
+
+* Preserve the existing KALRO green theme.
+* Maintain responsive layouts.
+* Keep all existing validations unless explicitly modified.
+* Ensure all new fields are integrated with the backend APIs.
+* Preserve all existing workflows and relationships.
+
+---
+
+# Final Expected Result
+
+After implementation:
+
+1. The nine-step Project Creation Wizard reflects all requested field additions, removals, and renaming.
+2. Users can save progress and continue project creation later without losing data.
+3. Users can edit any project by navigating directly to any step of the wizard.
+4. Multiple files can be uploaded within a single Project Document entry.
+5. Every completed project can be downloaded as a professionally formatted PDF summary from both the Projects list and Project Details page.
+6. The Technical Reports module requires users to select an existing project before creating a report.
+7. Reporting Period is captured using separate **Quarter** and **Financial Year** dropdowns.

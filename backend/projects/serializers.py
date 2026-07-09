@@ -11,6 +11,7 @@ from .models import (
     Outcome,
     OutcomeIndicator,
     ProjectDocument,
+    ProjectDocumentFile,
     ProjectMapping,
     IndicatorTracking,
     MainActivity,
@@ -29,7 +30,6 @@ class ProjectSerializer(serializers.ModelSerializer):
     projectType = serializers.CharField(
         source="project_type", required=False, allow_blank=True, default=""
     )
-    scale = serializers.CharField(required=False, allow_blank=True, default="")
     startDate = serializers.DateField(
         source="start_date", required=False, allow_null=True
     )
@@ -42,25 +42,8 @@ class ProjectSerializer(serializers.ModelSerializer):
         source="value_chains", required=False, default=list
     )
 
-    completionRate = serializers.FloatField(
-        source="completion_rate", required=False, allow_null=True
-    )
-    expectedBudget = serializers.DecimalField(
+    budget = serializers.DecimalField(
         source="expected_budget",
-        max_digits=20,
-        decimal_places=2,
-        required=False,
-        allow_null=True,
-    )
-    disbursedAmount = serializers.DecimalField(
-        source="disbursed_amount",
-        max_digits=20,
-        decimal_places=2,
-        required=False,
-        allow_null=True,
-    )
-    utilizedAmount = serializers.DecimalField(
-        source="utilized_amount",
         max_digits=20,
         decimal_places=2,
         required=False,
@@ -71,11 +54,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     projectObjectives = serializers.CharField(
         source="project_objectives", required=False, allow_blank=True, default=""
     )
-    expectedOutcomes = serializers.CharField(
+    expectedOutputs = serializers.CharField(
         source="expected_outcomes", required=False, allow_blank=True, default=""
-    )
-    sustainability = serializers.CharField(
-        required=False, allow_blank=True, default=""
     )
     collaborators = serializers.CharField(
         required=False, allow_blank=True, default=""
@@ -85,14 +65,17 @@ class ProjectSerializer(serializers.ModelSerializer):
         source="total_beneficiaries", required=False, allow_null=True
     )
     women = serializers.IntegerField(required=False, allow_null=True)
+    men = serializers.IntegerField(required=False, allow_null=True)
     youth = serializers.IntegerField(required=False, allow_null=True)
-    vmgs = serializers.IntegerField(required=False, allow_null=True)
     pwds = serializers.IntegerField(required=False, allow_null=True)
 
     locations = serializers.JSONField(required=False, default=list)
     fundingSources = serializers.JSONField(
         source="funding_sources", required=False, default=list
     )
+
+    isDraft = serializers.BooleanField(source="is_draft", required=False, default=True)
+    currentStep = serializers.IntegerField(source="current_step", required=False, default=1)
 
     class Meta:
         model = Project
@@ -104,27 +87,24 @@ class ProjectSerializer(serializers.ModelSerializer):
             "status",
             "coordinator",
             "projectType",
-            "scale",
             "startDate",
             "endDate",
             "implementationUnits",
             "valueChains",
-            "completionRate",
-            "expectedBudget",
-            "disbursedAmount",
-            "utilizedAmount",
+            "budget",
             "background",
             "projectObjectives",
-            "expectedOutcomes",
-            "sustainability",
+            "expectedOutputs",
             "collaborators",
             "totalBeneficiaries",
             "women",
+            "men",
             "youth",
-            "vmgs",
             "pwds",
             "locations",
             "fundingSources",
+            "isDraft",
+            "currentStep",
         ]
 
 
@@ -326,36 +306,19 @@ class OutcomeSerializer(serializers.ModelSerializer):
         return instance
 
 
-class ProjectDocumentSerializer(serializers.ModelSerializer):
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+class ProjectDocumentFileSerializer(serializers.ModelSerializer):
     type = serializers.CharField(
         source="file_type", required=False, allow_blank=True, default=""
     )
-    documentType = serializers.CharField(
-        source="document_type", required=False, allow_blank=True, default=""
-    )
-    description = serializers.CharField(required=False, allow_blank=True, default="")
     fileUrl = serializers.SerializerMethodField()
     uploadedAt = serializers.DateTimeField(source="created_at", read_only=True)
-    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
-        model = ProjectDocument
-        fields = [
-            "id",
-            "project",
-            "name",
-            "file",
-            "fileUrl",
-            "size",
-            "type",
-            "documentType",
-            "description",
-            "uploadedAt",
-            "createdAt",
-        ]
+        model = ProjectDocumentFile
+        fields = ["id", "document", "name", "fileUrl", "size", "type", "uploadedAt"]
         extra_kwargs = {
-            "file": {"required": False, "allow_null": True, "write_only": True},
+            "document": {"required": False},
+            "file": {"required": False, "write_only": True},
         }
 
     def get_fileUrl(self, obj):
@@ -364,6 +327,28 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = obj.file.url
         return request.build_absolute_uri(url) if request else url
+
+
+class ProjectDocumentSerializer(serializers.ModelSerializer):
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    documentType = serializers.CharField(
+        source="document_type", required=False, allow_blank=True, default=""
+    )
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    files = ProjectDocumentFileSerializer(many=True, required=False, read_only=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = ProjectDocument
+        fields = [
+            "id",
+            "project",
+            "name",
+            "documentType",
+            "description",
+            "files",
+            "createdAt",
+        ]
 
 
 class ProjectMappingSerializer(serializers.ModelSerializer):
@@ -437,6 +422,17 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
 
 
 class TechnicalReportSerializer(serializers.ModelSerializer):
+    projectId = serializers.PrimaryKeyRelatedField(
+        source="project",
+        queryset=Project.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    projectName = serializers.CharField(source="project.project_name", read_only=True)
+    quarter = serializers.CharField(required=False, allow_blank=True, default="")
+    financialYear = serializers.CharField(
+        source="financial_year", required=False, allow_blank=True, default=""
+    )
     mainActivityId = serializers.PrimaryKeyRelatedField(
         source="main_activity",
         queryset=MainActivity.objects.all(),
@@ -491,12 +487,16 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "projectId",
+            "projectName",
             "mainActivityId",
             "subActivityId",
             "mainActivityName",
             "subActivityName",
             "subSubActivities",
             "indicators",
+            "quarter",
+            "financialYear",
             "reportingPeriod",
             "startDate",
             "endDate",
@@ -518,25 +518,33 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         if not title:
             raise serializers.ValidationError({"title": "Report title is required."})
 
+        project = attrs.get("project", getattr(self.instance, "project", None))
         main_activity = attrs.get("main_activity", getattr(self.instance, "main_activity", None))
         sub_activity = attrs.get("sub_activity", getattr(self.instance, "sub_activity", None))
+        quarter = attrs.get("quarter", getattr(self.instance, "quarter", "")).strip()
+        financial_year = attrs.get(
+            "financial_year", getattr(self.instance, "financial_year", "")
+        ).strip()
         reporting_period = attrs.get(
             "reporting_period", getattr(self.instance, "reporting_period", "")
         ).strip()
 
         if not getattr(self, "partial", False):
-            if not main_activity:
+            if not project:
                 raise serializers.ValidationError(
-                    {"mainActivityId": "Main Activity is required."}
+                    {"projectId": "Please select a project."}
                 )
-            if not sub_activity:
+            if not quarter:
                 raise serializers.ValidationError(
-                    {"subActivityId": "Sub Activity is required."}
+                    {"quarter": "Quarter is required."}
                 )
-            if not reporting_period:
+            if not financial_year:
                 raise serializers.ValidationError(
-                    {"reportingPeriod": "Reporting period is required."}
+                    {"financialYear": "Financial year is required."}
                 )
+
+        if quarter and financial_year:
+            reporting_period = f"{quarter} {financial_year}"
 
         if main_activity and sub_activity and sub_activity.main_activity_id != main_activity.id:
             raise serializers.ValidationError(

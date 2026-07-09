@@ -14,6 +14,7 @@ import {
   File,
   Image,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -48,6 +49,83 @@ function formatSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+function cleanPdfText(value: unknown) {
+  return String(value ?? "")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function downloadProjectPdf(
+  project: import("@/utils/types").Project,
+  status: string,
+  documents: ProjectDocument[],
+  kraTitles: string[],
+) {
+  const lines = [
+    "KALRO Planning, Performance Management System",
+    "Project Summary",
+    "",
+    `Project: ${project.name}`,
+    `Project ID: ${project.id}`,
+    `Status: ${status}`,
+    `Coordinator: ${project.coordinator || "N/A"}`,
+    `Project Type: ${project.projectType || "N/A"}`,
+    `Start Date: ${project.startDate || "N/A"}`,
+    `End Date: ${project.endDate || "N/A"}`,
+    `Budget: ${project.budget ?? "N/A"}`,
+    "",
+    `Background: ${project.background || "N/A"}`,
+    `Project Objectives: ${project.projectObjectives || "N/A"}`,
+    `Expected Outputs: ${project.expectedOutputs || "N/A"}`,
+    `Collaborators: ${project.collaborators || "N/A"}`,
+    "",
+    `Total Beneficiaries: ${project.totalBeneficiaries ?? "N/A"}`,
+    `Women: ${project.women ?? "N/A"}  Men: ${project.men ?? "N/A"}  Youth: ${project.youth ?? "N/A"}  PWDs: ${project.pwds ?? "N/A"}`,
+    "",
+    "Key Result Areas:",
+    ...(kraTitles.length ? kraTitles.map((t, i) => `${i + 1}. ${t}`) : ["N/A"]),
+    "",
+    "Documents:",
+    ...(documents.length ? documents.map((d, i) => `${i + 1}. ${d.name} (${d.files.length} file${d.files.length !== 1 ? "s" : ""})`) : ["N/A"]),
+  ].slice(0, 60);
+  const stream = [
+    "BT",
+    "/F1 16 Tf 50 800 Td (KALRO Project Summary) Tj",
+    ...lines.map((line, index) => `/F1 ${index < 2 ? 12 : 10} Tf 0 -14 Td (${cleanPdfText(line).slice(0, 112)}) Tj`),
+    "ET",
+  ].join("\n");
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+    `5 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object) => {
+    offsets.push(pdf.length);
+    pdf += `${object}\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${cleanPdfText(project.name || "project").replace(/\\[()]/g, "").replace(/\s+/g, "-").toLowerCase()}.pdf`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function fileExt(name = "") {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
@@ -80,10 +158,14 @@ function DocIcon({ name, type, className }: DocIconProps) {
 }
 
 function DocumentCard({ doc }: { doc: ProjectDocument }) {
-  const dataUrl = doc.fileUrl ?? null;
+  const primaryFile = doc.files[0];
+  const dataUrl = primaryFile?.fileUrl ?? null;
+  const fileName = primaryFile?.name ?? doc.name;
+  const fileType = primaryFile?.type ?? "";
+  const totalSize = doc.files.reduce((sum, f) => sum + (f.size || 0), 0);
   const [lightbox, setLightbox] = useState(false);
-  const img = isImage(doc.name, doc.type ?? "");
-  const pdf = isPdf(doc.name, doc.type ?? "");
+  const img = isImage(fileName, fileType);
+  const pdf = isPdf(fileName, fileType);
 
   const handleOpen = () => {
     if (!dataUrl) return;
@@ -113,7 +195,7 @@ function DocumentCard({ doc }: { doc: ProjectDocument }) {
           ) : (
             <div className="flex flex-col items-center gap-1.5">
               <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10">
-                <DocIcon name={doc.name} type={doc.type ?? ""} className="h-6 w-6" />
+                <DocIcon name={fileName} type={fileType} className="h-6 w-6" />
               </div>
             </div>
           )}
@@ -133,10 +215,28 @@ function DocumentCard({ doc }: { doc: ProjectDocument }) {
             {doc.name}
           </p>
           <div className="mt-1 flex items-center justify-between gap-1">
-            <span className="text-xs text-muted-foreground">{formatSize(doc.size)}</span>
-            <span className="text-xs text-muted-foreground">{doc.uploadedAt}</span>
+            <span className="text-xs text-muted-foreground">
+              {doc.files.length} file{doc.files.length !== 1 ? "s" : ""} · {formatSize(totalSize)}
+            </span>
+            <span className="text-xs text-muted-foreground">{doc.createdAt}</span>
           </div>
-          {dataUrl && (
+          {doc.files.length > 1 ? (
+            <ul className="mt-2 space-y-1">
+              {doc.files.map((f) => (
+                <li key={f.id}>
+                  <a
+                    href={f.fileUrl ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted transition-colors truncate"
+                  >
+                    <span className="truncate">{f.name}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : dataUrl ? (
             <button
               onClick={handleOpen}
               className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-background py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
@@ -144,7 +244,7 @@ function DocumentCard({ doc }: { doc: ProjectDocument }) {
               <ExternalLink className="h-3 w-3" />
               {img ? "View Image" : pdf ? "Open PDF" : "Open File"}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -278,6 +378,12 @@ export default function ProjectView() {
               <Link to={`/projects/${id}`}>
                 <Pencil className="h-4 w-4" /> {isMapped ? "Edit Mapping" : "Start Workflow"}
               </Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => downloadProjectPdf(project, effectiveStatus, documents, kras.map((k) => k.title))}
+            >
+              <Download className="h-4 w-4" /> Download PDF
             </Button>
           </div>
         }

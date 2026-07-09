@@ -1,1 +1,0 @@
-import{j as o}from"./index-lD2g2AGD.js";import{L as r}from"./LoginForm-6LXfSpPZ.js";import"./eye-BJX2_B1i.js";import"./loader-circle-DSrxi2Et.js";import"./arrow-right-C63CGBhP.js";import"./arrow-left-BCDPQPDw.js";function n(){return o.jsx(r,{moduleKey:"projects"})}export{n as default};

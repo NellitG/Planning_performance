@@ -18,7 +18,9 @@ import {
   useSubSubActivities,
   useMainActivityIndicators,
   useCreateTechnicalReport,
+  useProjects,
 } from "@/hooks/useProjectsApi";
+import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
 import type { MainActivity, MainActivityIndicator, ProjectObjective, ProjectStrategy, SubActivity, SubSubActivity } from "@/utils/types";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -65,17 +67,20 @@ export default function NewReport() {
   const { data: subActivities = [] } = useSubActivities();
   const { data: subSubActivities = [] } = useSubSubActivities();
   const { data: mainIndicators = [] } = useMainActivityIndicators();
+  const { data: projects = [] } = useProjects();
   const createReport = useCreateTechnicalReport();
   const navigate = useNavigate();
 
   const [enableMainActivityReporting, setEnableMainActivityReporting] = useState(false);
   const [title, setTitle] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [quarter, setQuarter] = useState("");
+  const [financialYear, setFinancialYear] = useState("");
   const [selectedMainActivityId, setSelectedMainActivityId] = useState("");
   const [selectedSubActivityId, setSelectedSubActivityId] = useState("");
   const [selectedKraId, setSelectedKraId] = useState("");
   const [selectedObjectiveId, setSelectedObjectiveId] = useState("");
   const [selectedStrategyId, setSelectedStrategyId] = useState("");
-  const [reportingPeriod, setReportingPeriod] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [disbursed, setDisbursed] = useState(0);
@@ -133,8 +138,13 @@ export default function NewReport() {
       return;
     }
 
-    if (!reportingPeriod.trim()) {
-      toast.error("Please enter the reporting period.");
+    if (!selectedProjectId) {
+      toast.error("Please select a project.");
+      return;
+    }
+
+    if (!quarter || !financialYear) {
+      toast.error("Please select a quarter and financial year.");
       return;
     }
 
@@ -151,6 +161,9 @@ export default function NewReport() {
     try {
       await createReport.mutateAsync({
         title: title.trim(),
+        projectId: selectedProjectId,
+        quarter,
+        financialYear,
         mainActivityId: selectedMainActivityId,
         subActivityId: selectedSubActivityId,
         subSubActivities: selectedSubSubActivities.map((activity) => ({
@@ -162,7 +175,6 @@ export default function NewReport() {
           indicator: indicator.indicator,
           target: indicator.target,
         })),
-        reportingPeriod: reportingPeriod.trim(),
         startDate: startDate || null,
         endDate: endDate || null,
         disbursedAmount: Number(disbursed || 0),
@@ -212,7 +224,33 @@ export default function NewReport() {
         <Section index={1} title="Project Duration">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Field label="Report Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter report title" />
-            <Field label="Reporting Period" value={reportingPeriod} onChange={(e) => setReportingPeriod(e.target.value)} placeholder="Q1 FY2025/26" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Project</Label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Quarter</Label>
+              <Select value={quarter} onValueChange={setQuarter}>
+                <SelectTrigger><SelectValue placeholder="Select Quarter" /></SelectTrigger>
+                <SelectContent>
+                  {QUARTER_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Financial Year</Label>
+              <Select value={financialYear} onValueChange={setFinancialYear}>
+                <SelectTrigger><SelectValue placeholder="Select Financial Year" /></SelectTrigger>
+                <SelectContent>
+                  {FINANCIAL_YEAR_OPTIONS.map((fy) => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Field label="Start Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             <Field label="End Date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>

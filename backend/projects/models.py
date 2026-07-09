@@ -19,11 +19,6 @@ class Project(models.Model):
         ("Corporate", "Corporate"),
         ("Other", "Other"),
     ]
-    SCALE_CHOICES = [
-        ("Small", "Small (< 5M)"),
-        ("Medium", "Medium (5M – 10M)"),
-        ("Large", "Large (> 10M)"),
-    ]
 
     project_name = models.CharField(max_length=500)
     logo = models.CharField(max_length=20, blank=True)
@@ -34,30 +29,28 @@ class Project(models.Model):
 
     project_coordinator = models.CharField(max_length=500, blank=True)
     project_type = models.CharField(max_length=50, blank=True)
-    scale = models.CharField(max_length=20, blank=True)
 
     implementation_units = models.JSONField(default=dict, blank=True)
     value_chains = models.JSONField(default=list, blank=True)
 
-    completion_rate = models.FloatField(null=True, blank=True)
     expected_budget = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
-    disbursed_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
-    utilized_amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
 
     background = models.TextField(blank=True)
     project_objectives = models.TextField(blank=True)
     expected_outcomes = models.TextField(blank=True)
-    sustainability = models.TextField(blank=True)
     collaborators = models.TextField(blank=True)
 
     total_beneficiaries = models.IntegerField(null=True, blank=True)
     women = models.IntegerField(null=True, blank=True)
+    men = models.IntegerField(null=True, blank=True)
     youth = models.IntegerField(null=True, blank=True)
-    vmgs = models.IntegerField(null=True, blank=True)
     pwds = models.IntegerField(null=True, blank=True)
 
     locations = models.JSONField(default=list, blank=True)
     funding_sources = models.JSONField(default=list, blank=True)
+
+    is_draft = models.BooleanField(default=False)
+    current_step = models.PositiveSmallIntegerField(default=1)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -224,7 +217,21 @@ class ProjectDocument(models.Model):
     name = models.CharField(max_length=500)
     description = models.TextField(blank=True)
     document_type = models.CharField(max_length=120, blank=True)
-    file = models.FileField(upload_to="project_documents/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+
+class ProjectDocumentFile(models.Model):
+    document = models.ForeignKey(
+        ProjectDocument, on_delete=models.CASCADE, related_name="files"
+    )
+    file = models.FileField(upload_to="project_documents/")
+    name = models.CharField(max_length=500, blank=True)
     size = models.BigIntegerField(default=0)
     file_type = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -346,6 +353,9 @@ class TechnicalReport(models.Model):
     ]
 
     title = models.CharField(max_length=500)
+    project = models.ForeignKey(
+        Project, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
+    )
     main_activity = models.ForeignKey(
         MainActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )
@@ -354,6 +364,8 @@ class TechnicalReport(models.Model):
     )
     sub_sub_activities = models.JSONField(default=list, blank=True)
     indicators = models.JSONField(default=list, blank=True)
+    quarter = models.CharField(max_length=20, blank=True)
+    financial_year = models.CharField(max_length=20, blank=True)
     reporting_period = models.CharField(max_length=120, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)

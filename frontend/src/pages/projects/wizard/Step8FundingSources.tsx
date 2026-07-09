@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Banknote } from "lucide-react";
 import type { StepProps, FundingSourceEntry } from "./types";
-import { PARTNERS, FUNDING_TYPES } from "./data";
+import { FUNDING_AGENCIES, FUNDING_TYPES } from "./data";
 
 function FundingRow({
   source,
@@ -43,16 +43,26 @@ function FundingRow({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Partner</Label>
+          <Label className="text-xs">Funding Agency</Label>
           <select
-            value={source.partner}
-            onChange={(e) => onChange({ partner: e.target.value })}
+            value={source.fundingAgency}
+            onChange={(e) => onChange({ fundingAgency: e.target.value, fundingAgencyOther: e.target.value === "Other" ? source.fundingAgencyOther : "" })}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            <option value="">— Select Partner —</option>
-            {PARTNERS.map((p) => <option key={p} value={p}>{p}</option>)}
+            <option value="">— Select Funding Agency —</option>
+            {FUNDING_AGENCIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+        {source.fundingAgency === "Other" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specify Funding Agency</Label>
+            <Input
+              value={source.fundingAgencyOther}
+              onChange={(e) => onChange({ fundingAgencyOther: e.target.value })}
+              placeholder="Enter funding agency"
+            />
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label className="text-xs">Type</Label>
           <select
@@ -104,7 +114,7 @@ export default function Step8FundingSources({ data, onChange, onNext, onBack }: 
     onChange({
       fundingSources: [
         ...data.fundingSources,
-        { sourceName: "", partner: "", type: "", amount: "", disbursed: "", utilized: "" },
+        { sourceName: "", fundingAgency: "", fundingAgencyOther: "", type: "", amount: "", disbursed: "", utilized: "" },
       ],
     });
   };

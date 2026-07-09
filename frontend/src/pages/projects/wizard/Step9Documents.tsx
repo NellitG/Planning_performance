@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, FileCheck2, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronLeft, FileCheck2, Plus, Trash2, Upload, X } from "lucide-react";
 import { useRef } from "react";
 import type { StepProps, DocumentEntry } from "./types";
 import { DOCUMENT_TYPES } from "./data";
@@ -19,6 +19,15 @@ function DocumentRow({
   onRemove: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    onChange({ files: [...doc.files, ...Array.from(fileList)] });
+  };
+
+  const removeFile = (idx: number) => {
+    onChange({ files: doc.files.filter((_, i) => i !== idx) });
+  };
 
   return (
     <div className="rounded-lg border border-border bg-background p-4 space-y-3">
@@ -67,15 +76,13 @@ function DocumentRow({
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">File</Label>
+          <Label className="text-xs">Files</Label>
           <input
             ref={fileRef}
             type="file"
+            multiple
             className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              onChange({ file: f });
-            }}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
           />
           <div className="flex items-center gap-2">
             <Button
@@ -84,16 +91,28 @@ function DocumentRow({
               size="sm"
               onClick={() => fileRef.current?.click()}
             >
-              <Upload className="h-3.5 w-3.5" /> Choose File
+              <Upload className="h-3.5 w-3.5" /> Add Files
             </Button>
-            {doc.file ? (
-              <span className="text-xs text-muted-foreground truncate max-w-xs">
-                {doc.file.name} ({(doc.file.size / 1024).toFixed(1)} KB)
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">No file chosen</span>
+            {doc.files.length === 0 && (
+              <span className="text-xs text-muted-foreground">No files chosen</span>
             )}
           </div>
+          {doc.files.length > 0 && (
+            <ul className="space-y-1.5 pt-1">
+              {doc.files.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
+                  <span className="truncate text-xs text-foreground">{f.name} ({(f.size / 1024).toFixed(1)} KB)</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-red-500"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
@@ -110,7 +129,7 @@ export default function Step9Documents({ data, onChange, onBack, onFinish, isSub
     onChange({
       documents: [
         ...data.documents,
-        { title: "", docType: "", description: "", file: null },
+        { title: "", docType: "", description: "", files: [] },
       ],
     });
   };

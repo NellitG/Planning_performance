@@ -28,8 +28,8 @@ export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack
     const e: Record<string, string> = {};
     if (total > 0) {
       if (data.women !== "" && Number(data.women) > total) e.women = "Cannot exceed Total Beneficiaries";
+      if (data.men !== "" && Number(data.men) > total) e.men = "Cannot exceed Total Beneficiaries";
       if (data.youth !== "" && Number(data.youth) > total) e.youth = "Cannot exceed Total Beneficiaries";
-      if (data.vmgs !== "" && Number(data.vmgs) > total) e.vmgs = "Cannot exceed Total Beneficiaries";
       if (data.pwds !== "" && Number(data.pwds) > total) e.pwds = "Cannot exceed Total Beneficiaries";
     }
     setErrors(e);
@@ -69,21 +69,21 @@ export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack
               placeholder="0"
             />
           </Field>
-          <Field label="Youth" error={errors.youth}>
+          <Field label="Men" error={errors.men}>
+            <Input
+              type="number"
+              min="0"
+              value={data.men}
+              onChange={(e) => numericField("men", e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+          <Field label="Youth (18-35 years)" error={errors.youth}>
             <Input
               type="number"
               min="0"
               value={data.youth}
               onChange={(e) => numericField("youth", e.target.value)}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="VMGs (Vulnerable & Marginalised Groups)" error={errors.vmgs}>
-            <Input
-              type="number"
-              min="0"
-              value={data.vmgs}
-              onChange={(e) => numericField("vmgs", e.target.value)}
               placeholder="0"
             />
           </Field>

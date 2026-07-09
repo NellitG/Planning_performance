@@ -17,6 +17,7 @@ from .models import (
     OutcomeIndicator,
     Project,
     ProjectDocument,
+    ProjectDocumentFile,
     ProjectMapping,
     Strategy,
     StrategicObjective,
@@ -34,6 +35,7 @@ from .serializers import (
     OutputIndicatorSerializer,
     OutcomeIndicatorSerializer,
     OutcomeSerializer,
+    ProjectDocumentFileSerializer,
     ProjectDocumentSerializer,
     ProjectMappingSerializer,
     ProjectSerializer,
@@ -156,10 +158,55 @@ class OutcomeIndicatorViewSet(BulkCreateMixin, viewsets.ModelViewSet):
 
 
 class ProjectDocumentViewSet(viewsets.ModelViewSet):
-    queryset = ProjectDocument.objects.all()
+    queryset = ProjectDocument.objects.prefetch_related("files").all()
     serializer_class = ProjectDocumentSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filterset_fields = ["project"]
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        document = serializer.save()
+
+        files = request.FILES.getlist("files") or request.FILES.getlist("file")
+        for f in files:
+            ProjectDocumentFile.objects.create(
+                document=document,
+                file=f,
+                name=f.name,
+                size=f.size,
+                file_type=f.content_type or "",
+            )
+
+        out = self.get_serializer(document)
+        headers = self.get_success_headers(out.data)
+        return Response(out.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=["post"], url_path="add-files")
+    def add_files(self, request, pk=None):
+        document = self.get_object()
+        files = request.FILES.getlist("files") or request.FILES.getlist("file")
+        if not files:
+            return Response(
+                {"detail": "No files provided."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        for f in files:
+            ProjectDocumentFile.objects.create(
+                document=document,
+                file=f,
+                name=f.name,
+                size=f.size,
+                file_type=f.content_type or "",
+            )
+        return Response(self.get_serializer(document).data, status=status.HTTP_200_OK)
+
+
+class ProjectDocumentFileViewSet(viewsets.ModelViewSet):
+    queryset = ProjectDocumentFile.objects.all()
+    serializer_class = ProjectDocumentFileSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filterset_fields = ["document"]
 
 
 class ProjectMappingViewSet(viewsets.ModelViewSet):

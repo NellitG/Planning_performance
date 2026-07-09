@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { Plus, Search, ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -13,6 +13,71 @@ import { useProjects, useAllMappings, useDeleteProject } from "@/hooks/useProjec
 import type { Project } from "@/utils/types";
 
 const PAGE_SIZE = 6;
+
+function cleanPdfText(value: unknown) {
+  return String(value ?? "")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function downloadProjectPdf(project: Project, status: string) {
+  const lines = [
+    "KALRO Planning, Performance Management System",
+    "Project Summary",
+    "",
+    `Project: ${project.name}`,
+    `Project ID: ${project.id}`,
+    `Status: ${status}`,
+    `Start Date: ${project.startDate || "N/A"}`,
+    `End Date: ${project.endDate || "N/A"}`,
+    `Coordinator: ${project.coordinator || "N/A"}`,
+    `Budget: ${project.budget ?? "N/A"}`,
+    `Background: ${project.background || "N/A"}`,
+    `Project Objectives: ${project.projectObjectives || "N/A"}`,
+    `Expected Outputs: ${project.expectedOutputs || "N/A"}`,
+    `Total Beneficiaries: ${project.totalBeneficiaries ?? "N/A"}`,
+    `Women: ${project.women ?? "N/A"}`,
+    `Men: ${project.men ?? "N/A"}`,
+    `Youth: ${project.youth ?? "N/A"}`,
+    `PWDs: ${project.pwds ?? "N/A"}`,
+  ].slice(0, 52);
+  const stream = [
+    "BT",
+    "/F1 16 Tf 50 800 Td (KALRO Project Summary) Tj",
+    ...lines.map((line, index) => `/F1 ${index < 2 ? 12 : 10} Tf 0 -14 Td (${cleanPdfText(line).slice(0, 112)}) Tj`),
+    "ET",
+  ].join("\n");
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+    `5 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object) => {
+    offsets.push(pdf.length);
+    pdf += `${object}\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+
+  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${cleanPdfText(project.name || "project").replace(/\\[()]/g, "").replace(/\s+/g, "-").toLowerCase()}.pdf`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -165,6 +230,15 @@ export default function Projects() {
                           onClick={() => navigate(`/projects/${p.id}/edit`)}
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          title="Download PDF"
+                          onClick={() => downloadProjectPdf(p, effectiveStatus(p))}
+                        >
+                          <Download className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"

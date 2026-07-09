@@ -121,7 +121,7 @@ function Step1({ project, onNext }: { project: Project; onNext: () => void }) {
     Array.from(fileList).forEach((file) => {
       const id = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
       setPending((prev) => [...prev, { id, name: file.name, size: file.size }]);
-      uploadDoc.mutateAsync({ projectId: project.id, file })
+      uploadDoc.mutateAsync({ projectId: project.id, files: [file], name: file.name, documentType: "Other" })
         .catch(() => toast.error(`Failed to upload ${file.name}`))
         .finally(() => setPending((prev) => prev.filter((p) => p.id !== id)));
     });
@@ -183,7 +183,9 @@ function Step1({ project, onNext }: { project: Project; onNext: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium text-foreground">{d.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatSize(d.size)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatSize(d.files.reduce((sum, f) => sum + (f.size || 0), 0))}
+                    </span>
                   </div>
                   <p className="mt-0.5 text-xs text-green-600">Uploaded successfully</p>
                 </div>

@@ -15,21 +15,10 @@ export const PROJECT_STATUSES_WIZARD = [
   "Suspended",
 ];
 
-export const SCALE_OPTIONS = [
-  { value: "Small", label: "Small (< 5M)" },
-  { value: "Medium", label: "Medium (5M – 10M)" },
-  { value: "Large", label: "Large (> 10M)" },
-];
-
-export const KALRO_DIRECTORATES = [
-  "Research",
-  "Crop Systems & Genetic Resources",
-  "Livestock & Rangelands Management",
-  "Aquatic Resources Research & Development",
-  "Agricultural Information & Technology Transfer",
-  "Finance & Administration",
-  "Strategy, Planning & Governance",
-  "Human Resource & Administration",
+export const PROJECT_COORDINATION_OPTIONS = [
+  "FSRP",
+  "NAVCDP",
+  "Other",
 ];
 
 export const KALRO_INSTITUTES = [
@@ -108,7 +97,7 @@ export const VALUE_CHAINS = [
   "Banana",
 ];
 
-export const PARTNERS = [
+export const FUNDING_AGENCIES = [
   "USAID",
   "World Bank",
   "African Development Bank",
@@ -126,6 +115,16 @@ export const PARTNERS = [
   "CIP",
   "IITA",
   "Other",
+];
+
+export const QUARTER_OPTIONS = ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4"];
+
+export const FINANCIAL_YEAR_OPTIONS = [
+  "2023/2024",
+  "2024/2025",
+  "2025/2026",
+  "2026/2027",
+  "2027/2028",
 ];
 
 export const FUNDING_TYPES = [

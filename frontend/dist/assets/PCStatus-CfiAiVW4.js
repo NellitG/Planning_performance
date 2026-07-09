@@ -1,1 +1,0 @@
-import{j as t}from"./index-lD2g2AGD.js";import{P as r}from"./PagePlaceholder-Dx7Fd4p9.js";import"./card-KgUIQwP2.js";function e(){return t.jsx(r,{title:"PC Status",description:"Track performance contract submission and approval status."})}export{e as default};

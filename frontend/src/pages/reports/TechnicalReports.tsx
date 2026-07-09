@@ -18,7 +18,9 @@ import {
   useSubSubActivities,
   useTechnicalReports,
   useUpdateTechnicalReport,
+  useProjects,
 } from "@/hooks/useProjectsApi";
+import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
 import type { MainActivityIndicator, SubSubActivity, TechnicalReport } from "@/utils/types";
 
 const primaryTabs = ["Q1 FY2025/26", "Q2 FY2025/26", "Q3 FY2025/26", "Q4 FY2025/26", "Annual"];
@@ -30,9 +32,11 @@ type SortKey = "title" | "mainActivityName" | "subActivityName" | "reportingPeri
 
 interface EditForm {
   title: string;
+  projectId: string;
+  quarter: string;
+  financialYear: string;
   mainActivityId: string;
   subActivityId: string;
-  reportingPeriod: string;
   startDate: string;
   endDate: string;
   disbursedAmount: string;
@@ -74,9 +78,11 @@ function cleanPdfText(value: unknown) {
 function toEditForm(report: TechnicalReport): EditForm {
   return {
     title: report.title || "",
+    projectId: report.projectId || "",
+    quarter: report.quarter || "",
+    financialYear: report.financialYear || "",
     mainActivityId: report.mainActivityId || "",
     subActivityId: report.subActivityId || "",
-    reportingPeriod: report.reportingPeriod || "",
     startDate: report.startDate || "",
     endDate: report.endDate || "",
     disbursedAmount: String(report.disbursedAmount ?? 0),
@@ -105,18 +111,22 @@ export default function TechnicalReports() {
   const { data: subActivities = [] } = useSubActivities();
   const { data: subSubActivities = [] } = useSubSubActivities();
   const { data: mainIndicators = [] } = useMainActivityIndicators();
+  const { data: projects = [] } = useProjects();
   const updateReport = useUpdateTechnicalReport();
 
   const filtered = useMemo(() =>
     reports
-      .filter((r) =>
-        (tab === "Annual" || (r.reportingPeriod || "").includes(tab.split(" ")[0])) &&
-        (sub === "All Reports" || r.status === sub) &&
-        (!q || [r.title, r.id, r.mainActivityName, r.subActivityName, r.reportingPeriod, r.status]
-          .join(" ")
-          .toLowerCase()
-          .includes(q.toLowerCase()))
-      )
+      .filter((r) => {
+        const tabQuarterNum = tab.match(/\d/)?.[0];
+        return (
+          (tab === "Annual" || (tabQuarterNum ? (r.quarter || "").includes(tabQuarterNum) : true)) &&
+          (sub === "All Reports" || r.status === sub) &&
+          (!q || [r.title, r.id, r.mainActivityName, r.subActivityName, r.reportingPeriod, r.status]
+            .join(" ")
+            .toLowerCase()
+            .includes(q.toLowerCase()))
+        );
+      })
       .sort((a, b) => {
         const av = String(a[sortKey] ?? "").toLowerCase();
         const bv = String(b[sortKey] ?? "").toLowerCase();
@@ -148,8 +158,8 @@ export default function TechnicalReports() {
 
   const saveEdit = async () => {
     if (!editReport || !editForm) return;
-    if (!editForm.title.trim() || !editForm.mainActivityId || !editForm.subActivityId || !editForm.reportingPeriod.trim()) {
-      setEditError("Report title, Main Activity, Sub Activity, and Reporting Period are required.");
+    if (!editForm.title.trim() || !editForm.projectId || !editForm.quarter || !editForm.financialYear) {
+      setEditError("Report title, Project, Quarter, and Financial Year are required.");
       return;
     }
     if (editForm.startDate && editForm.endDate && editForm.endDate < editForm.startDate) {
@@ -160,6 +170,9 @@ export default function TechnicalReports() {
       await updateReport.mutateAsync({
         id: editReport.id,
         title: editForm.title.trim(),
+        projectId: editForm.projectId,
+        quarter: editForm.quarter,
+        financialYear: editForm.financialYear,
         mainActivityId: editForm.mainActivityId,
         subActivityId: editForm.subActivityId,
         subSubActivities: editSubSubActivities.map((activity: SubSubActivity) => ({
@@ -172,7 +185,6 @@ export default function TechnicalReports() {
           indicator: indicator.indicator,
           target: indicator.target,
         })),
-        reportingPeriod: editForm.reportingPeriod.trim(),
         startDate: editForm.startDate || null,
         endDate: editForm.endDate || null,
         disbursedAmount: Number(editForm.disbursedAmount || 0),
@@ -472,8 +484,31 @@ export default function TechnicalReports() {
                   <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Reporting Period</Label>
-                  <Input value={editForm.reportingPeriod} onChange={(e) => setEditForm({ ...editForm, reportingPeriod: e.target.value })} />
+                  <Label>Project</Label>
+                  <Select value={editForm.projectId} onValueChange={(value) => setEditForm({ ...editForm, projectId: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Quarter</Label>
+                  <Select value={editForm.quarter} onValueChange={(value) => setEditForm({ ...editForm, quarter: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select Quarter" /></SelectTrigger>
+                    <SelectContent>
+                      {QUARTER_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Financial Year</Label>
+                  <Select value={editForm.financialYear} onValueChange={(value) => setEditForm({ ...editForm, financialYear: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select Financial Year" /></SelectTrigger>
+                    <SelectContent>
+                      {FINANCIAL_YEAR_OPTIONS.map((fy) => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Main Activity</Label>

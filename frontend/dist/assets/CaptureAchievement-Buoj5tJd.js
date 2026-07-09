@@ -1,0 +1,1 @@
+import{j as e}from"./index-DVqjiZgF.js";import{P as t}from"./PagePlaceholder-DMicYFai.js";import"./card-CWZBHfj6.js";function o(){return e.jsx(t,{title:"Capture Achievement",description:"Record actual achievements against targets."})}export{o as default};

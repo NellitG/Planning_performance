@@ -17,7 +17,7 @@ export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
-        <h2 className="text-base font-semibold">Objectives & Outcomes</h2>
+        <h2 className="text-base font-semibold">Project Objectives</h2>
         <Field label="Background">
           <Textarea
             rows={4}
@@ -34,20 +34,12 @@ export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack
             placeholder="List the main objectives of this project"
           />
         </Field>
-        <Field label="Expected Outcomes">
+        <Field label="Expected Outputs">
           <Textarea
             rows={4}
-            value={data.expectedOutcomes}
-            onChange={(e) => onChange({ expectedOutcomes: e.target.value })}
-            placeholder="Describe the expected outcomes and impact"
-          />
-        </Field>
-        <Field label="Sustainability">
-          <Textarea
-            rows={3}
-            value={data.sustainability}
-            onChange={(e) => onChange({ sustainability: e.target.value })}
-            placeholder="How will the project outcomes be sustained after completion?"
+            value={data.expectedOutputs}
+            onChange={(e) => onChange({ expectedOutputs: e.target.value })}
+            placeholder="Describe the expected outputs and impact"
           />
         </Field>
         <Field label="Collaborators">

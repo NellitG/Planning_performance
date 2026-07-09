@@ -1,0 +1,1 @@
+import{j as t}from"./index-DVqjiZgF.js";import{P as a}from"./PagePlaceholder-DMicYFai.js";import"./card-CWZBHfj6.js";function s(){return t.jsx(a,{title:"Strategic Plans",description:"Manage KALRO multi-year strategic plans."})}export{s as default};

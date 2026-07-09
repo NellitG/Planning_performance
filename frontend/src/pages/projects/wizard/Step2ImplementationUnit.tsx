@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { StepProps } from "./types";
 import {
-  KALRO_DIRECTORATES,
+  PROJECT_COORDINATION_OPTIONS,
   KALRO_INSTITUTES,
   KALRO_CENTRES,
   KALRO_SUB_CENTRES,
@@ -59,24 +60,36 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
-        <h2 className="text-base font-semibold">Implementation Unit</h2>
+        <h2 className="text-base font-semibold">Project Implementation Centres</h2>
 
         <div className="space-y-4">
           <div className="space-y-3">
             <Checkbox
               checked={iu.headquarters}
-              onChange={(v) => updateIU({ headquarters: v, directorate: v ? iu.directorate : "" })}
+              onChange={(v) => updateIU({ headquarters: v, coordination: v ? iu.coordination : "", coordinationOther: v ? iu.coordinationOther : "" })}
               label="Headquarters"
             />
             {iu.headquarters && (
-              <div className="ml-6 max-w-sm">
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Directorate</Label>
-                <Select
-                  value={iu.directorate}
-                  onChange={(v) => updateIU({ directorate: v })}
-                  options={KALRO_DIRECTORATES}
-                  placeholder="Select Directorate"
-                />
+              <div className="ml-6 max-w-sm space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Project Coordination</Label>
+                  <Select
+                    value={iu.coordination}
+                    onChange={(v) => updateIU({ coordination: v, coordinationOther: v === "Other" ? iu.coordinationOther : "" })}
+                    options={PROJECT_COORDINATION_OPTIONS}
+                    placeholder="Select Project Coordination"
+                  />
+                </div>
+                {iu.coordination === "Other" && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Specify Project Coordination</Label>
+                    <Input
+                      value={iu.coordinationOther}
+                      onChange={(e) => updateIU({ coordinationOther: e.target.value })}
+                      placeholder="Enter project coordination"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -123,12 +136,6 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
               </div>
             )}
           </div>
-
-          <Checkbox
-            checked={iu.kalroSeeds}
-            onChange={(v) => updateIU({ kalroSeeds: v })}
-            label="KALRO Seeds"
-          />
         </div>
 
         <hr className="border-border" />

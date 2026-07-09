@@ -11,6 +11,7 @@ from .views import (
     OutputIndicatorViewSet,
     OutcomeIndicatorViewSet,
     OutcomeViewSet,
+    ProjectDocumentFileViewSet,
     ProjectDocumentViewSet,
     ProjectMappingViewSet,
     ProjectViewSet,
@@ -32,6 +33,7 @@ router.register(r"output-indicators", OutputIndicatorViewSet)
 router.register(r"outcomes", OutcomeViewSet)
 router.register(r"outcome-indicators", OutcomeIndicatorViewSet)
 router.register(r"project-documents", ProjectDocumentViewSet)
+router.register(r"project-document-files", ProjectDocumentFileViewSet)
 router.register(r"project-mappings", ProjectMappingViewSet)
 router.register(r"indicator-tracking", IndicatorTrackingViewSet)
 router.register(r"main-activities", MainActivityViewSet)

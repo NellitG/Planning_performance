@@ -23,9 +23,6 @@ export default function Step4TimelineFinance({ data, onChange, onNext, onBack }:
     if (data.startDate && data.expectedEndDate && data.expectedEndDate < data.startDate) {
       e.expectedEndDate = "End date must be after start date";
     }
-    if (data.completionRate !== "" && (Number(data.completionRate) < 0 || Number(data.completionRate) > 100)) {
-      e.completionRate = "Completion rate must be between 0 and 100";
-    }
     setErrors(e);
     if (Object.keys(e).length === 0) onNext();
   };
@@ -50,40 +47,12 @@ export default function Step4TimelineFinance({ data, onChange, onNext, onBack }:
               onChange={(e) => { onChange({ expectedEndDate: e.target.value }); setErrors((p) => ({ ...p, expectedEndDate: "" })); }}
             />
           </Field>
-          <Field label="Completion Rate (%)" error={errors.completionRate}>
+          <Field label="Budget (KES)">
             <Input
               type="number"
               min="0"
-              max="100"
-              value={data.completionRate}
-              onChange={(e) => { onChange({ completionRate: e.target.value }); setErrors((p) => ({ ...p, completionRate: "" })); }}
-              placeholder="0"
-            />
-          </Field>
-          <Field label="Expected Budget (KES)">
-            <Input
-              type="number"
-              min="0"
-              value={data.expectedBudget}
-              onChange={(e) => onChange({ expectedBudget: e.target.value })}
-              placeholder="0.00"
-            />
-          </Field>
-          <Field label="Disbursed Amount (KES)">
-            <Input
-              type="number"
-              min="0"
-              value={data.disbursedAmount}
-              onChange={(e) => onChange({ disbursedAmount: e.target.value })}
-              placeholder="0.00"
-            />
-          </Field>
-          <Field label="Utilized Amount (KES)">
-            <Input
-              type="number"
-              min="0"
-              value={data.utilizedAmount}
-              onChange={(e) => onChange({ utilizedAmount: e.target.value })}
+              value={data.budget}
+              onChange={(e) => onChange({ budget: e.target.value })}
               placeholder="0.00"
             />
           </Field>

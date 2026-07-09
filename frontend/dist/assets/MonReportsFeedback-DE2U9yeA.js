@@ -1,1 +1,0 @@
-import{j as e}from"./index-lD2g2AGD.js";import{P as o}from"./PagePlaceholder-Dx7Fd4p9.js";import"./card-KgUIQwP2.js";function n(){return e.jsx(o,{title:"Monitoring — Feedback Reports",description:"Monitoring feedback and corrective action reports."})}export{n as default};

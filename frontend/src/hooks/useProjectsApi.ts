@@ -557,17 +557,23 @@ export function useUploadDocument() {
   return useMutation({
     mutationFn: ({
       projectId,
-      file,
+      files,
+      name,
+      documentType,
+      description,
     }: {
       projectId: string;
-      file: File;
+      files: File[];
+      name?: string;
+      documentType?: string;
+      description?: string;
     }) => {
       const form = new FormData();
       form.append("project", projectId);
-      form.append("name", file.name);
-      form.append("type", file.type || "");
-      form.append("size", String(file.size));
-      form.append("file", file);
+      form.append("name", name || files[0]?.name || "Document");
+      form.append("document_type", documentType || "Other");
+      form.append("description", description || "");
+      files.forEach((f) => form.append("files", f));
       return api.postForm<ProjectDocument>("/project-documents/", form);
     },
     onSuccess: (_d, vars) =>
@@ -580,6 +586,16 @@ export function useDeleteDocument() {
   return useMutation({
     mutationFn: ({ id }: { id: string; projectId: string }) =>
       api.del(`/project-documents/${id}/`),
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: qk.documents(vars.projectId) }),
+  });
+}
+
+export function useDeleteDocumentFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; projectId: string }) =>
+      api.del(`/project-document-files/${id}/`),
     onSuccess: (_d, vars) =>
       qc.invalidateQueries({ queryKey: qk.documents(vars.projectId) }),
   });

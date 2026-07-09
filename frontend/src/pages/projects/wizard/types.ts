@@ -1,11 +1,11 @@
 export interface ImplementationUnitData {
   headquarters: boolean;
-  directorate: string;
+  coordination: string;
+  coordinationOther: string;
   institute: boolean;
   instituteName: string;
   centre: string;
   subCentre: string;
-  kalroSeeds: boolean;
 }
 
 export interface LocationEntry {
@@ -16,7 +16,8 @@ export interface LocationEntry {
 
 export interface FundingSourceEntry {
   sourceName: string;
-  partner: string;
+  fundingAgency: string;
+  fundingAgencyOther: string;
   type: string;
   amount: string;
   disbursed: string;
@@ -27,15 +28,15 @@ export interface DocumentEntry {
   title: string;
   docType: string;
   description: string;
-  file: File | null;
+  files: File[];
 }
 
 export interface WizardData {
+  id?: string;
   title: string;
   coordinator: string;
   projectType: string;
   status: string;
-  scale: string;
   description: string;
 
   implementationUnits: ImplementationUnitData;
@@ -45,21 +46,17 @@ export interface WizardData {
 
   startDate: string;
   expectedEndDate: string;
-  completionRate: string;
-  expectedBudget: string;
-  disbursedAmount: string;
-  utilizedAmount: string;
+  budget: string;
 
   background: string;
   objectives: string;
-  expectedOutcomes: string;
-  sustainability: string;
+  expectedOutputs: string;
   collaborators: string;
 
   totalBeneficiaries: string;
   women: string;
+  men: string;
   youth: string;
-  vmgs: string;
   pwds: string;
 
   locations: LocationEntry[];
@@ -74,17 +71,16 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   coordinator: "",
   projectType: "",
   status: "Not Started",
-  scale: "",
   description: "",
 
   implementationUnits: {
     headquarters: false,
-    directorate: "",
+    coordination: "",
+    coordinationOther: "",
     institute: false,
     instituteName: "",
     centre: "",
     subCentre: "",
-    kalroSeeds: false,
   },
   valueChains: [],
 
@@ -92,21 +88,17 @@ export const INITIAL_WIZARD_DATA: WizardData = {
 
   startDate: "",
   expectedEndDate: "",
-  completionRate: "",
-  expectedBudget: "",
-  disbursedAmount: "",
-  utilizedAmount: "",
+  budget: "",
 
   background: "",
   objectives: "",
-  expectedOutcomes: "",
-  sustainability: "",
+  expectedOutputs: "",
   collaborators: "",
 
   totalBeneficiaries: "",
   women: "",
+  men: "",
   youth: "",
-  vmgs: "",
   pwds: "",
 
   locations: [],

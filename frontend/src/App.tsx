@@ -15,7 +15,6 @@ const LogoutPage = lazy(() => import("@/pages/Logout"));
 const Overview = lazy(() => import("@/pages/dashboard/Overview"));
 
 const Projects = lazy(() => import("@/pages/projects/Projects"));
-const NewProject = lazy(() => import("@/pages/projects/NewProject"));
 const ProjectWizard = lazy(() => import("@/pages/projects/wizard/ProjectWizard"));
 
 const SODashboard = lazy(() => import("@/pages/strategic-objectives/SODashboard"));
@@ -143,7 +142,7 @@ function AppRoutes() {
         <Route path="/projects/new" element={<ProjectWizard />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/view" element={<ProjectView />} />
-        <Route path="/projects/:id/edit" element={<NewProject />} />
+        <Route path="/projects/:id/edit" element={<ProjectWizard />} />
 
         <Route path="/projects/components" element={<ProjectComponents />} />
         <Route path="/projects/components/new" element={<ComponentForm mode="create" />} />

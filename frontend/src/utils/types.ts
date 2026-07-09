@@ -8,10 +8,29 @@ export type ModuleKey = "strategic-objectives" | "performance-contracts" | "proj
 export interface Project {
   id: string;
   name: string;
+  logo: string;
+  description?: string;
+  status: ProjectStatus | string;
+  coordinator?: string;
+  projectType?: string;
+  implementationUnits?: Record<string, unknown>;
+  valueChains?: string[];
   startDate: string;
   endDate: string;
-  status: ProjectStatus;
-  logo: string;
+  budget?: number | string | null;
+  background?: string;
+  projectObjectives?: string;
+  expectedOutputs?: string;
+  collaborators?: string;
+  totalBeneficiaries?: number | string | null;
+  women?: number | string | null;
+  men?: number | string | null;
+  youth?: number | string | null;
+  pwds?: number | string | null;
+  locations?: Array<{ county: string; subCounty: string; ward: string }>;
+  fundingSources?: Array<Record<string, unknown>>;
+  isDraft?: boolean;
+  currentStep?: number;
 }
 
 export interface FundUtilization {
@@ -115,6 +134,10 @@ export interface SubSubActivity {
 export interface TechnicalReport {
   id: string;
   title: string;
+  projectId: string | null;
+  projectName?: string;
+  quarter: string;
+  financialYear: string;
   mainActivityId: string | null;
   subActivityId: string | null;
   mainActivityName?: string;
@@ -208,12 +231,22 @@ export interface ProjectTrackingRecord {
   updatedAt: string;
 }
 
-export interface ProjectDocument extends StoreItem {
+export interface ProjectDocumentFile {
+  id: string;
+  document: string;
   name: string;
+  fileUrl?: string | null;
   size: number;
   type: string;
   uploadedAt: string;
-  fileUrl?: string | null;
+}
+
+export interface ProjectDocument extends StoreItem {
+  project: string;
+  name: string;
+  documentType?: string;
+  description?: string;
+  files: ProjectDocumentFile[];
 }
 
 export interface ProjectMapping {
