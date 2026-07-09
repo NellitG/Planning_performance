@@ -1,13 +1,25 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Plus, Trash2, Upload, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronRight, Upload, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  useComponents,
+  useObjectives,
+  useStrategies,
+  useMainActivities,
+  useSubActivities,
+  useSubSubActivities,
+  useMainActivityIndicators,
+  useCreateTechnicalReport,
+} from "@/hooks/useProjectsApi";
+import type { MainActivity, MainActivityIndicator, ProjectObjective, ProjectStrategy, SubActivity, SubSubActivity } from "@/utils/types";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -34,7 +46,7 @@ function Section({ index, title, children }: SectionProps) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--brand-green)] text-xs font-bold text-white">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-(--brand-green) text-xs font-bold text-white">
             {index}
           </span>
           {title}
@@ -45,36 +57,67 @@ function Section({ index, title, children }: SectionProps) {
   );
 }
 
-interface ActivityRow {
-  id: string;
-  output: string;
-  activity: string;
-  achievement: string;
-}
-
 export default function NewReport() {
-  const [activities, setActivities] = useState<ActivityRow[]>([
-    { id: crypto.randomUUID(), output: "", activity: "", achievement: "" },
-  ]);
+  const { data: kras = [] } = useComponents();
+  const { data: objectives = [] } = useObjectives();
+  const { data: strategies = [] } = useStrategies();
+  const { data: mainActivities = [] } = useMainActivities();
+  const { data: subActivities = [] } = useSubActivities();
+  const { data: subSubActivities = [] } = useSubSubActivities();
+  const { data: mainIndicators = [] } = useMainActivityIndicators();
+  const createReport = useCreateTechnicalReport();
+  const navigate = useNavigate();
+
+  const [enableMainActivityReporting, setEnableMainActivityReporting] = useState(false);
+  const [title, setTitle] = useState("");
+  const [selectedMainActivityId, setSelectedMainActivityId] = useState("");
+  const [selectedSubActivityId, setSelectedSubActivityId] = useState("");
+  const [selectedKraId, setSelectedKraId] = useState("");
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState("");
+  const [selectedStrategyId, setSelectedStrategyId] = useState("");
+  const [reportingPeriod, setReportingPeriod] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [disbursed, setDisbursed] = useState(0);
-  const [received, setReceived] = useState(0);
   const [utilized, setUtilized] = useState(0);
+  const [status, setStatus] = useState("Draft");
+  const [achievement, setAchievement] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [supportingInformation, setSupportingInformation] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [balance, setBalance] = useState(0);
 
-  const absorbed = useMemo(
-    () => (received > 0 ? ((utilized / received) * 100).toFixed(1) : "0.0"),
-    [received, utilized],
+  const filteredObjectives = objectives.filter((objective) => objective.componentId === selectedKraId);
+  const filteredStrategies = strategies.filter((strategy) => strategy.objectiveId === selectedObjectiveId);
+  const selectedSubActivities = subActivities.filter((item) => item.mainActivityId === selectedMainActivityId);
+  const selectedSubSubActivities = subSubActivities.filter((item) => item.subActivityId === selectedSubActivityId);
+  const availableIndicators = useMemo(() => {
+    if (!selectedMainActivityId) return [] as MainActivityIndicator[];
+    return mainIndicators.filter((item) => item.mainActivityId === selectedMainActivityId);
+  }, [mainIndicators, selectedMainActivityId]);
+  const selectedMainActivity = mainActivities.find((activity) => activity.id === selectedMainActivityId);
+  const selectedSubActivity = selectedSubActivities.find((activity) => activity.id === selectedSubActivityId);
+
+  const utilizationPercent = useMemo(
+    () => (disbursed > 0 ? ((utilized / disbursed) * 100).toFixed(1) : "0.0"),
+    [disbursed, utilized],
   );
 
-  const addActivity = () =>
-    setActivities((a) => [
-      ...a,
-      { id: crypto.randomUUID(), output: "", activity: "", achievement: "" },
-    ]);
-  const removeActivity = (id: string) =>
-    setActivities((a) => (a.length > 1 ? a.filter((x) => x.id !== id) : a));
+  const handleMainActivityChange = (value: string) => {
+    setSelectedMainActivityId(value);
+    setSelectedSubActivityId("");
+    setDisbursed(0);
+    setUtilized(0);
+  };
+
+  const handleSubActivityChange = (value: string) => {
+    setSelectedSubActivityId(value);
+    const budget = subSubActivities
+      .filter((item) => item.subActivityId === value)
+      .reduce((sum, item) => sum + Number(item.approvedActivityBudget || 0), 0);
+    setDisbursed(budget);
+    setUtilized(0);
+  };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -82,9 +125,61 @@ export default function NewReport() {
     setFiles((f) => [...f, ...Array.from(e.dataTransfer.files)]);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Report submitted for review");
+
+    if (!title.trim()) {
+      toast.error("Please enter a report title.");
+      return;
+    }
+
+    if (!reportingPeriod.trim()) {
+      toast.error("Please enter the reporting period.");
+      return;
+    }
+
+    if (startDate && endDate && endDate < startDate) {
+      toast.error("End date cannot be before start date.");
+      return;
+    }
+
+    if (!enableMainActivityReporting || !selectedMainActivityId || !selectedSubActivityId) {
+      toast.error("Please select a main activity and sub activity before saving.");
+      return;
+    }
+
+    try {
+      await createReport.mutateAsync({
+        title: title.trim(),
+        mainActivityId: selectedMainActivityId,
+        subActivityId: selectedSubActivityId,
+        subSubActivities: selectedSubSubActivities.map((activity) => ({
+          id: activity.id,
+          name: activity.name || activity.subActivityName,
+        })),
+        indicators: availableIndicators.map((indicator) => ({
+          id: indicator.id,
+          indicator: indicator.indicator,
+          target: indicator.target,
+        })),
+        reportingPeriod: reportingPeriod.trim(),
+        startDate: startDate || null,
+        endDate: endDate || null,
+        disbursedAmount: Number(disbursed || 0),
+        utilizedAmount: Number(utilized || 0),
+        percentageUtilization: Number(utilizationPercent || 0),
+        status,
+        achievement,
+        remarks,
+        supportingInformation,
+        supportingDocuments: files.map((file) => file.name),
+      });
+
+      toast.success("Report saved successfully.");
+      navigate("/technical-reports");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save report.");
+    }
   };
 
   return (
@@ -107,18 +202,19 @@ export default function NewReport() {
           <Link to="/technical-reports">
             <Button variant="outline">Cancel</Button>
           </Link>
-          <Button onClick={submit} className="bg-[(--brand-navy)] hover:opacity-90">
-            Submit Report
+          <Button type="submit" form="report-form" className="bg-[(--brand-navy)] hover:opacity-90" disabled={createReport.isPending}>
+            {createReport.isPending ? "Saving..." : "Save Report"}
           </Button>
         </div>
       </div>
 
-      <form onSubmit={submit} className="space-y-5">
+      <form id="report-form" onSubmit={submit} className="space-y-5">
         <Section index={1} title="Project Duration">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Start Date" type="date" />
-            <Field label="End Date" type="date" />
-            {/* <Field label="Duration" placeholder="e.g. 36 months" /> */}
+            <Field label="Report Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter report title" />
+            <Field label="Reporting Period" value={reportingPeriod} onChange={(e) => setReportingPeriod(e.target.value)} placeholder="Q1 FY2025/26" />
+            <Field label="Start Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <Field label="End Date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
         </Section>
         {/* <Section index={1} title="Project Information">
@@ -134,42 +230,192 @@ export default function NewReport() {
           </div>
         </Section> */}
 
-        <Section index={2} title="Financial Tracking">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Amount disbursed (b)</Label>
-              <Input type="number" value={disbursed || ""} onChange={(e) => setDisbursed(+e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Amount Utilized (c)</Label>
-              <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(+e.target.value)} />
-            </div>
-            {/* <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Funds utilized (c)</Label>
-              <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(+e.target.value)} />
-            </div> */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">% utilization (c/b × 100)</Label>
-              <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-[var(--brand-green)]">
-                {utilized > 0 ? ((utilized / disbursed) * 100).toFixed(1) : "0.0"}%
-              </div>
-            </div>
+        <Section index={2} title="Main Activity Reporting">
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm font-medium">
+              <Checkbox checked={enableMainActivityReporting} onCheckedChange={(checked) => {
+                setEnableMainActivityReporting(Boolean(checked));
+                if (!checked) {
+                  setSelectedMainActivityId("");
+                  setSelectedSubActivityId("");
+                  setDisbursed(0);
+                  setUtilized(0);
+                }
+              }} />
+              Include Main Activity reporting
+            </label>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Balance (b - c)</Label>
-              <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-[var(--brand-green)]">
-                {balance == 0 ? ((disbursed - utilized) ).toFixed(1) : "0.0"}
+            {enableMainActivityReporting && (
+              <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Main Activity</Label>
+                    <Select value={selectedMainActivityId} onValueChange={handleMainActivityChange}>
+                      <SelectTrigger><SelectValue placeholder="Select Main Activity" /></SelectTrigger>
+                      <SelectContent>
+                        {mainActivities.map((activity) => <SelectItem key={activity.id} value={activity.id}>{activity.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Sub Activity</Label>
+                    <Select value={selectedSubActivityId} onValueChange={handleSubActivityChange} disabled={!selectedMainActivityId}>
+                      <SelectTrigger><SelectValue placeholder={selectedMainActivityId ? "Select Sub Activity" : "Select Main Activity first"} /></SelectTrigger>
+                      <SelectContent>
+                        {selectedSubActivities.map((activity) => <SelectItem key={activity.id} value={activity.id}>{activity.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {(selectedMainActivity || selectedSubActivity) && (
+                  <div className="rounded-lg border border-border bg-background/80 p-4">
+                    <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">Main Activity:</span>
+                      <span className="text-muted-foreground">{selectedMainActivity?.name || "Not selected"}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="font-medium text-foreground">Sub Activity:</span>
+                      <span className="text-muted-foreground">{selectedSubActivity?.name || "Not selected"}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div>
+                        <h3 className="mb-2 text-sm font-semibold text-foreground">Sub-Sub Activities</h3>
+                        {selectedSubActivityId ? (
+                          selectedSubSubActivities.length > 0 ? (
+                            <ul className="space-y-2">
+                              {selectedSubSubActivities.map((activity) => (
+                                <li key={activity.id} className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 p-2 text-sm">
+                                  <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-(--brand-green)" />
+                                  <span>{activity.name || activity.subActivityName}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
+                              No sub-sub activities found for this sub activity.
+                            </p>
+                          )
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
+                            Select a sub activity to view related sub-sub activities.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <h3 className="mb-2 text-sm font-semibold text-foreground">Indicators</h3>
+                        {selectedMainActivityId ? (
+                          availableIndicators.length > 0 ? (
+                            <ul className="space-y-2">
+                              {availableIndicators.map((indicator) => (
+                                <li key={indicator.id} className="rounded-md border border-border/60 bg-muted/20 p-2 text-sm">
+                                  <div className="font-medium text-foreground">{indicator.indicator}</div>
+                                  {indicator.target ? (
+                                    <div className="mt-1 text-xs text-muted-foreground">Target: {indicator.target}</div>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
+                              No indicators found for the selected main activity.
+                            </p>
+                          )
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
+                            Select a main activity to view indicators.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label>Start Date</Label>
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>End Date</Label>
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Amount Disbursed</Label>
+                    <Input type="number" value={disbursed || ""} onChange={(e) => setDisbursed(Number(e.target.value))} readOnly />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Amount Utilized</Label>
+                    <Input type="number" value={utilized || ""} onChange={(e) => setUtilized(Number(e.target.value))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label>Percentage Utilization</Label>
+                    <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-(--brand-green)">
+                      {utilizationPercent}%
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Draft">Draft</SelectItem>
+                        <SelectItem value="Submitted">Submitted</SelectItem>
+                        <SelectItem value="Under Review">Under Review</SelectItem>
+                        <SelectItem value="Approved">Approved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Achievement</Label>
+                    <Input value={achievement} onChange={(e) => setAchievement(e.target.value)} placeholder="Achievement details" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Remarks</Label>
+                    <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Remarks" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Supporting Information</Label>
+                  <Textarea value={supportingInformation} onChange={(e) => setSupportingInformation(e.target.value)} placeholder="Add any supporting context or notes" rows={4} />
+                </div>
               </div>
-            </div>
-            
-            </div>
+            )}
+          </div>
         </Section>
 
         <Section index={3} title="Strategic Alignment">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Key Result Area" />
-            <Field label="Strategic Objective" />
-            <Field label="Strategies" />
+            <div className="space-y-1.5">
+              <Label>KRA</Label>
+              <Select value={selectedKraId} onValueChange={(value) => { setSelectedKraId(value); setSelectedObjectiveId(""); setSelectedStrategyId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Select KRA" /></SelectTrigger>
+                <SelectContent>
+                  {kras.map((kra) => <SelectItem key={kra.id} value={kra.id}>{kra.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Strategic Objective</Label>
+              <Select value={selectedObjectiveId} onValueChange={(value) => { setSelectedObjectiveId(value); setSelectedStrategyId(""); }} disabled={!selectedKraId}>
+                <SelectTrigger><SelectValue placeholder={selectedKraId ? "Select Strategic Objective" : "Select KRA first"} /></SelectTrigger>
+                <SelectContent>
+                  {filteredObjectives.map((objective) => <SelectItem key={objective.id} value={objective.id}>{objective.text}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Strategy</Label>
+              <Select value={selectedStrategyId} onValueChange={setSelectedStrategyId} disabled={!selectedObjectiveId}>
+                <SelectTrigger><SelectValue placeholder={selectedObjectiveId ? "Select Strategy" : "Select Strategic Objective first"} /></SelectTrigger>
+                <SelectContent>
+                  {filteredStrategies.map((strategy) => <SelectItem key={strategy.id} value={strategy.id}>{strategy.text}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </Section>
 
@@ -184,16 +430,6 @@ export default function NewReport() {
             <Field label="Telephone" type="tel" />
           </div>
         </Section> */}
-
-        <Section index={4} title="Status">
-          <div className="grid grid-cols-1 gap-4">
-            <Field label="Status" />
-            <select className="w-full rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-800 focus:border-emerald-500 focus:outline-none">
-                <option value="on-going">On going</option>
-                <option value="complete">Complete</option>
-              </select>
-          </div>
-        </Section>
 
         {/* <Section index={4} title="Beneficiary Information">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -288,7 +524,7 @@ export default function NewReport() {
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             className={`grid place-items-center rounded-lg border-2 border-dashed p-8 text-center transition ${
-              dragOver ? "border-[var(--brand-green)] bg-green-50" : "border-muted-foreground/30"
+              dragOver ? "border-(--brand-green) bg-green-50" : "border-muted-foreground/30"
             }`}
           >
             <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
@@ -301,7 +537,7 @@ export default function NewReport() {
                 className="hidden"
                 onChange={(e) => setFiles((f) => [...f, ...Array.from(e.target.files ?? [])])}
               />
-              <span className="cursor-pointer rounded-md bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white">
+              <span className="cursor-pointer rounded-md bg-(--brand-navy) px-3 py-1.5 text-xs font-medium text-white">
                 Browse files
               </span>
             </label>
@@ -321,8 +557,8 @@ export default function NewReport() {
         </Section>
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline">Save Draft</Button>
-          <Button type="submit" className="bg-[var(--brand-navy)] hover:opacity-90">Submit Report</Button>
+          <Button type="submit" variant="outline" onClick={() => setStatus("Draft")}>Save Draft</Button>
+          <Button type="submit" className="bg-(--brand-navy) hover:opacity-90">Submit Report</Button>
         </div>
       </form>
     </>
