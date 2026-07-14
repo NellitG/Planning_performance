@@ -95,7 +95,6 @@ const NewReport = lazy(() => import("@/pages/reports/NewReport"));
 
 const Notifications = lazy(() => import("@/pages/notifications/Notifications"));
 const UserManagement = lazy(() => import("@/pages/users/UserManagement"));
-const NewUser = lazy(() => import("@/pages/users/NewUser"));
 const Partners = lazy(() => import("@/pages/partners/Partners"));
 const ProjectStaff = lazy(() => import("@/pages/project-staff/ProjectStaff"));
 
@@ -242,8 +241,7 @@ function AppRoutes() {
         <Route path="/new-report" element={<NewReport />} />
 
         <Route path="/notifications" element={<Notifications />} />
-        <Route path="/user-management" element={<UserManagement />} />
-        <Route path="/user-management/new" element={<NewUser />} />
+        <Route path="/user-management/*" element={<UserManagement />} />
         <Route path="/partners" element={<Partners />} />
         <Route path="/project-staff" element={<ProjectStaff />} />
       </Route>
