@@ -1,0 +1,1 @@
+import{j as t}from"./index-COdM1_wO.js";import{P as e}from"./PagePlaceholder-BPuIw080.js";import"./card-CtVle0p4.js";function i(){return t.jsx(e,{title:"Core Mandate Indicators",description:"Key indicators defining the MDA core mandate."})}export{i as default};
