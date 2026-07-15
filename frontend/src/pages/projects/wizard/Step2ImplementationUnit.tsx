@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import type { StepProps } from "./types";
+import { useValueChains } from "@/hooks/useUserManagementApi";
 import {
   PROJECT_COORDINATION_OPTIONS,
   KALRO_INSTITUTES,
   KALRO_CENTRES,
   KALRO_SUB_CENTRES,
-  VALUE_CHAINS,
 } from "./data";
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -38,8 +38,10 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
   );
 }
 
-export default function Step2ImplementationUnit({ data, onChange, onNext, onBack }: StepProps) {
+export default function Step2ImplementationUnit({ data, onChange, onNext, onBack, isSaving }: StepProps) {
   const iu = data.implementationUnits;
+  const { data: valueChains = [], isLoading, isError } = useValueChains();
+  const activeValueChains = valueChains.filter((vc) => vc.active);
 
   const updateIU = (updates: Partial<typeof iu>) => {
     onChange({ implementationUnits: { ...iu, ...updates } });
@@ -143,16 +145,31 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">Value Chain</h3>
           <p className="text-xs text-muted-foreground">Select all value chains relevant to this project.</p>
+          {isLoading && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Loading value chains...
+            </p>
+          )}
+          {isError && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              Unable to load value chains. Please try again before continuing.
+            </p>
+          )}
+          {!isLoading && !isError && activeValueChains.length === 0 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              No active value chains are configured in User Management.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-            {VALUE_CHAINS.map((vc) => (
-              <label key={vc} className="flex items-center gap-2 cursor-pointer select-none rounded-lg border border-border p-2 hover:bg-accent transition-colors">
+            {activeValueChains.map((vc) => (
+              <label key={vc.id} className="flex items-center gap-2 cursor-pointer select-none rounded-lg border border-border p-2 hover:bg-accent transition-colors">
                 <input
                   type="checkbox"
-                  checked={data.valueChains.includes(vc)}
-                  onChange={() => toggleValueChain(vc)}
+                  checked={data.valueChains.includes(vc.name)}
+                  onChange={() => toggleValueChain(vc.name)}
                   className="h-4 w-4 rounded border-gray-300 text-primary"
                 />
-                <span className="text-sm">{vc}</span>
+                <span className="text-sm">{vc.name}</span>
               </label>
             ))}
           </div>
@@ -166,8 +183,9 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-green-700 text-primary-foreground ">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={onNext} disabled={isSaving} className="bg-green-700 text-primary-foreground ">
+          {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

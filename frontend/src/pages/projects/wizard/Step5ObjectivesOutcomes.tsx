@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import type { StepProps } from "./types";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -13,7 +13,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack }: StepProps) {
+export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack, isSaving }: StepProps) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
@@ -53,11 +53,12 @@ export default function Step5ObjectivesOutcomes({ data, onChange, onNext, onBack
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-green-700 text-primary-foreground">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={onNext} disabled={isSaving} className="bg-green-700 text-primary-foreground">
+          {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

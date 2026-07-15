@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Banknote } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle, Plus, Trash2, Banknote } from "lucide-react";
 import type { StepProps, FundingSourceEntry } from "./types";
 import { FUNDING_AGENCIES, FUNDING_TYPES } from "./data";
 
@@ -109,7 +109,7 @@ function FundingRow({
   );
 }
 
-export default function Step8FundingSources({ data, onChange, onNext, onBack }: StepProps) {
+export default function Step8FundingSources({ data, onChange, onNext, onBack, isSaving }: StepProps) {
   const addSource = () => {
     onChange({
       fundingSources: [
@@ -159,11 +159,12 @@ export default function Step8FundingSources({ data, onChange, onNext, onBack }: 
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-green-700 text-primary-foreground">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={onNext} disabled={isSaving} className="bg-green-700 text-primary-foreground">
+          {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

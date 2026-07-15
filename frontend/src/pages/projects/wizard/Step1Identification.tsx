@@ -2,7 +2,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
 import type { StepProps } from "./types";
 import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD } from "./data";
 import { useState } from "react";
@@ -19,7 +19,7 @@ function Field({ label, error, required, children }: { label: string; error?: st
   );
 }
 
-export default function Step1Identification({ data, onChange, onNext }: StepProps) {
+export default function Step1Identification({ data, onChange, onNext, isSaving }: StepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleNext = () => {
@@ -82,8 +82,9 @@ export default function Step1Identification({ data, onChange, onNext }: StepProp
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleNext} className="bg-green-700 text-primary-foreground">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={handleNext} disabled={isSaving} className="bg-green-700 text-primary-foreground">
+          {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

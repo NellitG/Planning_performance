@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle, Plus, Trash2, MapPin } from "lucide-react";
 import type { StepProps, LocationEntry } from "./types";
 import { KENYA_COUNTIES } from "./data";
 
@@ -80,7 +80,7 @@ function LocationRow({
   );
 }
 
-export default function Step7ProjectLocations({ data, onChange, onNext, onBack }: StepProps) {
+export default function Step7ProjectLocations({ data, onChange, onNext, onBack, isSaving }: StepProps) {
   const addLocation = () => {
     onChange({ locations: [...data.locations, { county: "", subCounty: "", ward: "" }] });
   };
@@ -125,11 +125,12 @@ export default function Step7ProjectLocations({ data, onChange, onNext, onBack }
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} className="bg-green-700 text-primary-foreground">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={onNext} disabled={isSaving} className="bg-green-700 text-primary-foreground">
+          {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+          {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

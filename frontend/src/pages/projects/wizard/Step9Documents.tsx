@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, FileCheck2, Plus, Trash2, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileCheck2, LoaderCircle, Plus, Trash2, Upload, X } from "lucide-react";
 import { useRef } from "react";
 import type { StepProps, DocumentEntry } from "./types";
 import { DOCUMENT_TYPES } from "./data";
@@ -120,11 +120,11 @@ function DocumentRow({
 }
 
 interface Step9Props extends StepProps {
-  onFinish: () => void;
-  isSubmitting: boolean;
+  onFinish?: () => void;
+  isSubmitting?: boolean;
 }
 
-export default function Step9Documents({ data, onChange, onBack, onFinish, isSubmitting }: Step9Props) {
+export default function Step9Documents({ data, onChange, onNext, onBack, onFinish, isSubmitting, isSaving }: Step9Props) {
   const addDoc = () => {
     onChange({
       documents: [
@@ -174,16 +174,21 @@ export default function Step9Documents({ data, onChange, onBack, onFinish, isSub
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={isSubmitting}>
+        <Button variant="outline" onClick={onBack} disabled={isSubmitting || isSaving}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
         <Button
-          onClick={onFinish}
-          disabled={isSubmitting}
+          onClick={onFinish ?? onNext}
+          disabled={isSubmitting || isSaving}
           className="bg-green-700 text-primary-foreground"
         >
-          <FileCheck2 className="h-4 w-4" />
-          {isSubmitting ? "Creating Project…" : "Finish & Create"}
+          {isSubmitting || isSaving ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : onFinish ? (
+            <FileCheck2 className="h-4 w-4" />
+          ) : null}
+          {isSubmitting ? "Creating Project..." : isSaving ? "Saving..." : onFinish ? "Finish & Create" : "Save & Continue"}
+          {!onFinish && <ChevronRight className="h-4 w-4" />}
         </Button>
       </div>
     </div>

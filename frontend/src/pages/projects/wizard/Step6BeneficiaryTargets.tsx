@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, FileCheck2, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import type { StepProps } from "./types";
 
@@ -19,7 +19,12 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   );
 }
 
-export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack }: StepProps) {
+interface BeneficiaryStepProps extends StepProps {
+  onFinish?: () => void;
+  isSubmitting?: boolean;
+}
+
+export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack, onFinish, isSubmitting, isSaving }: BeneficiaryStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const total = Number(data.totalBeneficiaries) || 0;
@@ -37,7 +42,10 @@ export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack
   };
 
   const handleNext = () => {
-    if (validate()) onNext();
+    if (validate()) {
+      if (onFinish) onFinish();
+      else onNext();
+    }
   };
 
   const numericField = (key: keyof typeof data, val: string) => {
@@ -106,11 +114,17 @@ export default function Step6BeneficiaryTargets({ data, onChange, onNext, onBack
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={isSaving || isSubmitting}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={handleNext} className="bg-green-700 text-primary-foreground">
-          Save & Continue <ChevronRight className="h-4 w-4" />
+        <Button onClick={handleNext} disabled={isSaving || isSubmitting} className="bg-green-700 text-primary-foreground">
+          {isSaving || isSubmitting ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : onFinish ? (
+            <FileCheck2 className="h-4 w-4" />
+          ) : null}
+          {isSubmitting ? "Creating Project..." : isSaving ? "Saving..." : onFinish ? "Finish & Create" : "Save & Continue"}
+          {!onFinish && <ChevronRight className="h-4 w-4" />}
         </Button>
       </div>
     </div>
