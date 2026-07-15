@@ -195,7 +195,7 @@ function ModuleTabs() {
               key={tab.to}
               asChild
               variant={active ? "default" : "ghost"}
-              className={active ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}
+              className={active ? "bg-green-700 text-primary-foreground" : ""}
             >
               <Link to={tab.to}>{tab.label}</Link>
             </Button>
@@ -255,7 +255,7 @@ function UsersList() {
         title="Users"
         description="List, search and manage registered system users from the Django backend."
         actions={
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button asChild className="bg-green-700 text-primary-foreground">
             <Link to="/user-management/users/new"><Plus className="h-4 w-4" /> Add New User</Link>
           </Button>
         }
@@ -456,7 +456,7 @@ function UserDetail() {
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90"><Link to={`/user-management/users/${user.id}/edit`}><Pencil className="h-4 w-4" /> Edit User</Link></Button>
+        <Button asChild className="bg-green-700 text-primary-foreground"><Link to={`/user-management/users/${user.id}/edit`}><Pencil className="h-4 w-4" /> Edit User</Link></Button>
         {confirm ? (
           <>
             <Button variant="destructive" disabled={deleteUser.isPending} onClick={handleDelete}>Confirm Delete</Button>
@@ -510,7 +510,7 @@ function ValueChainsList() {
       <PageHeader
         title="Value Chains"
         description="Manage configured Value Chains from the Django backend."
-        actions={<Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90"><Link to="/user-management/value-chains/new"><Plus className="h-4 w-4" /> Create Value Chain</Link></Button>}
+        actions={<Button asChild className="bg-green-700 text-primary-foreground"><Link to="/user-management/value-chains/new"><Plus className="h-4 w-4" /> Create Value Chain</Link></Button>}
       />
       <div className="rounded-xl border bg-card shadow-sm">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -804,7 +804,7 @@ function StrategicPlanPage() {
           </div>
         </div>
         <div className="mt-6 flex justify-end">
-          <Button type="submit" disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90"><Upload className="h-4 w-4" /> {saving ? "Saving..." : latest ? "Replace Document" : "Upload Document"}</Button>
+          <Button type="submit" disabled={saving} className="bg-green-700 text-primary-foreground"><Upload className="h-4 w-4" /> {saving ? "Saving..." : latest ? "Replace Document" : "Upload Document"}</Button>
         </div>
       </form>
     </div>
