@@ -1,1 +1,0 @@
-import{j as t}from"./index-DVqjiZgF.js";import{P as r}from"./PagePlaceholder-DMicYFai.js";import"./card-CWZBHfj6.js";function e(){return t.jsx(r,{title:"Self-Evaluation Matrix",description:"Self-evaluation scoring matrix for all indicators."})}export{e as default};
