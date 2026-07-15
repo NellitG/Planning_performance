@@ -69,34 +69,6 @@ export const KALRO_SUB_CENTRES: Record<string, string[]> = {
   "Dairy Research": ["Genetics Unit", "Nutrition Unit"],
 };
 
-export const VALUE_CHAINS = [
-  "Maize",
-  "Beans",
-  "Wheat",
-  "Rice",
-  "Sorghum",
-  "Millet",
-  "Cassava",
-  "Sweet Potato",
-  "Irish Potato",
-  "Horticulture",
-  "Dairy",
-  "Beef",
-  "Poultry",
-  "Aquaculture",
-  "Tea",
-  "Coffee",
-  "Pyrethrum",
-  "Sugarcane",
-  "Cotton",
-  "Sunflower",
-  "Groundnuts",
-  "Soybean",
-  "Avocado",
-  "Mango",
-  "Banana",
-];
-
 export const FUNDING_AGENCIES = [
   "USAID",
   "World Bank",
