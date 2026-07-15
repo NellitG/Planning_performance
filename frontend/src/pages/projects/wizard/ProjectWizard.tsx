@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Check, ArrowLeft } from "lucide-react";
+import { Check, ArrowLeft, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/utils/apiClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,8 +11,12 @@ import {
   useObjectives,
   useStrategies,
   useExpectedOutputs,
+  useKeyActivities,
+  useOutputIndicators,
   useProject,
+  useProjectDocuments,
   useProjectMapping,
+  useProjects,
 } from "@/hooks/useProjectsApi";
 
 import { INITIAL_WIZARD_DATA, type WizardData } from "./types";
@@ -30,12 +34,12 @@ const STEPS = [
   { number: 1, label: "Identification" },
   { number: 2, label: "Project Implementation Centres" },
   { number: 3, label: "Strategic Alignment" },
-  { number: 4, label: "Timeline & Finance" },
+  { number: 4, label: "Project Documents" },
   { number: 5, label: "Project Objectives" },
-  { number: 6, label: "Beneficiary Targets" },
-  { number: 7, label: "Project Locations" },
+  { number: 6, label: "Project Locations" },
+  { number: 7, label: "Timeline & Finance" },
   { number: 8, label: "Funding Sources" },
-  { number: 9, label: "Project Documents" },
+  { number: 9, label: "Beneficiary Targets" },
 ];
 
 function initials(name: string): string {
@@ -47,41 +51,6 @@ function initials(name: string): string {
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "PR"
   );
-}
-
-function draftKey(projectId?: string) {
-  return projectId ? `kalro_project_draft_edit_${projectId}` : "kalro_project_draft_new";
-}
-
-function loadDraft(projectId?: string): { data: WizardData; step: number } | null {
-  try {
-    const raw = localStorage.getItem(draftKey(projectId));
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function saveDraft(projectId: string | undefined, data: WizardData, step: number) {
-  try {
-    // File objects cannot be serialized; strip them from documents when persisting.
-    const serializable = {
-      ...data,
-      documents: data.documents.map((d) => ({ ...d, files: [] as File[] })),
-    };
-    localStorage.setItem(draftKey(projectId), JSON.stringify({ data: serializable, step }));
-  } catch {
-    // localStorage may be unavailable (e.g. private mode) — safe to ignore.
-  }
-}
-
-function clearDraft(projectId?: string) {
-  try {
-    localStorage.removeItem(draftKey(projectId));
-  } catch {
-    // ignore
-  }
 }
 
 function projectToWizardData(project: Record<string, unknown>): Partial<WizardData> {
@@ -182,45 +151,80 @@ export default function ProjectWizard() {
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
 
-  const { data: existingProject } = useProject(editId);
-  const { data: existingMapping } = useProjectMapping(editId);
-
   const [projectId, setProjectId] = useState<string | undefined>(editId);
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<WizardData>(INITIAL_WIZARD_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [hydrated, setHydrated] = useState(isEdit ? false : true);
+
+  const { data: existingProject } = useProject(editId);
+  const { data: existingMapping } = useProjectMapping(projectId);
+  const { data: existingDocuments = [] } = useProjectDocuments(projectId);
+  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
 
   const { data: kras = [] } = useComponents();
   const { data: objectives = [] } = useObjectives();
   const { data: strategies = [] } = useStrategies();
+  const { data: keyActivities = [] } = useKeyActivities();
   const { data: outputs = [] } = useExpectedOutputs();
+  const { data: outputIndicators = [] } = useOutputIndicators();
 
-  // Resume a saved draft for "new project" flow on first mount.
   useEffect(() => {
-    if (isEdit) return;
-    const draft = loadDraft(undefined);
+    if (!existingMapping) return;
+    setData((prev) => ({
+      ...prev,
+      selectedKeyActivityIds: existingMapping.keyActivityIds || [],
+      selectedOutputIds: existingMapping.expectedOutputIds || [],
+      selectedOutputIndicatorIds: existingMapping.outputIndicatorIds || [],
+    }));
+  }, [existingMapping]);
+
+  useEffect(() => {
+    if (existingDocuments.length === 0) return;
+    setData((prev) => {
+      const unsavedDocs = prev.documents.filter((doc) => !doc.id && (doc.title.trim() || doc.files.length > 0));
+      return {
+        ...prev,
+        documents: [
+          ...existingDocuments.map((doc) => ({
+            id: doc.id,
+            title: doc.name,
+            docType: doc.documentType || "",
+            description: doc.description || "",
+            files: [],
+          })),
+          ...unsavedDocs,
+        ],
+      };
+    });
+  }, [existingDocuments]);
+
+  // Resume the newest backend-saved draft for the "new project" flow.
+  useEffect(() => {
+    if (isEdit || projectsLoading || projectId) return;
+    const draft = allProjects.find((project) => project.isDraft);
     if (draft) {
-      setData(draft.data);
-      setCurrentStep(draft.step);
+      setProjectId(draft.id);
+      setData((prev) => ({
+        ...prev,
+        ...projectToWizardData(draft as unknown as Record<string, unknown>),
+      }));
+      setCurrentStep(Math.min(Math.max(Number(draft.currentStep || 1), 1), 9));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [allProjects, isEdit, projectId, projectsLoading]);
 
   // Hydrate from the existing project when editing.
   useEffect(() => {
     if (!isEdit || !existingProject || hydrated) return;
-    const draft = loadDraft(editId);
-    if (draft) {
-      setData(draft.data);
-      setCurrentStep(draft.step);
-    } else {
-      setData((prev) => ({
-        ...prev,
-        ...projectToWizardData(existingProject as unknown as Record<string, unknown>),
-        selectedOutputIds: existingMapping?.expectedOutputIds || [],
-      }));
-    }
+    setData((prev) => ({
+      ...prev,
+      ...projectToWizardData(existingProject as unknown as Record<string, unknown>),
+      selectedKeyActivityIds: existingMapping?.keyActivityIds || [],
+      selectedOutputIds: existingMapping?.expectedOutputIds || [],
+      selectedOutputIndicatorIds: existingMapping?.outputIndicatorIds || [],
+    }));
+    setCurrentStep(Math.min(Math.max(Number(existingProject.currentStep || 1), 1), 9));
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, existingProject, existingMapping, hydrated]);
@@ -228,7 +232,6 @@ export default function ProjectWizard() {
   const onChange = (updates: Partial<WizardData>) =>
     setData((prev) => {
       const next = { ...prev, ...updates };
-      saveDraft(projectId, next, currentStep);
       return next;
     });
 
@@ -257,38 +260,136 @@ export default function ProjectWizard() {
     fundingSources: data.fundingSources,
   });
 
-  const persistStep = async () => {
-    if (!data.title.trim()) return;
+  const buildMappingPayload = (id: string) => {
+    const selOutputIds = data.selectedOutputIds;
+    const selIndicatorIds = data.selectedOutputIndicatorIds;
+
+    const selKeyActivityIds = [
+      ...new Set([
+        ...data.selectedKeyActivityIds,
+        ...selOutputIds
+          .map((oid) => outputs.find((o) => o.id === oid)?.keyActivityId)
+          .filter((kid): kid is string => !!kid),
+        ...selIndicatorIds
+          .map((iid) => outputIndicators.find((indicator) => indicator.id === iid)?.keyActivityId)
+          .filter((kid): kid is string => !!kid),
+      ]),
+    ];
+
+    const selStrategyIds = [
+      ...new Set([
+        ...selKeyActivityIds
+          .map((kid) => keyActivities.find((activity) => activity.id === kid)?.strategyId)
+          .filter((sid): sid is string => !!sid),
+        ...selOutputIds
+          .map((oid) => outputs.find((o) => o.id === oid)?.strategyId)
+          .filter((sid): sid is string => !!sid),
+        ...selIndicatorIds
+          .map((iid) => outputIndicators.find((indicator) => indicator.id === iid)?.strategyId)
+          .filter((sid): sid is string => !!sid),
+      ]),
+    ];
+
+    const selObjectiveIds = [
+      ...new Set(
+        selStrategyIds
+          .map((sid) => strategies.find((s) => s.id === sid)?.objectiveId)
+          .filter((oid): oid is string => !!oid)
+      ),
+    ];
+
+    const selKraIds = [
+      ...new Set(
+        selObjectiveIds
+          .map((oid) => objectives.find((o) => o.id === oid)?.componentId)
+          .filter((kid): kid is string => !!kid)
+      ),
+    ];
+
+    return {
+      project: Number(id),
+      expectedOutputIds: selOutputIds.map(Number),
+      strategyIds: selStrategyIds.map(Number),
+      objectiveIds: selObjectiveIds.map(Number),
+      kraIds: selKraIds.map(Number),
+      keyActivityIds: selKeyActivityIds.map(Number),
+      outputIndicatorIds: selIndicatorIds.map(Number),
+    };
+  };
+
+  const syncDocuments = async (id: string) => {
+    const docsToUpload = data.documents.filter((doc) => !doc.id && doc.title.trim());
+    if (docsToUpload.length === 0) return;
+
+    for (const doc of docsToUpload) {
+      const fd = new FormData();
+      fd.append("project", String(id));
+      fd.append("name", doc.title.trim());
+      fd.append("document_type", doc.docType);
+      fd.append("description", doc.description);
+      doc.files.forEach((f) => fd.append("files", f));
+      await api.postForm("/project-documents/", fd);
+    }
+
+    setData((prev) => ({
+      ...prev,
+      documents: prev.documents.filter((doc) => doc.id),
+    }));
+    await qc.invalidateQueries({ queryKey: qk.documents(id) });
+  };
+
+  const persistStep = async (stepToSave = currentStep, markComplete = false) => {
+    if (!data.title.trim()) return projectId;
+    setIsSaving(true);
     try {
+      let savedId = projectId;
       if (!projectId) {
         const created = await api.post<{ id: string }>("/projects/", {
           ...buildProjectPayload(),
-          isDraft: true,
-          currentStep,
+          isDraft: !markComplete,
+          currentStep: stepToSave,
         });
+        savedId = created.id;
         setProjectId(created.id);
-        saveDraft(created.id, data, currentStep);
-        clearDraft(undefined);
       } else {
         await api.patch(`/projects/${projectId}/`, {
           ...buildProjectPayload(),
-          currentStep,
+          isDraft: !markComplete,
+          currentStep: stepToSave,
         });
-        saveDraft(projectId, data, currentStep);
+      }
+      if (savedId && (data.selectedKeyActivityIds.length > 0 || data.selectedOutputIds.length > 0 || data.selectedOutputIndicatorIds.length > 0)) {
+        await api.post("/project-mappings/", buildMappingPayload(savedId));
+        await qc.invalidateQueries({ queryKey: qk.mapping(savedId) });
+      }
+      if (savedId && stepToSave > 4) {
+        await syncDocuments(savedId);
       }
       await qc.invalidateQueries({ queryKey: qk.projects });
+      return savedId;
     } catch (err) {
       console.error(err);
       toast.error("Failed to save progress for this step.");
+      throw err;
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const goNext = async () => {
-    await persistStep();
-    setCurrentStep((s) => Math.min(s + 1, 9));
+    const nextStep = Math.min(currentStep + 1, 9);
+    await persistStep(nextStep);
+    setCurrentStep(nextStep);
   };
-  const goBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
-  const jumpTo = (n: number) => setCurrentStep(n);
+  const goBack = async () => {
+    await persistStep(currentStep);
+    setCurrentStep((s) => Math.max(s - 1, 1));
+  };
+  const jumpTo = async (n: number) => {
+    if (n === currentStep) return;
+    await persistStep(Math.max(n, currentStep));
+    setCurrentStep(n);
+  };
 
   const handleFinish = async () => {
     if (!data.title.trim()) {
@@ -298,85 +399,11 @@ export default function ProjectWizard() {
 
     setIsSubmitting(true);
     try {
-      let id = projectId;
+      const id = await persistStep(9, true);
       if (!id) {
-        const created = await api.post<{ id: string }>("/projects/", {
-          ...buildProjectPayload(),
-          isDraft: false,
-          currentStep: 9,
-        });
-        id = created.id;
-      } else {
-        await api.patch(`/projects/${id}/`, {
-          ...buildProjectPayload(),
-          isDraft: false,
-          currentStep: 9,
-        });
+        throw new Error("Project could not be saved before completion.");
       }
 
-      if (data.selectedOutputIds.length > 0) {
-        const selOutputIds = data.selectedOutputIds;
-
-        const selStrategyIds = [
-          ...new Set(
-            selOutputIds
-              .map((oid) => outputs.find((o) => o.id === oid)?.strategyId)
-              .filter((sid): sid is string => !!sid)
-          ),
-        ];
-
-        const selObjectiveIds = [
-          ...new Set(
-            selStrategyIds
-              .map((sid) => strategies.find((s) => s.id === sid)?.objectiveId)
-              .filter((oid): oid is string => !!oid)
-          ),
-        ];
-
-        const selKraIds = [
-          ...new Set(
-            selObjectiveIds
-              .map((oid) => objectives.find((o) => o.id === oid)?.componentId)
-              .filter((kid): kid is string => !!kid)
-          ),
-        ];
-
-        await api.post("/project-mappings/", {
-          project: Number(id),
-          expectedOutputIds: selOutputIds.map(Number),
-          strategyIds: selStrategyIds.map(Number),
-          objectiveIds: selObjectiveIds.map(Number),
-          kraIds: selKraIds.map(Number),
-          keyActivityIds: [],
-          outputIndicatorIds: [],
-        });
-      }
-
-      if (data.documents.some((d) => d.title.trim())) {
-        const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
-        const token = localStorage.getItem("kalro_token");
-        const headers: Record<string, string> = token
-          ? { Authorization: `Token ${token}` }
-          : {};
-
-        for (const doc of data.documents) {
-          if (!doc.title.trim()) continue;
-          const fd = new FormData();
-          fd.append("project", String(id));
-          fd.append("name", doc.title.trim());
-          fd.append("document_type", doc.docType);
-          fd.append("description", doc.description);
-          doc.files.forEach((f) => fd.append("files", f));
-          await fetch(`${base}/project-documents/`, {
-            method: "POST",
-            headers,
-            body: fd,
-          });
-        }
-      }
-
-      clearDraft(editId);
-      clearDraft(undefined);
       await qc.invalidateQueries({ queryKey: qk.projects });
       toast.success(isEdit ? "Project updated successfully!" : "Project created successfully!");
       navigate("/projects");
@@ -388,7 +415,7 @@ export default function ProjectWizard() {
     }
   };
 
-  const stepProps = { data, onChange, onNext: goNext, onBack: goBack };
+  const stepProps = { data, onChange, onNext: goNext, onBack: goBack, isSaving };
 
   if (isEdit && !hydrated) {
     return <div className="p-8 text-sm text-muted-foreground">Loading project…</div>;
@@ -410,6 +437,11 @@ export default function ProjectWizard() {
             Step {currentStep} of {STEPS.length} —{" "}
             {STEPS[currentStep - 1].label}
           </p>
+          {isSaving && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-primary">
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Autosaving to database...
+            </p>
+          )}
         </div>
       </div>
 
@@ -418,13 +450,13 @@ export default function ProjectWizard() {
       {currentStep === 1 && <Step1Identification {...stepProps} />}
       {currentStep === 2 && <Step2ImplementationUnit {...stepProps} />}
       {currentStep === 3 && <Step3StrategicAlignment {...stepProps} />}
-      {currentStep === 4 && <Step4TimelineFinance {...stepProps} />}
+      {currentStep === 4 && <Step9Documents {...stepProps} />}
       {currentStep === 5 && <Step5ObjectivesOutcomes {...stepProps} />}
-      {currentStep === 6 && <Step6BeneficiaryTargets {...stepProps} />}
-      {currentStep === 7 && <Step7ProjectLocations {...stepProps} />}
+      {currentStep === 6 && <Step7ProjectLocations {...stepProps} />}
+      {currentStep === 7 && <Step4TimelineFinance {...stepProps} />}
       {currentStep === 8 && <Step8FundingSources {...stepProps} />}
       {currentStep === 9 && (
-        <Step9Documents
+        <Step6BeneficiaryTargets
           {...stepProps}
           onFinish={handleFinish}
           isSubmitting={isSubmitting}
