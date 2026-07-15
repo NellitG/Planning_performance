@@ -25,6 +25,7 @@ export interface FundingSourceEntry {
 }
 
 export interface DocumentEntry {
+  id?: string;
   title: string;
   docType: string;
   description: string;
@@ -42,7 +43,9 @@ export interface WizardData {
   implementationUnits: ImplementationUnitData;
   valueChains: string[];
 
+  selectedKeyActivityIds: string[];
   selectedOutputIds: string[];
+  selectedOutputIndicatorIds: string[];
 
   startDate: string;
   expectedEndDate: string;
@@ -84,7 +87,9 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   },
   valueChains: [],
 
+  selectedKeyActivityIds: [],
   selectedOutputIds: [],
+  selectedOutputIndicatorIds: [],
 
   startDate: "",
   expectedEndDate: "",
@@ -113,4 +118,5 @@ export interface StepProps {
   onChange: (updates: Partial<WizardData>) => void;
   onNext: () => void;
   onBack: () => void;
+  isSaving?: boolean;
 }
