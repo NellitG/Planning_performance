@@ -127,7 +127,7 @@ export default function Projects() {
         title="Projects"
         description="Manage KALRO projects and track delivery status."
         actions={
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button asChild className="bg-green-700 text-primary-foreground">
             <Link to="/projects/new">
               <Plus className="h-4 w-4" /> Add New Project
             </Link>
