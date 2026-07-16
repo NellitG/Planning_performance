@@ -260,7 +260,46 @@ class ProjectMapping(models.Model):
         return f"Mapping for {self.project_id}"
 
 
+class ProjectComponent(models.Model):
+    name = models.CharField(max_length=500, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Project Component"
+        verbose_name_plural = "Project Components"
+
+    def __str__(self):
+        return self.name
+
+
+class ProjectSubComponent(models.Model):
+    component = models.ForeignKey(
+        ProjectComponent, on_delete=models.CASCADE, related_name="sub_components"
+    )
+    name = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["component__name", "name"]
+        unique_together = ["component", "name"]
+        verbose_name = "Project Sub Component"
+        verbose_name_plural = "Project Sub Components"
+
+    def __str__(self):
+        return self.name
+
+
 class MainActivity(models.Model):
+    sub_component = models.ForeignKey(
+        ProjectSubComponent,
+        on_delete=models.SET_NULL,
+        related_name="main_activities",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -278,6 +317,7 @@ class MainActivityIndicator(models.Model):
     CATEGORY_CHOICES = [
         ("ICT", "ICT"),
         ("Value Chain", "Value Chain"),
+        ("Thematic Area", "Thematic Area"),
         ("Project Coordination", "Project Coordination"),
     ]
 
@@ -305,6 +345,7 @@ class SubActivity(models.Model):
         ("Value Chain", "Value Chain"),
         ("Project Coordination", "Project Coordination"),
         ("ICT", "ICT"),
+        ("Thematic Area", "Thematic Area"),
     ]
 
     main_activity = models.ForeignKey(
@@ -312,6 +353,11 @@ class SubActivity(models.Model):
     )
     name = models.CharField(max_length=500)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True)
+    # Keep the legacy value_chain text column for existing reports and records, while
+    # using this relation as the authoritative assignment going forward.
+    value_chains = models.ManyToManyField(
+        "user_management.ValueChain", blank=True, related_name="sub_activities"
+    )
     value_chain = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -329,6 +375,14 @@ class SubSubActivity(models.Model):
     sub_activity = models.ForeignKey(
         SubActivity, on_delete=models.CASCADE, related_name="sub_sub_activities"
     )
+    # Nullable for records created before value chains became a relation.
+    value_chain_reference = models.ForeignKey(
+        "user_management.ValueChain",
+        on_delete=models.SET_NULL,
+        related_name="sub_sub_activities",
+        null=True,
+        blank=True,
+    )
     value_chain = models.CharField(max_length=120, blank=True)
     name = models.CharField(max_length=500, blank=True)
     approved_activity_budget = models.DecimalField(max_digits=20, decimal_places=2)
@@ -342,6 +396,25 @@ class SubSubActivity(models.Model):
 
     def __str__(self):
         return self.name or f"{self.sub_activity.name} budget"
+
+
+class ActivityIndicator(models.Model):
+    sub_activity = models.ForeignKey(
+        SubActivity, on_delete=models.CASCADE, related_name="activity_indicators"
+    )
+    indicator = models.CharField(max_length=500)
+    target = models.CharField(max_length=500)
+    unit_of_measure = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Indicator"
+        verbose_name_plural = "Indicators"
+
+    def __str__(self):
+        return self.indicator[:80]
 
 
 class TechnicalReport(models.Model):
@@ -359,6 +432,8 @@ class TechnicalReport(models.Model):
     main_activity = models.ForeignKey(
         MainActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )
+    category = models.CharField(max_length=50, blank=True)
+    value_chain = models.CharField(max_length=120, blank=True)
     sub_activity = models.ForeignKey(
         SubActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )

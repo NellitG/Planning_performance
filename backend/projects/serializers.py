@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from user_management.models import ValueChain
+
 from .models import (
     Project,
     KeyResultArea,
@@ -18,6 +20,9 @@ from .models import (
     MainActivityIndicator,
     SubActivity,
     SubSubActivity,
+    ActivityIndicator,
+    ProjectComponent,
+    ProjectSubComponent,
     TechnicalReport,
 )
 
@@ -380,6 +385,61 @@ class ProjectMappingSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProjectComponentSerializer(serializers.ModelSerializer):
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    subComponents = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectComponent
+        fields = ["id", "name", "createdAt", "updatedAt", "subComponents"]
+
+    def get_subComponents(self, obj):
+        return obj.sub_components.count()
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Component is required.")
+        qs = ProjectComponent.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A component with this name already exists.")
+        return value
+
+
+class ProjectSubComponentSerializer(serializers.ModelSerializer):
+    componentId = serializers.PrimaryKeyRelatedField(
+        source="component", queryset=ProjectComponent.objects.all()
+    )
+    componentName = serializers.CharField(source="component.name", read_only=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+
+    class Meta:
+        model = ProjectSubComponent
+        fields = ["id", "componentId", "componentName", "name", "createdAt", "updatedAt"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
+        component = attrs.get("component", getattr(self.instance, "component", None))
+        if not component:
+            raise serializers.ValidationError({"componentId": "Please select a Component."})
+        if not name:
+            raise serializers.ValidationError({"name": "Sub Component is required."})
+        qs = ProjectSubComponent.objects.filter(component=component, name__iexact=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                {"name": "A Sub Component with this name already exists under this Component."}
+            )
+        attrs["name"] = name
+        return attrs
+
+
 class IndicatorTrackingSerializer(serializers.ModelSerializer):
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     outputIndicatorId = serializers.PrimaryKeyRelatedField(
@@ -447,6 +507,7 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
     )
     mainActivityName = serializers.CharField(source="main_activity.name", read_only=True)
     subActivityName = serializers.CharField(source="sub_activity.name", read_only=True)
+    valueChain = serializers.CharField(source="value_chain", required=False, allow_blank=True, default="")
     subSubActivities = serializers.JSONField(source="sub_sub_activities", required=False, default=list)
     supportingDocuments = serializers.JSONField(source="supporting_documents", required=False, default=list)
     reportingPeriod = serializers.CharField(source="reporting_period", required=False, allow_blank=True, default="")
@@ -490,6 +551,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "projectId",
             "projectName",
             "mainActivityId",
+            "category",
+            "valueChain",
             "subActivityId",
             "mainActivityName",
             "subActivityName",
@@ -521,6 +584,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         project = attrs.get("project", getattr(self.instance, "project", None))
         main_activity = attrs.get("main_activity", getattr(self.instance, "main_activity", None))
         sub_activity = attrs.get("sub_activity", getattr(self.instance, "sub_activity", None))
+        category = attrs.get("category", getattr(self.instance, "category", "")).strip()
+        value_chain = attrs.get("value_chain", getattr(self.instance, "value_chain", "")).strip()
         quarter = attrs.get("quarter", getattr(self.instance, "quarter", "")).strip()
         financial_year = attrs.get(
             "financial_year", getattr(self.instance, "financial_year", "")
@@ -542,6 +607,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"financialYear": "Financial year is required."}
                 )
+            if not category:
+                raise serializers.ValidationError({"category": "Category is required."})
 
         if quarter and financial_year:
             reporting_period = f"{quarter} {financial_year}"
@@ -550,6 +617,28 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"subActivityId": "Select a Sub Activity under the selected Main Activity."}
             )
+        if category and sub_activity and sub_activity.category != category:
+            raise serializers.ValidationError(
+                {"subActivityId": "Select a Sub Activity under the selected Category."}
+            )
+        if category == "Value Chain":
+            if not value_chain:
+                raise serializers.ValidationError({"valueChain": "Value Chain is required."})
+            if sub_activity:
+                allowed = [
+                    item.strip()
+                    for item in sub_activity.value_chain.split(",")
+                    if item.strip()
+                ]
+                has_matching_sub_activity_budget = sub_activity.sub_sub_activities.filter(
+                    value_chain=value_chain
+                ).exists()
+                if value_chain not in allowed and not has_matching_sub_activity_budget:
+                    raise serializers.ValidationError(
+                        {"valueChain": "Select a Value Chain assigned to this Sub Activity."}
+                    )
+        else:
+            attrs["value_chain"] = ""
 
         start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
         end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
@@ -564,6 +653,7 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             )
 
         attrs["title"] = title
+        attrs["category"] = category
         attrs["reporting_period"] = reporting_period
         return attrs
 
@@ -581,29 +671,84 @@ class MainActivityIndicatorSerializer(serializers.ModelSerializer):
 
 
 class MainActivitySerializer(serializers.ModelSerializer):
-    indicators = MainActivityIndicatorSerializer(many=True, required=False)
+    subComponentId = serializers.PrimaryKeyRelatedField(
+        source="sub_component", queryset=ProjectSubComponent.objects.all()
+    )
+    subComponentName = serializers.CharField(source="sub_component.name", read_only=True)
+    componentId = serializers.SerializerMethodField()
+    componentName = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = MainActivity
-        fields = ["id", "name", "indicators", "createdAt"]
+        fields = [
+            "id",
+            "subComponentId",
+            "subComponentName",
+            "componentId",
+            "componentName",
+            "name",
+            "createdAt",
+        ]
 
-    def create(self, validated_data):
-        indicators_data = validated_data.pop("indicators", [])
-        main_activity = MainActivity.objects.create(**validated_data)
-        for indicator_data in indicators_data:
-            MainActivityIndicator.objects.create(main_activity=main_activity, **indicator_data)
-        return main_activity
+    def get_componentId(self, obj):
+        return obj.sub_component.component_id if obj.sub_component_id else None
 
-    def update(self, instance, validated_data):
-        indicators_data = validated_data.pop("indicators", None)
-        instance.name = validated_data.get("name", instance.name)
-        instance.save()
-        if indicators_data is not None:
-            instance.indicators.all().delete()
-            for indicator_data in indicators_data:
-                MainActivityIndicator.objects.create(main_activity=instance, **indicator_data)
-        return instance
+    def get_componentName(self, obj):
+        return obj.sub_component.component.name if obj.sub_component_id else ""
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get("name", getattr(self.instance, "name", "")).strip()
+        if not attrs.get("sub_component", getattr(self.instance, "sub_component", None)):
+            raise serializers.ValidationError({"subComponentId": "Please select a Sub Component."})
+        if not name:
+            raise serializers.ValidationError({"name": "Main Activity is required."})
+        attrs["name"] = name
+        return attrs
+
+
+class ActivityIndicatorSerializer(serializers.ModelSerializer):
+    subActivityId = serializers.PrimaryKeyRelatedField(
+        source="sub_activity", queryset=SubActivity.objects.all()
+    )
+    subActivityName = serializers.CharField(source="sub_activity.name", read_only=True)
+    mainActivityName = serializers.CharField(source="sub_activity.main_activity.name", read_only=True)
+    unitOfMeasure = serializers.CharField(source="unit_of_measure")
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+
+    class Meta:
+        model = ActivityIndicator
+        fields = [
+            "id",
+            "subActivityId",
+            "subActivityName",
+            "mainActivityName",
+            "indicator",
+            "target",
+            "unitOfMeasure",
+            "createdAt",
+            "updatedAt",
+        ]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        indicator = attrs.get("indicator", getattr(self.instance, "indicator", "")).strip()
+        target = attrs.get("target", getattr(self.instance, "target", "")).strip()
+        unit = attrs.get("unit_of_measure", getattr(self.instance, "unit_of_measure", "")).strip()
+        if not attrs.get("sub_activity", getattr(self.instance, "sub_activity", None)):
+            raise serializers.ValidationError({"subActivityId": "Please select a Sub Activity."})
+        if not indicator:
+            raise serializers.ValidationError({"indicator": "Indicator is required."})
+        if not target:
+            raise serializers.ValidationError({"target": "Target is required."})
+        if not unit:
+            raise serializers.ValidationError({"unitOfMeasure": "Unit of Measure is required."})
+        attrs["indicator"] = indicator
+        attrs["target"] = target
+        attrs["unit_of_measure"] = unit
+        return attrs
 
 
 class SubActivitySerializer(serializers.ModelSerializer):
@@ -614,6 +759,10 @@ class SubActivitySerializer(serializers.ModelSerializer):
     valueChain = serializers.CharField(
         source="value_chain", required=False, allow_blank=True, default=""
     )
+    valueChainIds = serializers.PrimaryKeyRelatedField(
+        source="value_chains", queryset=ValueChain.objects.all(), many=True, required=False
+    )
+    valueChains = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
@@ -625,20 +774,36 @@ class SubActivitySerializer(serializers.ModelSerializer):
             "name",
             "category",
             "valueChain",
+            "valueChainIds",
+            "valueChains",
             "createdAt",
         ]
+
+    def get_valueChains(self, obj):
+        return [{"id": str(chain.id), "name": chain.name} for chain in obj.value_chains.all()]
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
         category = attrs.get("category", getattr(self.instance, "category", ""))
-        value_chain = attrs.get("value_chain", getattr(self.instance, "value_chain", ""))
+        selected_chains = attrs.get("value_chains")
+        if selected_chains is None and self.instance:
+            selected_chains = list(self.instance.value_chains.all())
+
+        # Accept the former comma-separated payload during the transition.
+        if selected_chains is None and attrs.get("value_chain"):
+            names = [name.strip() for name in attrs["value_chain"].split(",") if name.strip()]
+            selected_chains = list(ValueChain.objects.filter(name__in=names))
 
         if category != "Value Chain":
             attrs["value_chain"] = ""
-        elif not value_chain:
+            attrs["value_chains"] = []
+        elif not selected_chains:
             raise serializers.ValidationError(
-                {"valueChain": "Please select a value chain."}
+                {"valueChainIds": "Please select at least one value chain."}
             )
+        else:
+            attrs["value_chains"] = selected_chains
+            attrs["value_chain"] = ", ".join(chain.name for chain in selected_chains)
 
         return attrs
 
@@ -651,6 +816,9 @@ class SubSubActivitySerializer(serializers.ModelSerializer):
     category = serializers.CharField(source="sub_activity.category", read_only=True)
     valueChain = serializers.CharField(
         source="value_chain", required=False, allow_blank=True, default=""
+    )
+    valueChainId = serializers.PrimaryKeyRelatedField(
+        source="value_chain_reference", queryset=ValueChain.objects.all(), required=False, allow_null=True
     )
     approvedActivityBudget = serializers.DecimalField(
         source="approved_activity_budget",
@@ -668,6 +836,7 @@ class SubSubActivitySerializer(serializers.ModelSerializer):
             "subActivityName",
             "category",
             "valueChain",
+            "valueChainId",
             "name",
             "approvedActivityBudget",
             "createdAt",
@@ -680,30 +849,33 @@ class SubSubActivitySerializer(serializers.ModelSerializer):
             "sub_activity", getattr(self.instance, "sub_activity", None)
         )
         name = attrs.get("name", getattr(self.instance, "name", "")).strip()
-        value_chain = attrs.get(
-            "value_chain", getattr(self.instance, "value_chain", "")
-        ).strip()
+        value_chain = attrs.get("value_chain", getattr(self.instance, "value_chain", "")).strip()
+        selected_chain = attrs.get(
+            "value_chain_reference", getattr(self.instance, "value_chain_reference", None)
+        )
+
+        # Support older clients that post a value-chain name instead of its id.
+        if not selected_chain and value_chain:
+            selected_chain = ValueChain.objects.filter(name__iexact=value_chain).first()
 
         if sub_activity and sub_activity.category == "Value Chain":
             if not name:
                 raise serializers.ValidationError(
                     {"name": "Sub-Sub Activity name is required for Value Chain activities."}
                 )
-            if not value_chain:
+            if not selected_chain:
                 raise serializers.ValidationError(
-                    {"valueChain": "Please select a value chain."}
+                    {"valueChainId": "Please select a value chain."}
                 )
-            allowed = [
-                item.strip()
-                for item in sub_activity.value_chain.split(",")
-                if item.strip()
-            ]
-            if value_chain not in allowed:
+            if not sub_activity.value_chains.filter(pk=selected_chain.pk).exists():
                 raise serializers.ValidationError(
-                    {"valueChain": "Select a value chain assigned to this Sub Activity."}
+                    {"valueChainId": "Select a value chain assigned to this Sub Activity."}
                 )
+            attrs["value_chain_reference"] = selected_chain
+            attrs["value_chain"] = selected_chain.name
         else:
             attrs["value_chain"] = ""
+            attrs["value_chain_reference"] = None
 
         attrs["name"] = name
         return attrs

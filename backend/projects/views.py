@@ -7,6 +7,7 @@ from rest_framework.response import Response
 
 from .models import (
     ExpectedOutput,
+    ActivityIndicator,
     IndicatorTracking,
     KeyActivity,
     KeyResultArea,
@@ -16,9 +17,11 @@ from .models import (
     Outcome,
     OutcomeIndicator,
     Project,
+    ProjectComponent,
     ProjectDocument,
     ProjectDocumentFile,
     ProjectMapping,
+    ProjectSubComponent,
     Strategy,
     StrategicObjective,
     SubActivity,
@@ -27,6 +30,7 @@ from .models import (
 )
 from .serializers import (
     ExpectedOutputSerializer,
+    ActivityIndicatorSerializer,
     IndicatorTrackingSerializer,
     KeyActivitySerializer,
     KeyResultAreaSerializer,
@@ -38,6 +42,8 @@ from .serializers import (
     ProjectDocumentFileSerializer,
     ProjectDocumentSerializer,
     ProjectMappingSerializer,
+    ProjectComponentSerializer,
+    ProjectSubComponentSerializer,
     ProjectSerializer,
     StrategicObjectiveSerializer,
     StrategySerializer,
@@ -226,6 +232,23 @@ class ProjectMappingViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
 
+class ProjectComponentViewSet(viewsets.ModelViewSet):
+    queryset = ProjectComponent.objects.all()
+    serializer_class = ProjectComponentSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name"]
+    ordering_fields = ["name", "created_at", "updated_at"]
+
+
+class ProjectSubComponentViewSet(viewsets.ModelViewSet):
+    queryset = ProjectSubComponent.objects.select_related("component").all()
+    serializer_class = ProjectSubComponentSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["component"]
+    search_fields = ["name", "component__name"]
+    ordering_fields = ["name", "component__name", "created_at", "updated_at"]
+
+
 class IndicatorTrackingViewSet(viewsets.ModelViewSet):
     queryset = IndicatorTracking.objects.all()
     serializer_class = IndicatorTrackingSerializer
@@ -306,7 +329,7 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
 
 
 class MainActivityViewSet(viewsets.ModelViewSet):
-    queryset = MainActivity.objects.all()
+    queryset = MainActivity.objects.select_related("sub_component", "sub_component__component").all()
     serializer_class = MainActivitySerializer
 
 
@@ -317,11 +340,22 @@ class MainActivityIndicatorViewSet(viewsets.ModelViewSet):
 
 
 class SubActivityViewSet(viewsets.ModelViewSet):
-    queryset = SubActivity.objects.all()
+    queryset = SubActivity.objects.prefetch_related("value_chains").all()
     serializer_class = SubActivitySerializer
 
 
 class SubSubActivityViewSet(BulkCreateMixin, viewsets.ModelViewSet):
-    queryset = SubSubActivity.objects.select_related("sub_activity").all()
+    queryset = SubSubActivity.objects.select_related("sub_activity", "value_chain_reference").all()
     serializer_class = SubSubActivitySerializer
-    filterset_fields = ["sub_activity", "value_chain"]
+    filterset_fields = ["sub_activity", "value_chain", "value_chain_reference"]
+
+
+class ActivityIndicatorViewSet(BulkCreateMixin, viewsets.ModelViewSet):
+    queryset = ActivityIndicator.objects.select_related(
+        "sub_activity", "sub_activity__main_activity"
+    ).all()
+    serializer_class = ActivityIndicatorSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["sub_activity"]
+    search_fields = ["indicator", "target", "unit_of_measure", "sub_activity__name"]
+    ordering_fields = ["indicator", "target", "unit_of_measure", "created_at"]
