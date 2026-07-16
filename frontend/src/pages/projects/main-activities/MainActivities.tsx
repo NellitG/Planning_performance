@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Plus, Search, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ListTodo } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ListTodo, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,26 @@ export default function MainActivities() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ key: "componentName" | "subComponentName" | "name" | "createdAt"; direction: "asc" | "desc" }>({
+    key: "createdAt",
+    direction: "desc",
+  });
 
-  const filtered = items.filter((a) =>
-    !q || a.name.toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = items
+    .filter((a) => {
+      const term = q.toLowerCase();
+      return (
+        !q ||
+        a.name.toLowerCase().includes(term) ||
+        (a.subComponentName || "").toLowerCase().includes(term) ||
+        (a.componentName || "").toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      const av = String(a[sort.key] ?? "");
+      const bv = String(b[sort.key] ?? "");
+      return sort.direction === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -32,6 +48,20 @@ export default function MainActivities() {
     }
     setDeleteId(null);
   };
+
+  const toggleSort = (key: typeof sort.key) => {
+    setSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const SortButton = ({ label, sortKey }: { label: string; sortKey: typeof sort.key }) => (
+    <button type="button" onClick={() => toggleSort(sortKey)} className="inline-flex items-center gap-1">
+      {label}
+      <ArrowUpDown className="h-3.5 w-3.5" />
+    </button>
+  );
 
   return (
     <div className="space-y-6">
@@ -82,15 +112,17 @@ export default function MainActivities() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8">#</TableHead>
-                <TableHead>Activity Name</TableHead>
-                <TableHead>Date Created</TableHead>
+                <TableHead><SortButton label="Component" sortKey="componentName" /></TableHead>
+                <TableHead><SortButton label="Sub Component" sortKey="subComponentName" /></TableHead>
+                <TableHead><SortButton label="Activity Name" sortKey="name" /></TableHead>
+                <TableHead><SortButton label="Date Created" sortKey="createdAt" /></TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageItems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                     {q ? "No activities match your search." : "No Main Activities yet. Click 'Add New Activity' to get started."}
                   </TableCell>
                 </TableRow>
@@ -98,6 +130,8 @@ export default function MainActivities() {
               {pageItems.map((item, idx) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-muted-foreground text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{item.componentName || "-"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{item.subComponentName || "-"}</TableCell>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(item.createdAt).toLocaleDateString()}
