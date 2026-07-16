@@ -1,1 +1,0 @@
-import{j as e}from"./index-BVbVBBRO.js";import{P as t}from"./PagePlaceholder-BSW0IIgp.js";import"./card-C5aABUwN.js";function o(){return e.jsx(t,{title:"Submit Achievements",description:"Submit captured achievements for review."})}export{o as default};

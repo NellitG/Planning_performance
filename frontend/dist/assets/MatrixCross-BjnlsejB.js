@@ -1,0 +1,1 @@
+import{j as t}from"./index-WZwsQVhh.js";import{P as r}from"./PagePlaceholder-pS3rVoS_.js";import"./card-DqnMOsDw.js";function a(){return t.jsx(r,{title:"Matrix — Cross-Cutting",description:"Cross-cutting issues matrix indicators."})}export{a as default};
