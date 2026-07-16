@@ -95,9 +95,30 @@ export interface StoreItem {
 
 export interface MainActivity {
   id: string;
+  subComponentId: string;
+  subComponentName: string;
+  componentId?: string | null;
+  componentName?: string;
   name: string;
   indicators?: MainActivityIndicator[];
   createdAt: string;
+}
+
+export interface ProjectComponent {
+  id: string;
+  name: string;
+  subComponents?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectSubComponent {
+  id: string;
+  componentId: string;
+  componentName: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MainActivityIndicator {
@@ -117,6 +138,8 @@ export interface SubActivity {
   name: string;
   category: string;
   valueChain: string;
+  valueChainIds: string[];
+  valueChains: Array<{ id: string; name: string }>;
   createdAt: string;
 }
 
@@ -126,9 +149,22 @@ export interface SubSubActivity {
   subActivityName: string;
   category: string;
   valueChain: string;
+  valueChainId?: string;
   name: string;
   approvedActivityBudget: string;
   createdAt: string;
+}
+
+export interface ActivityIndicator {
+  id: string;
+  subActivityId: string;
+  subActivityName: string;
+  mainActivityName: string;
+  indicator: string;
+  target: string;
+  unitOfMeasure: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TechnicalReport {
@@ -139,11 +175,13 @@ export interface TechnicalReport {
   quarter: string;
   financialYear: string;
   mainActivityId: string | null;
+  category?: string;
+  valueChain?: string;
   subActivityId: string | null;
   mainActivityName?: string;
   subActivityName?: string;
   subSubActivities: Array<{ id?: string; name: string; approvedActivityBudget?: string | number }>;
-  indicators: Array<{ id?: string; indicator: string; target?: string }>;
+  indicators: Array<{ id?: string; indicator: string; target?: string; reportedProgress?: string }>;
   reportingPeriod: string;
   startDate: string | null;
   endDate: string | null;
