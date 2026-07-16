@@ -12,6 +12,7 @@ import {
   useUpdateSubActivity,
   useMainActivities,
 } from "@/hooks/useProjectsApi";
+import { useValueChains } from "@/hooks/useUserManagementApi";
 
 interface SubActivityFormProps {
   mode?: "create" | "edit" | "view";
@@ -19,40 +20,24 @@ interface SubActivityFormProps {
 
 const CATEGORIES = ["Value Chain", "Project Coordination", "ICT"] as const;
 
-const VALUE_CHAINS = [
-  "Cowpeas",
-  "Dual Purpose Fodder Sorghum & Range Grasses",
-  "Tomato",
-  "Green Grams",
-  "Rice",
-  "Indigenous Chicken",
-  "Sunflower",
-  "Forages (Dairy)",
-  "Cashew",
-  "Range Seeds",
-  "Coffee",
-  "Potato",
-  "Sim Sim",
-  "NRM",
-];
-
 export default function SubActivityForm({ mode = "create" }: SubActivityFormProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: items = [] } = useSubActivities();
   const { data: mainActivities = [] } = useMainActivities();
+  const { data: availableValueChains = [], isLoading: isLoadingValueChains, isError: valueChainsError } = useValueChains();
   const createItem = useCreateSubActivity();
   const updateItem = useUpdateSubActivity();
 
   const [mainActivityId, setMainActivityId] = useState("");
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [valueChain, setValueChain] = useState("");
+  const [valueChainIds, setValueChainIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<{
     mainActivityId?: string;
     name?: string;
     category?: string;
-    valueChain?: string;
+    valueChainIds?: string;
   }>({});
 
   useEffect(() => {
@@ -62,7 +47,7 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
         setMainActivityId(String(item.mainActivityId));
         setName(item.name);
         setCategory(item.category ?? "");
-        setValueChain(item.valueChain ?? "");
+        setValueChainIds((item.valueChainIds ?? []).map(String));
       } else {
         toast.error("Sub Activity not found");
         navigate("/projects/sub-activities");
@@ -75,8 +60,8 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
     if (!mainActivityId) e.mainActivityId = "Please select a Main Activity";
     if (!name.trim()) e.name = "Sub Activity name is required";
     if (!category) e.category = "Please select a Category";
-    if (category === "Value Chain" && !valueChain) {
-      e.valueChain = "Please select a Value Chain";
+    if (category === "Value Chain" && valueChainIds.length === 0) {
+      e.valueChainIds = "Please select at least one Value Chain";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -89,7 +74,7 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
       mainActivityId,
       name: name.trim(),
       category,
-      valueChain: category === "Value Chain" ? valueChain : "",
+      valueChainIds: category === "Value Chain" ? valueChainIds : [],
     };
     try {
       if (mode === "create") {
@@ -210,11 +195,11 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
                 onChange={(e) => {
                   const nextCategory = e.target.value;
                   setCategory(nextCategory);
-                  if (nextCategory !== "Value Chain") setValueChain("");
+                  if (nextCategory !== "Value Chain") setValueChainIds([]);
                   setErrors((prev) => ({
                     ...prev,
                     category: undefined,
-                    valueChain: undefined,
+                    valueChainIds: undefined,
                   }));
                 }}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
@@ -231,32 +216,44 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
           </div>
 
           {category === "Value Chain" && (
-            <div className="space-y-1.5 max-w-md">
-              <Label htmlFor="valueChain">
-                Value Chain {!isView && <span className="text-red-600">*</span>}
+            <div className="space-y-2 max-w-md">
+              <Label>
+                Select Value Chains {!isView && <span className="text-red-600">*</span>}
               </Label>
               {isView ? (
-                <Input value={valueChain} disabled />
+                <Input value={items.find((item) => item.id === id)?.valueChains?.map((item) => item.name).join(", ") || ""} disabled />
+              ) : isLoadingValueChains ? (
+                <p className="text-sm text-muted-foreground">Loading value chains…</p>
+              ) : valueChainsError ? (
+                <p className="text-sm text-red-600">Unable to load value chains. Please try again.</p>
               ) : (
-                <select
-                  id="valueChain"
-                  value={valueChain}
-                  onChange={(e) => {
-                    setValueChain(e.target.value);
-                    setErrors((prev) => ({ ...prev, valueChain: undefined }));
-                  }}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">- Select Value Chain -</option>
-                  {VALUE_CHAINS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-input p-3">
+                  {availableValueChains.map((item) => {
+                    const chainId = String(item.id);
+                    return (
+                    <label key={item.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={valueChainIds.includes(chainId)}
+                        onChange={() => {
+                          setValueChainIds((current) =>
+                            current.includes(chainId)
+                              ? current.filter((value) => value !== chainId)
+                              : [...current, chainId],
+                          );
+                          setErrors((prev) => ({ ...prev, valueChainIds: undefined }));
+                        }}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      {item.name}{!item.active && <span className="text-muted-foreground">(Inactive)</span>}
+                    </label>
+                    );
+                  })}
+                  {availableValueChains.length === 0 && <p className="text-sm text-muted-foreground">No value chains are available.</p>}
+                </div>
               )}
-              {errors.valueChain && (
-                <p className="text-xs text-red-600">{errors.valueChain}</p>
+              {errors.valueChainIds && (
+                <p className="text-xs text-red-600">{errors.valueChainIds}</p>
               )}
             </div>
           )}
@@ -274,6 +271,7 @@ export default function SubActivityForm({ mode = "create" }: SubActivityFormProp
             <Button
               type="submit"
               className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={createItem.isPending || updateItem.isPending || isLoadingValueChains}
             >
               <Save className="h-4 w-4" />
               {mode === "create" ? "Save" : "Update Sub Activity"}
