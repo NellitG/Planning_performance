@@ -36,7 +36,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
   const updateItem = useUpdateSubSubActivity();
   const [mainActivityId, setMainActivityId] = useState("");
   const [subActivityId, setSubActivityId] = useState("");
-  const [valueChain, setValueChain] = useState("");
+  const [valueChainId, setValueChainId] = useState("");
   const [approvedBudget, setApprovedBudget] = useState("");
   const [rows, setRows] = useState<ActivityRow[]>([{ key: nextKey++, name: "" }]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -50,21 +50,12 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
     [mainActivityId, subActivities],
   );
   const category = selectedSubActivity?.category ?? "";
-  const valueChains = useMemo(() => {
-    const stored = selectedSubActivity?.valueChain;
-    if (!stored) return [];
-    return Array.isArray(stored)
-      ? stored
-      : stored
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean);
-  }, [selectedSubActivity]);
+  const valueChains = selectedSubActivity?.valueChains ?? [];
   const isView = mode === "view";
   const hasValidBudget =
     approvedBudget !== "" && Number.isFinite(Number(approvedBudget)) && Number(approvedBudget) >= 0;
   const budgetCanBeEntered =
-    Boolean(subActivityId) && (category !== "Value Chain" || Boolean(valueChain));
+    Boolean(subActivityId) && (category !== "Value Chain" || Boolean(valueChainId));
 
   useEffect(() => {
     if (mode === "create" || !id || !isFetched) return;
@@ -81,10 +72,10 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
         : "",
     );
     setSubActivityId(item.subActivityId);
-    setValueChain(item.valueChain);
+    setValueChainId(String(item.valueChainId ?? valueChains.find((chain) => chain.name === item.valueChain)?.id ?? ""));
     setApprovedBudget(item.approvedActivityBudget);
     setRows([{ key: nextKey++, name: item.name }]);
-  }, [id, isFetched, mode, navigate, records, subActivities]);
+  }, [id, isFetched, mode, navigate, records, subActivities, valueChains]);
 
   const updateRow = (key: number, value: string) => {
     setRows((current) => current.map((row) => (row.key === key ? { ...row, name: value } : row)));
@@ -95,7 +86,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
     const next: Record<string, string> = {};
     if (!mainActivityId) next.mainActivityId = "Please select a Main Activity.";
     if (!subActivityId) next.subActivityId = "Please select a Sub Activity.";
-    if (category === "Value Chain" && !valueChain) next.valueChain = "Please select a Value Chain.";
+    if (category === "Value Chain" && !valueChainId) next.valueChain = "Please select a Value Chain.";
     if (
       approvedBudget === "" ||
       !Number.isFinite(Number(approvedBudget)) ||
@@ -104,8 +95,8 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
       next.approvedBudget = "Enter a valid approved budget of zero or more.";
     }
     rows.forEach((row) => {
-      if (category === "Value Chain" && !row.name.trim()) {
-        next[`name-${row.key}`] = "Sub-Sub Activity name is required for Value Chain activities.";
+      if (!row.name.trim()) {
+        next[`name-${row.key}`] = "Sub-Sub Activity is required.";
       }
     });
     setErrors(next);
@@ -117,7 +108,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
     if (!validate()) return;
     const payload = rows.map((row) => ({
       subActivityId,
-      valueChain: category === "Value Chain" ? valueChain : "",
+      valueChainId: category === "Value Chain" ? valueChainId : undefined,
       name: row.name.trim(),
       approvedActivityBudget: Number(approvedBudget).toFixed(2),
     }));
@@ -177,7 +168,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
                   onChange={(event) => {
                     setMainActivityId(event.target.value);
                     setSubActivityId("");
-                    setValueChain("");
+                    setValueChainId("");
                     setApprovedBudget("");
                     setRows([{ key: nextKey++, name: "" }]);
                     setErrors({});
@@ -210,7 +201,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
                   disabled={mode === "edit" || !mainActivityId}
                   onChange={(event) => {
                     setSubActivityId(event.target.value);
-                    setValueChain("");
+                    setValueChainId("");
                     setApprovedBudget("");
                     setRows([{ key: nextKey++, name: "" }]);
                     setErrors({});
@@ -256,13 +247,13 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
                 Value Chain {!isView && <span className="text-red-600">*</span>}
               </Label>
               {isView ? (
-                <Input value={valueChain} disabled />
+                <Input value={valueChains.find((item) => item.id === valueChainId)?.name ?? ""} disabled />
               ) : (
                 <select
                   id="valueChain"
-                  value={valueChain}
+                  value={valueChainId}
                   onChange={(event) => {
-                    setValueChain(event.target.value);
+                    setValueChainId(event.target.value);
                     setApprovedBudget("");
                     setErrors((current) => ({
                       ...current,
@@ -274,8 +265,8 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
                 >
                   <option value="">Select Value Chain</option>
                   {valueChains.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
+                    <option key={item.id} value={item.id}>
+                      {item.name}
                     </option>
                   ))}
                 </select>
@@ -333,7 +324,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
               <p className="text-sm text-muted-foreground">
                 {category === "Value Chain"
                   ? "Add one or more activities for the selected value chain."
-                  : "The activity name is optional for this category."}
+                  : "Add one or more activities for the selected Sub Activity."}
               </p>
             </div>
 
@@ -341,8 +332,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
               <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-3 border-b border-border bg-muted/50 px-4 py-3">
                 <span className="text-xs font-medium text-muted-foreground">#</span>
                 <Label>
-                  Sub-Sub Activity Name{" "}
-                  {category === "Value Chain" && !isView && <span className="text-red-600">*</span>}
+                  Sub-Sub Activity {!isView && <span className="text-red-600">*</span>}
                 </Label>
                 <span className="sr-only">Actions</span>
               </div>
@@ -369,7 +359,6 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
                     </div>
                     {!isView &&
                       mode === "create" &&
-                      category === "Value Chain" &&
                       rows.length > 1 && (
                         <Button
                           type="button"
@@ -389,7 +378,7 @@ export default function SubSubActivityForm({ mode = "create" }: Props) {
               </div>
             </div>
 
-            {!isView && mode === "create" && category === "Value Chain" && (
+            {!isView && mode === "create" && (
               <Button
                 type="button"
                 variant="outline"
