@@ -88,6 +88,12 @@ const SubActivities = lazy(() => import("@/pages/projects/sub-activities/SubActi
 const SubActivityForm = lazy(() => import("@/pages/projects/sub-activities/SubActivityForm"));
 const SubSubActivities = lazy(() => import("@/pages/projects/sub-sub-activities/SubSubActivities"));
 const SubSubActivityForm = lazy(() => import("@/pages/projects/sub-sub-activities/SubSubActivityForm"));
+const ReportComponents = lazy(() => import("@/pages/projects/report-components/ReportComponents"));
+const ReportComponentForm = lazy(() => import("@/pages/projects/report-components/ReportComponentForm"));
+const SubComponents = lazy(() => import("@/pages/projects/sub-components/SubComponents"));
+const SubComponentForm = lazy(() => import("@/pages/projects/sub-components/SubComponentForm"));
+const ActivityIndicators = lazy(() => import("@/pages/projects/activity-indicators/ActivityIndicators"));
+const ActivityIndicatorForm = lazy(() => import("@/pages/projects/activity-indicators/ActivityIndicatorForm"));
 
 const FinancialReports = lazy(() => import("@/pages/reports/FinancialReports"));
 const TechnicalReports = lazy(() => import("@/pages/reports/TechnicalReports"));
@@ -180,6 +186,16 @@ function AppRoutes() {
         <Route path="/projects/main-activities/:id/view" element={<MainActivityForm mode="view" />} />
         <Route path="/projects/main-activities/:id/edit" element={<MainActivityForm mode="edit" />} />
 
+        <Route path="/projects/report-components" element={<ReportComponents />} />
+        <Route path="/projects/report-components/new" element={<ReportComponentForm mode="create" />} />
+        <Route path="/projects/report-components/:id/view" element={<ReportComponentForm mode="view" />} />
+        <Route path="/projects/report-components/:id/edit" element={<ReportComponentForm mode="edit" />} />
+
+        <Route path="/projects/sub-components" element={<SubComponents />} />
+        <Route path="/projects/sub-components/new" element={<SubComponentForm mode="create" />} />
+        <Route path="/projects/sub-components/:id/view" element={<SubComponentForm mode="view" />} />
+        <Route path="/projects/sub-components/:id/edit" element={<SubComponentForm mode="edit" />} />
+
         <Route path="/projects/sub-activities" element={<SubActivities />} />
         <Route path="/projects/sub-activities/new" element={<SubActivityForm mode="create" />} />
         <Route path="/projects/sub-activities/:id/view" element={<SubActivityForm mode="view" />} />
@@ -189,6 +205,11 @@ function AppRoutes() {
         <Route path="/projects/sub-sub-activities/new" element={<SubSubActivityForm mode="create" />} />
         <Route path="/projects/sub-sub-activities/:id/view" element={<SubSubActivityForm mode="view" />} />
         <Route path="/projects/sub-sub-activities/:id/edit" element={<SubSubActivityForm mode="edit" />} />
+
+        <Route path="/projects/activity-indicators" element={<ActivityIndicators />} />
+        <Route path="/projects/activity-indicators/new" element={<ActivityIndicatorForm mode="create" />} />
+        <Route path="/projects/activity-indicators/:id/view" element={<ActivityIndicatorForm mode="view" />} />
+        <Route path="/projects/activity-indicators/:id/edit" element={<ActivityIndicatorForm mode="edit" />} />
 
         <Route path="/strategic-objectives/dashboard" element={<SODashboard />} />
         <Route path="/strategic-objectives/kpis" element={<SOKPIs />} />
