@@ -5,23 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, Upload, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  useComponents,
-  useObjectives,
-  useStrategies,
   useMainActivities,
   useSubActivities,
   useSubSubActivities,
   useMainActivityIndicators,
+  useActivityIndicators,
   useCreateTechnicalReport,
   useProjects,
 } from "@/hooks/useProjectsApi";
 import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
-import type { MainActivity, MainActivityIndicator, ProjectObjective, ProjectStrategy, SubActivity, SubSubActivity } from "@/utils/types";
+import type { ActivityIndicator, MainActivityIndicator } from "@/utils/types";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -60,27 +57,22 @@ function Section({ index, title, children }: SectionProps) {
 }
 
 export default function NewReport() {
-  const { data: kras = [] } = useComponents();
-  const { data: objectives = [] } = useObjectives();
-  const { data: strategies = [] } = useStrategies();
-  const { data: mainActivities = [] } = useMainActivities();
-  const { data: subActivities = [] } = useSubActivities();
-  const { data: subSubActivities = [] } = useSubSubActivities();
-  const { data: mainIndicators = [] } = useMainActivityIndicators();
-  const { data: projects = [] } = useProjects();
+  const { data: mainActivities = [], isLoading: loadingMainActivities } = useMainActivities();
+  const { data: subActivities = [], isLoading: loadingSubActivities } = useSubActivities();
+  const { data: subSubActivities = [], isLoading: loadingSubSubActivities } = useSubSubActivities();
+  const { data: mainIndicators = [], isLoading: loadingMainIndicators } = useMainActivityIndicators();
+  const { data: activityIndicators = [], isLoading: loadingActivityIndicators } = useActivityIndicators();
+  const { data: projects = [], isLoading: loadingProjects } = useProjects();
   const createReport = useCreateTechnicalReport();
   const navigate = useNavigate();
 
-  const [enableMainActivityReporting, setEnableMainActivityReporting] = useState(false);
-  const [title, setTitle] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [quarter, setQuarter] = useState("");
   const [financialYear, setFinancialYear] = useState("");
   const [selectedMainActivityId, setSelectedMainActivityId] = useState("");
+  const [category, setCategory] = useState("");
+  const [selectedValueChain, setSelectedValueChain] = useState("");
   const [selectedSubActivityId, setSelectedSubActivityId] = useState("");
-  const [selectedKraId, setSelectedKraId] = useState("");
-  const [selectedObjectiveId, setSelectedObjectiveId] = useState("");
-  const [selectedStrategyId, setSelectedStrategyId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [disbursed, setDisbursed] = useState(0);
@@ -88,20 +80,77 @@ export default function NewReport() {
   const [status, setStatus] = useState("Draft");
   const [achievement, setAchievement] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [supportingInformation, setSupportingInformation] = useState("");
+  const [reportedProgress, setReportedProgress] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
-  const filteredObjectives = objectives.filter((objective) => objective.componentId === selectedKraId);
-  const filteredStrategies = strategies.filter((strategy) => strategy.objectiveId === selectedObjectiveId);
-  const selectedSubActivities = subActivities.filter((item) => item.mainActivityId === selectedMainActivityId);
-  const selectedSubSubActivities = subSubActivities.filter((item) => item.subActivityId === selectedSubActivityId);
+  const categoryOptions = ["Value Chain", "ICT", "Thematic Area", "Project Coordination"];
+  const valueChainOptions = useMemo(() => {
+    if (!selectedMainActivityId || category !== "Value Chain") return [] as string[];
+    const options = new Set<string>();
+    subActivities
+      .filter((item) => item.mainActivityId === selectedMainActivityId && item.category === "Value Chain")
+      .forEach((item) => {
+        item.valueChain
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((value) => options.add(value));
+      });
+    subSubActivities
+      .filter((item) => {
+        const parent = subActivities.find((activity) => activity.id === item.subActivityId);
+        return parent?.mainActivityId === selectedMainActivityId && parent.category === "Value Chain";
+      })
+      .forEach((item) => {
+        if (item.valueChain) options.add(item.valueChain);
+      });
+    mainIndicators
+      .filter((item) => item.mainActivityId === selectedMainActivityId && item.category === "Value Chain")
+      .forEach((item) => {
+        if (item.valueChain) options.add(item.valueChain);
+      });
+    return [...options].sort((a, b) => a.localeCompare(b));
+  }, [category, mainIndicators, selectedMainActivityId, subActivities, subSubActivities]);
+  const selectedSubActivities = useMemo(() => {
+    if (!selectedMainActivityId || !category) return [];
+    return subActivities.filter((item) => {
+      if (item.mainActivityId !== selectedMainActivityId || item.category !== category) return false;
+      if (category !== "Value Chain") return true;
+      if (!selectedValueChain) return false;
+      const assignedChains = item.valueChain.split(",").map((value) => value.trim());
+      const hasMatchingSubSubActivity = subSubActivities.some(
+        (subSub) => subSub.subActivityId === item.id && subSub.valueChain === selectedValueChain,
+      );
+      return assignedChains.includes(selectedValueChain) || hasMatchingSubSubActivity;
+    });
+  }, [category, selectedMainActivityId, selectedValueChain, subActivities, subSubActivities]);
+  const selectedSubSubActivities = useMemo(
+    () =>
+      subSubActivities.filter((item) => {
+        if (item.subActivityId !== selectedSubActivityId) return false;
+        return category !== "Value Chain" || item.valueChain === selectedValueChain;
+      }),
+    [category, selectedSubActivityId, selectedValueChain, subSubActivities],
+  );
   const availableIndicators = useMemo(() => {
-    if (!selectedMainActivityId) return [] as MainActivityIndicator[];
-    return mainIndicators.filter((item) => item.mainActivityId === selectedMainActivityId);
-  }, [mainIndicators, selectedMainActivityId]);
+    if (!selectedMainActivityId || !category) return [] as Array<MainActivityIndicator | ActivityIndicator>;
+    const activityLevelIndicators = activityIndicators.filter((item) => item.subActivityId === selectedSubActivityId);
+    const mainLevelIndicators = mainIndicators.filter((item) => {
+      if (item.mainActivityId !== selectedMainActivityId || item.category !== category) return false;
+      return category !== "Value Chain" || item.valueChain === selectedValueChain;
+    });
+    return mainLevelIndicators.length > 0 ? mainLevelIndicators : activityLevelIndicators;
+  }, [activityIndicators, category, mainIndicators, selectedMainActivityId, selectedSubActivityId, selectedValueChain]);
   const selectedMainActivity = mainActivities.find((activity) => activity.id === selectedMainActivityId);
   const selectedSubActivity = selectedSubActivities.find((activity) => activity.id === selectedSubActivityId);
+  const isLoadingReportingData =
+    loadingProjects ||
+    loadingMainActivities ||
+    loadingSubActivities ||
+    loadingSubSubActivities ||
+    loadingMainIndicators ||
+    loadingActivityIndicators;
 
   const utilizationPercent = useMemo(
     () => (disbursed > 0 ? ((utilized / disbursed) * 100).toFixed(1) : "0.0"),
@@ -110,7 +159,27 @@ export default function NewReport() {
 
   const handleMainActivityChange = (value: string) => {
     setSelectedMainActivityId(value);
+    setCategory("");
+    setSelectedValueChain("");
     setSelectedSubActivityId("");
+    setReportedProgress({});
+    setDisbursed(0);
+    setUtilized(0);
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    setSelectedValueChain("");
+    setSelectedSubActivityId("");
+    setReportedProgress({});
+    setDisbursed(0);
+    setUtilized(0);
+  };
+
+  const handleValueChainChange = (value: string) => {
+    setSelectedValueChain(value);
+    setSelectedSubActivityId("");
+    setReportedProgress({});
     setDisbursed(0);
     setUtilized(0);
   };
@@ -118,8 +187,9 @@ export default function NewReport() {
   const handleSubActivityChange = (value: string) => {
     setSelectedSubActivityId(value);
     const budget = subSubActivities
-      .filter((item) => item.subActivityId === value)
+      .filter((item) => item.subActivityId === value && (category !== "Value Chain" || item.valueChain === selectedValueChain))
       .reduce((sum, item) => sum + Number(item.approvedActivityBudget || 0), 0);
+    setReportedProgress({});
     setDisbursed(budget);
     setUtilized(0);
   };
@@ -132,11 +202,6 @@ export default function NewReport() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!title.trim()) {
-      toast.error("Please enter a report title.");
-      return;
-    }
 
     if (!selectedProjectId) {
       toast.error("Please select a project.");
@@ -153,27 +218,46 @@ export default function NewReport() {
       return;
     }
 
-    if (!enableMainActivityReporting || !selectedMainActivityId || !selectedSubActivityId) {
-      toast.error("Please select a main activity and sub activity before saving.");
+    if (!selectedMainActivityId || !category || !selectedSubActivityId) {
+      toast.error("Please select a main activity, category, and sub activity before saving.");
+      return;
+    }
+
+    if (category === "Value Chain" && !selectedValueChain) {
+      toast.error("Please select a value chain.");
       return;
     }
 
     try {
+      const selectedProject = projects.find((project) => project.id === selectedProjectId);
+      const generatedTitle = [
+        selectedProject?.name || "Project Report",
+        selectedMainActivity?.name,
+        financialYear,
+        quarter,
+      ]
+        .filter(Boolean)
+        .join(" - ");
+
       await createReport.mutateAsync({
-        title: title.trim(),
+        title: generatedTitle,
         projectId: selectedProjectId,
         quarter,
         financialYear,
         mainActivityId: selectedMainActivityId,
+        category,
+        valueChain: selectedValueChain,
         subActivityId: selectedSubActivityId,
         subSubActivities: selectedSubSubActivities.map((activity) => ({
           id: activity.id,
           name: activity.name || activity.subActivityName,
+          approvedActivityBudget: activity.approvedActivityBudget,
         })),
         indicators: availableIndicators.map((indicator) => ({
           id: indicator.id,
           indicator: indicator.indicator,
           target: indicator.target,
+          reportedProgress: reportedProgress[indicator.id] || "",
         })),
         startDate: startDate || null,
         endDate: endDate || null,
@@ -183,7 +267,6 @@ export default function NewReport() {
         status,
         achievement,
         remarks,
-        supportingInformation,
         supportingDocuments: files.map((file) => file.name),
       });
 
@@ -221,24 +304,14 @@ export default function NewReport() {
       </div>
 
       <form id="report-form" onSubmit={submit} className="space-y-5">
-        <Section index={1} title="Project Duration">
+        <Section index={1} title="Project Activity">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Report Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter report title" />
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Project</Label>
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger><SelectValue placeholder="Select Project" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select Project"} /></SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Quarter</Label>
-              <Select value={quarter} onValueChange={setQuarter}>
-                <SelectTrigger><SelectValue placeholder="Select Quarter" /></SelectTrigger>
-                <SelectContent>
-                  {QUARTER_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -248,6 +321,15 @@ export default function NewReport() {
                 <SelectTrigger><SelectValue placeholder="Select Financial Year" /></SelectTrigger>
                 <SelectContent>
                   {FINANCIAL_YEAR_OPTIONS.map((fy) => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Quarter</Label>
+              <Select value={quarter} onValueChange={setQuarter}>
+                <SelectTrigger><SelectValue placeholder="Select Quarter" /></SelectTrigger>
+                <SelectContent>
+                  {QUARTER_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -270,35 +352,48 @@ export default function NewReport() {
 
         <Section index={2} title="Main Activity Reporting">
           <div className="space-y-4">
-            <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm font-medium">
-              <Checkbox checked={enableMainActivityReporting} onCheckedChange={(checked) => {
-                setEnableMainActivityReporting(Boolean(checked));
-                if (!checked) {
-                  setSelectedMainActivityId("");
-                  setSelectedSubActivityId("");
-                  setDisbursed(0);
-                  setUtilized(0);
-                }
-              }} />
-              Include Main Activity reporting
-            </label>
-
-            {enableMainActivityReporting && (
               <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
+                {isLoadingReportingData && (
+                  <div className="rounded-md border border-border/70 bg-background/80 p-3 text-sm text-muted-foreground">
+                    Loading reporting data...
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>Main Activity</Label>
                     <Select value={selectedMainActivityId} onValueChange={handleMainActivityChange}>
-                      <SelectTrigger><SelectValue placeholder="Select Main Activity" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={loadingMainActivities ? "Loading Main Activities..." : "Select Main Activity"} /></SelectTrigger>
                       <SelectContent>
                         {mainActivities.map((activity) => <SelectItem key={activity.id} value={activity.id}>{activity.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
+                    <Label>Category</Label>
+                    <Select value={category} onValueChange={handleCategoryChange} disabled={!selectedMainActivityId}>
+                      <SelectTrigger><SelectValue placeholder={selectedMainActivityId ? "Select Category" : "Select Main Activity first"} /></SelectTrigger>
+                      <SelectContent>
+                        {categoryOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {category === "Value Chain" && (
+                    <div className="space-y-1.5">
+                      <Label>Value Chain</Label>
+                      <Select value={selectedValueChain} onValueChange={handleValueChainChange} disabled={valueChainOptions.length === 0}>
+                        <SelectTrigger><SelectValue placeholder={valueChainOptions.length > 0 ? "Select Value Chain" : "No Value Chains found"} /></SelectTrigger>
+                        <SelectContent>
+                          {valueChainOptions.map((valueChain) => <SelectItem key={valueChain} value={valueChain}>{valueChain}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
                     <Label>Sub Activity</Label>
-                    <Select value={selectedSubActivityId} onValueChange={handleSubActivityChange} disabled={!selectedMainActivityId}>
-                      <SelectTrigger><SelectValue placeholder={selectedMainActivityId ? "Select Sub Activity" : "Select Main Activity first"} /></SelectTrigger>
+                    <Select value={selectedSubActivityId} onValueChange={handleSubActivityChange} disabled={!category || (category === "Value Chain" && !selectedValueChain)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={!category ? "Select Category first" : category === "Value Chain" && !selectedValueChain ? "Select Value Chain first" : "Select Sub Activity"} />
+                      </SelectTrigger>
                       <SelectContent>
                         {selectedSubActivities.map((activity) => <SelectItem key={activity.id} value={activity.id}>{activity.name}</SelectItem>)}
                       </SelectContent>
@@ -311,6 +406,16 @@ export default function NewReport() {
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium text-foreground">Main Activity:</span>
                       <span className="text-muted-foreground">{selectedMainActivity?.name || "Not selected"}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="font-medium text-foreground">Category:</span>
+                      <span className="text-muted-foreground">{category || "Not selected"}</span>
+                      {selectedValueChain && (
+                        <>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="font-medium text-foreground">Value Chain:</span>
+                          <span className="text-muted-foreground">{selectedValueChain}</span>
+                        </>
+                      )}
                       <span className="text-muted-foreground">/</span>
                       <span className="font-medium text-foreground">Sub Activity:</span>
                       <span className="text-muted-foreground">{selectedSubActivity?.name || "Not selected"}</span>
@@ -343,26 +448,42 @@ export default function NewReport() {
 
                       <div>
                         <h3 className="mb-2 text-sm font-semibold text-foreground">Indicators</h3>
-                        {selectedMainActivityId ? (
+                        {selectedSubActivityId ? (
                           availableIndicators.length > 0 ? (
-                            <ul className="space-y-2">
+                            <div className="overflow-x-auto rounded-md border border-border/60">
+                              <table className="w-full min-w-[560px] text-sm">
+                                <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                                  <tr>
+                                    <th className="px-3 py-2 font-semibold">Indicator</th>
+                                    <th className="px-3 py-2 font-semibold">Target</th>
+                                    <th className="px-3 py-2 font-semibold">Report Against Target</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
                               {availableIndicators.map((indicator) => (
-                                <li key={indicator.id} className="rounded-md border border-border/60 bg-muted/20 p-2 text-sm">
-                                  <div className="font-medium text-foreground">{indicator.indicator}</div>
-                                  {indicator.target ? (
-                                    <div className="mt-1 text-xs text-muted-foreground">Target: {indicator.target}</div>
-                                  ) : null}
-                                </li>
+                                <tr key={indicator.id} className="border-t border-border/60">
+                                  <td className="px-3 py-2 align-top font-medium text-foreground">{indicator.indicator}</td>
+                                  <td className="px-3 py-2 align-top text-muted-foreground">{indicator.target || "N/A"}</td>
+                                  <td className="px-3 py-2 align-top">
+                                    <Input
+                                      value={reportedProgress[indicator.id] || ""}
+                                      onChange={(e) => setReportedProgress((current) => ({ ...current, [indicator.id]: e.target.value }))}
+                                      placeholder="Enter your target achievement"
+                                    />
+                                  </td>
+                                </tr>
                               ))}
-                            </ul>
+                                </tbody>
+                              </table>
+                            </div>
                           ) : (
                             <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
-                              No indicators found for the selected main activity.
+                              No indicators found for the selected reporting path.
                             </p>
                           )
                         ) : (
                           <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
-                            Select a main activity to view indicators.
+                            Select a sub activity to view indicators and targets.
                           </p>
                         )}
                       </div>
@@ -408,52 +529,15 @@ export default function NewReport() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Achievement</Label>
-                    <Input value={achievement} onChange={(e) => setAchievement(e.target.value)} placeholder="Achievement details" />
+                    <Label>Achievements</Label>
+                    <Textarea value={achievement} onChange={(e) => setAchievement(e.target.value)} placeholder="Achievement details" rows={4} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Remarks</Label>
-                    <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Remarks" />
+                    <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Remarks" rows={4} />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Supporting Information</Label>
-                  <Textarea value={supportingInformation} onChange={(e) => setSupportingInformation(e.target.value)} placeholder="Add any supporting context or notes" rows={4} />
-                </div>
               </div>
-            )}
-          </div>
-        </Section>
-
-        <Section index={3} title="Strategic Alignment">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>KRA</Label>
-              <Select value={selectedKraId} onValueChange={(value) => { setSelectedKraId(value); setSelectedObjectiveId(""); setSelectedStrategyId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select KRA" /></SelectTrigger>
-                <SelectContent>
-                  {kras.map((kra) => <SelectItem key={kra.id} value={kra.id}>{kra.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Strategic Objective</Label>
-              <Select value={selectedObjectiveId} onValueChange={(value) => { setSelectedObjectiveId(value); setSelectedStrategyId(""); }} disabled={!selectedKraId}>
-                <SelectTrigger><SelectValue placeholder={selectedKraId ? "Select Strategic Objective" : "Select KRA first"} /></SelectTrigger>
-                <SelectContent>
-                  {filteredObjectives.map((objective) => <SelectItem key={objective.id} value={objective.id}>{objective.text}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Strategy</Label>
-              <Select value={selectedStrategyId} onValueChange={setSelectedStrategyId} disabled={!selectedObjectiveId}>
-                <SelectTrigger><SelectValue placeholder={selectedObjectiveId ? "Select Strategy" : "Select Strategic Objective first"} /></SelectTrigger>
-                <SelectContent>
-                  {filteredStrategies.map((strategy) => <SelectItem key={strategy.id} value={strategy.id}>{strategy.text}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </Section>
 
@@ -518,33 +602,6 @@ export default function NewReport() {
           </div>
         </Section> */}
 
-        <Section index={6} title="Outcomes & Sustainability">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Pending Activity</Label>
-              <Textarea rows={4} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Achievements</Label>
-              <Textarea rows={4} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Challenges</Label>
-              <Textarea rows={4} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Corrective Actions</Label>
-              <Textarea rows={4} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Remarks</Label>
-              <Textarea rows={4} />
-            </div>
-          </div>
-        </Section>
-
-        
-
         {/* {[
           { i: 7, t: "Challenges & Corrective Actions" },
           { i: 8, t: "Lessons Learned" },
@@ -556,7 +613,7 @@ export default function NewReport() {
           </Section>
         ))} */}
 
-        <Section index={7} title="Attach Evidence">
+        <Section index={3} title="Attach Evidence">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
