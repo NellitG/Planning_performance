@@ -1,0 +1,1 @@
+import{j as t}from"./index-DWbOdl3b.js";import{P as r}from"./PagePlaceholder-Dl-Z_9IC.js";import"./card-DJX0_dXc.js";function a(){return t.jsx(r,{title:"Final Reports",description:"Finalized and submitted performance contract reports."})}export{a as default};

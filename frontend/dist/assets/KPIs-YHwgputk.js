@@ -1,0 +1,1 @@
+import{j as e}from"./index-DWbOdl3b.js";import{P as r}from"./PagePlaceholder-Dl-Z_9IC.js";import"./card-DJX0_dXc.js";function s(){return e.jsx(r,{title:"KPIs",description:"Key Performance Indicators per objective."})}export{s as default};

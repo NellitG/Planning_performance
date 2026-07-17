@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import StrategicPlanDocument, UserAccount, ValueChain
+from .models import Centre, County, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+
+admin.site.register(County)
+admin.site.register(Institute)
+admin.site.register(Centre)
+admin.site.register(SubCentre)
 
 
 @admin.register(UserAccount)

@@ -1,0 +1,1 @@
+import{j as o}from"./index-DWbOdl3b.js";import{P as t}from"./PagePlaceholder-Dl-Z_9IC.js";import"./card-DJX0_dXc.js";function s(){return o.jsx(t,{title:"Monitoring — Cumulative Reports",description:"Cumulative monitoring reports for all periods."})}export{s as default};

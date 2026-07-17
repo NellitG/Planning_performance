@@ -1,7 +1,45 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from .models import StrategicPlanDocument, UserAccount, ValueChain
+from .models import Centre, County, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+
+
+class SubCentreSerializer(serializers.ModelSerializer):
+    county = serializers.CharField(source="county.name")
+
+    class Meta:
+        model = SubCentre
+        fields = ["id", "name", "county"]
+
+
+class CentreSerializer(serializers.ModelSerializer):
+    county = serializers.CharField(source="county.name")
+    subCentres = SubCentreSerializer(source="sub_centres", many=True, read_only=True)
+
+    class Meta:
+        model = Centre
+        fields = ["id", "name", "county", "subCentres"]
+
+
+class InstituteSerializer(serializers.ModelSerializer):
+    county = serializers.CharField(source="county.name")
+    centres = CentreSerializer(many=True, read_only=True)
+    directSubCentres = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Institute
+        fields = ["id", "name", "county", "centres", "directSubCentres"]
+
+    def get_directSubCentres(self, obj):
+        return SubCentreSerializer(obj.sub_centres.filter(centre__isnull=True), many=True).data
+
+
+class CountyHierarchySerializer(serializers.ModelSerializer):
+    institutes = InstituteSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = County
+        fields = ["id", "name", "institutes"]
 
 
 class UserAccountSerializer(serializers.ModelSerializer):

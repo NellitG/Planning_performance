@@ -2,6 +2,54 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
+class County(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Institute(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    county = models.ForeignKey(County, related_name="institutes", on_delete=models.PROTECT)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Centre(models.Model):
+    name = models.CharField(max_length=255)
+    county = models.ForeignKey(County, related_name="centres", on_delete=models.PROTECT)
+    institute = models.ForeignKey(Institute, related_name="centres", on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["name", "institute"], name="unique_centre_per_institute")]
+
+    def __str__(self):
+        return self.name
+
+
+class SubCentre(models.Model):
+    name = models.CharField(max_length=255)
+    county = models.ForeignKey(County, related_name="sub_centres", on_delete=models.PROTECT)
+    institute = models.ForeignKey(Institute, related_name="sub_centres", on_delete=models.CASCADE)
+    centre = models.ForeignKey(Centre, related_name="sub_centres", on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["name", "institute"], name="unique_sub_centre_per_institute")]
+
+    def __str__(self):
+        return self.name
+
+
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("system_admin", "System Admin"),

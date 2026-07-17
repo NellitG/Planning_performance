@@ -2,13 +2,27 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
-from .models import StrategicPlanDocument, UserAccount, ValueChain
+from .models import Centre, County, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 from .permissions import UserManagementPermission
 from .serializers import (
     StrategicPlanDocumentSerializer,
     UserAccountSerializer,
     ValueChainSerializer,
+    CountyHierarchySerializer,
 )
+
+
+class ReferenceDataViewSet(viewsets.ReadOnlyModelViewSet):
+    """County-first organisational hierarchy imported from KALRO Table 2."""
+    serializer_class = CountyHierarchySerializer
+    permission_classes = [UserManagementPermission]
+    queryset = County.objects.prefetch_related(
+        "institutes__centres__sub_centres__county",
+        "institutes__sub_centres__county",
+    ).all()
+
+    def get_queryset(self):
+        return self.queryset.filter(institutes__isnull=False).distinct()
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
