@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
+import ReferenceData from "@/pages/users/ReferenceData";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -827,7 +828,7 @@ export default function UserManagement() {
         <Route path="value-chains/new" element={<ValueChainFormPage mode="create" />} />
         <Route path="value-chains/:id" element={<ValueChainDetail />} />
         <Route path="value-chains/:id/edit" element={<ValueChainFormPage mode="edit" />} />
-        <Route path="reference-data" element={<PlaceholderPage title="Reference Data" />} />
+        <Route path="reference-data" element={<ReferenceData />} />
         <Route path="strategic-plan" element={<StrategicPlanPage />} />
         <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
         <Route path="*" element={<Navigate to="users" replace />} />

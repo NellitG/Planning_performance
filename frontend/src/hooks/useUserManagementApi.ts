@@ -67,6 +67,11 @@ export interface StrategicPlanInput {
   file?: File;
 }
 
+export interface ReferenceSubCentre { id: string; name: string; county: string; }
+export interface ReferenceCentre { id: string; name: string; county: string; subCentres: ReferenceSubCentre[]; }
+export interface ReferenceInstitute { id: string; name: string; county: string; centres: ReferenceCentre[]; directSubCentres: ReferenceSubCentre[]; }
+export interface ReferenceCounty { id: string; name: string; institutes: ReferenceInstitute[]; }
+
 export const userManagementKeys = {
   users: ["user-management", "users"] as const,
   user: (id: string | undefined) => ["user-management", "users", id] as const,
@@ -74,6 +79,7 @@ export const userManagementKeys = {
   valueChain: (id: string | undefined) => ["user-management", "value-chains", id] as const,
   strategicPlanDocuments: ["user-management", "strategic-plan-documents"] as const,
   strategicPlanDocument: (id: string | undefined) => ["user-management", "strategic-plan-documents", id] as const,
+  referenceData: ["user-management", "reference-data"] as const,
 };
 
 const STALE = 30_000;
@@ -89,6 +95,14 @@ export function roleLabel(role: UserRoleKey) {
     staff_user: "Staff User",
   };
   return labels[role] ?? role;
+}
+
+export function useReferenceData() {
+  return useQuery({
+    queryKey: userManagementKeys.referenceData,
+    queryFn: () => api.get<ReferenceCounty[]>("/user-management/reference-data/"),
+    staleTime: STALE,
+  });
 }
 
 export function useManagedUsers() {

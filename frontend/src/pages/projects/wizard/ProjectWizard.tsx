@@ -16,7 +16,6 @@ import {
   useProject,
   useProjectDocuments,
   useProjectMapping,
-  useProjects,
 } from "@/hooks/useProjectsApi";
 
 import { INITIAL_WIZARD_DATA, type WizardData } from "./types";
@@ -145,23 +144,23 @@ function StepperHeader({ current, onJump }: { current: number; onJump: (n: numbe
   );
 }
 
-export default function ProjectWizard() {
+export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { id: editId } = useParams<{ id: string }>();
-  const isEdit = !!editId;
+  const { id: routeProjectId } = useParams<{ id: string }>();
+  const editId = mode === "edit" ? routeProjectId : undefined;
+  const isEdit = mode === "edit";
 
-  const [projectId, setProjectId] = useState<string | undefined>(editId);
+  const [projectId, setProjectId] = useState<string | undefined>(isEdit ? editId : undefined);
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<WizardData>(INITIAL_WIZARD_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hydrated, setHydrated] = useState(isEdit ? false : true);
 
-  const { data: existingProject } = useProject(editId);
+  const { data: existingProject, isError: projectLoadError } = useProject(editId);
   const { data: existingMapping } = useProjectMapping(projectId);
   const { data: existingDocuments = [] } = useProjectDocuments(projectId);
-  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
 
   const { data: kras = [] } = useComponents();
   const { data: objectives = [] } = useObjectives();
@@ -169,6 +168,15 @@ export default function ProjectWizard() {
   const { data: keyActivities = [] } = useKeyActivities();
   const { data: outputs = [] } = useExpectedOutputs();
   const { data: outputIndicators = [] } = useOutputIndicators();
+
+  // A route transition between an edit URL and /projects/new can reuse this
+  // component instance. Reset explicitly so create never inherits edit state.
+  useEffect(() => {
+    setProjectId(isEdit ? editId : undefined);
+    setCurrentStep(1);
+    setData(INITIAL_WIZARD_DATA);
+    setHydrated(!isEdit);
+  }, [editId, isEdit]);
 
   useEffect(() => {
     if (!existingMapping) return;
@@ -199,20 +207,6 @@ export default function ProjectWizard() {
       };
     });
   }, [existingDocuments]);
-
-  // Resume the newest backend-saved draft for the "new project" flow.
-  useEffect(() => {
-    if (isEdit || projectsLoading || projectId) return;
-    const draft = allProjects.find((project) => project.isDraft);
-    if (draft) {
-      setProjectId(draft.id);
-      setData((prev) => ({
-        ...prev,
-        ...projectToWizardData(draft as unknown as Record<string, unknown>),
-      }));
-      setCurrentStep(Math.min(Math.max(Number(draft.currentStep || 1), 1), 9));
-    }
-  }, [allProjects, isEdit, projectId, projectsLoading]);
 
   // Hydrate from the existing project when editing.
   useEffect(() => {
@@ -417,6 +411,10 @@ export default function ProjectWizard() {
 
   const stepProps = { data, onChange, onNext: goNext, onBack: goBack, isSaving };
 
+  if (isEdit && projectLoadError) {
+    return <div className="p-8 text-sm text-red-700">The selected project could not be loaded.</div>;
+  }
+
   if (isEdit && !hydrated) {
     return <div className="p-8 text-sm text-muted-foreground">Loading project…</div>;
   }
@@ -431,7 +429,7 @@ export default function ProjectWizard() {
         </Button>
         <div>
           <h1 className="text-xl text-center font-semibold text-foreground">
-            {isEdit ? "Edit Project" : "Add New Project"}
+            {isEdit ? "Edit Project" : "Create New Project"}
           </h1>
           <p className="text-sm text-muted-foreground">
             Step {currentStep} of {STEPS.length} —{" "}

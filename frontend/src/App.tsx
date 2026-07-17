@@ -144,10 +144,10 @@ function AppRoutes() {
         <Route index element={<Overview />} />
 
         <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/new" element={<ProjectWizard />} />
+        <Route path="/projects/new" element={<ProjectWizard mode="create" />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/view" element={<ProjectView />} />
-        <Route path="/projects/:id/edit" element={<ProjectWizard />} />
+        <Route path="/projects/:id/edit" element={<ProjectWizard mode="edit" />} />
 
         <Route path="/projects/components" element={<ProjectComponents />} />
         <Route path="/projects/components/new" element={<ComponentForm mode="create" />} />
