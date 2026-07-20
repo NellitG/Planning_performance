@@ -192,6 +192,12 @@ export const SIDEBAR_TREE: Record<string, NavNode[]> = {
             { label: "Outcome Matrix", to: "/projects/strategic-plan/outcome-matrix", icon: Table2 },
           ],
         },
+        { label: "Components", to: "/projects/report-components", icon: Boxes },
+        { label: "Sub Components", to: "/projects/sub-components", icon: Layers2 },
+        { label: "Main Activities", to: "/projects/main-activities", icon: ListTodo },
+        { label: "Sub Activity", to: "/projects/sub-activities", icon: Layers2 },
+        { label: "Sub-Sub Activity", to: "/projects/sub-sub-activities", icon: GitBranch },
+        { label: "Indicator", to: "/projects/activity-indicators", icon: BarChart2 },
       ],
     },
     {
@@ -200,12 +206,7 @@ export const SIDEBAR_TREE: Record<string, NavNode[]> = {
       children: [
         { label: "Technical Reports", to: "/technical-reports", icon: FileBarChart2 },
         { label: "Financial Reports", to: "/financial-reports", icon: Wallet },
-        { label: "Components", to: "/projects/report-components", icon: Boxes },
-        { label: "Sub Components", to: "/projects/sub-components", icon: Layers2 },
-        { label: "Main Activities", to: "/projects/main-activities", icon: ListTodo },
-        { label: "Sub Activity", to: "/projects/sub-activities", icon: Layers2 },
-        { label: "Sub-Sub Activity", to: "/projects/sub-sub-activities", icon: GitBranch },
-        { label: "Indicator", to: "/projects/activity-indicators", icon: BarChart2 },
+        
         { label: "Project Staff", to: "/project-staff", icon: Users },
       ],
     },
