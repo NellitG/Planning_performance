@@ -792,10 +792,11 @@ export function useDeleteProjectSubComponent() {
   });
 }
 
-export function useProjectOutputs() {
+export function useProjectOutputs(subComponentId?: string) {
   return useQuery({
-    queryKey: qk.projectOutputs,
-    queryFn: () => api.get<ProjectOutput[]>("/project-outputs/"),
+    queryKey: [...qk.projectOutputs, subComponentId ?? "all"],
+    queryFn: () => api.get<ProjectOutput[]>(`/project-outputs/${subComponentId ? `?sub_component=${subComponentId}` : ""}`),
+    enabled: subComponentId === undefined || Boolean(subComponentId),
     staleTime: STALE,
   });
 }
@@ -832,10 +833,11 @@ export function useDeleteProjectOutput() {
   });
 }
 
-export function useMainActivities() {
+export function useMainActivities(projectOutputId?: string) {
   return useQuery({
-    queryKey: qk.mainActivities,
-    queryFn: () => api.get<MainActivity[]>("/main-activities/"),
+    queryKey: [...qk.mainActivities, projectOutputId ?? "all"],
+    queryFn: () => api.get<MainActivity[]>(`/main-activities/${projectOutputId ? `?project_output=${projectOutputId}` : ""}`),
+    enabled: projectOutputId === undefined || Boolean(projectOutputId),
     staleTime: STALE,
   });
 }
