@@ -50,14 +50,16 @@ export default function ActivityIndicatorForm({ mode = "create" }: Props) {
   const { id } = useParams<{ id: string }>();
   const { data: items = [] } = useActivityIndicators();
   const { data: subComponents = [] } = useProjectSubComponents();
-  const { data: mainActivities = [] } = useMainActivities();
-  const { data: projectOutputs = [], isLoading: projectOutputsLoading } = useProjectOutputs();
   const createItems = useCreateActivityIndicators();
   const updateItem = useUpdateActivityIndicator();
 
   const [mainActivityId, setMainActivityId] = useState("");
   const [subComponentId, setSubComponentId] = useState("");
   const [projectOutputId, setProjectOutputId] = useState("");
+
+  const { data: mainActivities = [], isLoading: mainActivitiesLoading } = useMainActivities();
+  const { data: projectOutputs = [], isLoading: projectOutputsLoading } = useProjectOutputs(subComponentId || undefined);
+
   const [rows, setRows] = useState<IndicatorRow[]>([createRow()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -95,10 +97,10 @@ export default function ActivityIndicatorForm({ mode = "create" }: Props) {
       current.map((row) =>
         row._key === key
           ? {
-              ...row,
-              [field]: value,
-              errors: { ...row.errors, [field]: "" },
-            }
+            ...row,
+            [field]: value,
+            errors: { ...row.errors, [field]: "" },
+          }
           : row,
       ),
     );
@@ -190,10 +192,10 @@ export default function ActivityIndicatorForm({ mode = "create" }: Props) {
             ) : (
               <select id="projectOutput" value={projectOutputId} disabled={!subComponentId || projectOutputsLoading} onChange={(event) => { setProjectOutputId(event.target.value); setMainActivityId(""); setErrors((prev) => ({ ...prev, projectOutputId: "" })); }} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <option value="">{!subComponentId ? "- Select a Sub Component first -" : projectOutputsLoading ? "Loading Project Outputs..." : "- Select Project Output -"}</option>
-                {projectOutputs.filter((item) => item.subComponentId === subComponentId).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                {projectOutputs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             )}
-            {!isView && subComponentId && !projectOutputsLoading && projectOutputs.filter((item) => item.subComponentId === subComponentId).length === 0 && <p className="text-xs text-muted-foreground">No Project Outputs exist for this Sub Component.</p>}
+            {!isView && subComponentId && !projectOutputsLoading && projectOutputs.length === 0 && <p className="text-xs text-muted-foreground">No Project Outputs exist for this Sub Component.</p>}
           </div>
           <div className="max-w-3xl space-y-1.5">
             <Label htmlFor="mainActivity">Main Activity <span className="text-muted-foreground">(Optional)</span></Label>
@@ -203,22 +205,29 @@ export default function ActivityIndicatorForm({ mode = "create" }: Props) {
               <select
                 id="mainActivity"
                 value={mainActivityId}
+                disabled={mainActivitiesLoading}
                 onChange={(event) => {
-                  setMainActivityId(event.target.value);
+                  const selectedId = event.target.value;
+                  const activity = mainActivities.find((item) => item.id === selectedId);
+                  setMainActivityId(selectedId);
+                  if (activity) {
+                    setSubComponentId(activity.subComponentId);
+                    setProjectOutputId(activity.projectOutputId ?? "");
+                  }
                   setErrors((prev) => ({ ...prev, mainActivityId: "" }));
                 }}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">- Select Main Activity -</option>
-                {mainActivities.filter((item) => !subComponentId || (item.subComponentId === subComponentId && (!projectOutputId || item.projectOutputId === projectOutputId))).map((item) => (
+                <option value="">{mainActivitiesLoading ? "Loading Main Activities..." : "- Select Main Activity -"}</option>
+                {mainActivities.map((item) => (
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </select>
             )}
             {errors.mainActivityId && <p className="text-xs text-red-600">{errors.mainActivityId}</p>}
-            {!isView && mainActivities.length === 0 && (
+            {!isView && !mainActivitiesLoading && mainActivities.length === 0 && (
               <p className="text-xs text-amber-600">
-                No Main Activities found.{" "}
+                No Main Activities are available.{" "}
                 <Link to="/projects/main-activities/new" className="font-medium underline">
                   Create one first.
                 </Link>
