@@ -16,6 +16,11 @@ export interface ManagedUser {
   email: string;
   role: UserRoleKey;
   institute: string;
+  selectedInstituteId: number | null;
+  selectedCentreId: number | null;
+  selectedSubCentreId: number | null;
+  selectedDepartmentId: number | null;
+  departmentName: string | null;
   active: boolean;
   status: "Active" | "Inactive";
   createdAt: string;
@@ -26,8 +31,12 @@ export interface ManagedUserInput {
   fullName: string;
   email: string;
   role: UserRoleKey;
-  institute: string;
+  instituteId: string;
+  centreId: string;
+  subCentreId: string;
+  departmentId: string;
   password?: string;
+  confirmPassword?: string;
   active: boolean;
 }
 
@@ -71,6 +80,7 @@ export interface ReferenceSubCentre { id: string; name: string; county: string; 
 export interface ReferenceCentre { id: string; name: string; county: string; subCentres: ReferenceSubCentre[]; }
 export interface ReferenceInstitute { id: string; name: string; county: string; centres: ReferenceCentre[]; directSubCentres: ReferenceSubCentre[]; }
 export interface ReferenceCounty { id: string; name: string; institutes: ReferenceInstitute[]; }
+export interface ReferenceDepartment { id: string; name: string; }
 
 export const userManagementKeys = {
   users: ["user-management", "users"] as const,
@@ -80,6 +90,7 @@ export const userManagementKeys = {
   strategicPlanDocuments: ["user-management", "strategic-plan-documents"] as const,
   strategicPlanDocument: (id: string | undefined) => ["user-management", "strategic-plan-documents", id] as const,
   referenceData: ["user-management", "reference-data"] as const,
+  departments: ["user-management", "departments"] as const,
 };
 
 const STALE = 30_000;
@@ -101,6 +112,14 @@ export function useReferenceData() {
   return useQuery({
     queryKey: userManagementKeys.referenceData,
     queryFn: () => api.get<ReferenceCounty[]>("/user-management/reference-data/"),
+    staleTime: STALE,
+  });
+}
+
+export function useDepartments() {
+  return useQuery({
+    queryKey: userManagementKeys.departments,
+    queryFn: () => api.get<ReferenceDepartment[]>("/user-management/departments/"),
     staleTime: STALE,
   });
 }
