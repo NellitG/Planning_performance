@@ -344,6 +344,10 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
 class MainActivityViewSet(viewsets.ModelViewSet):
     queryset = MainActivity.objects.select_related("sub_component", "sub_component__component", "project_output").all()
     serializer_class = MainActivitySerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["sub_component", "project_output"]
+    search_fields = ["name"]
+    ordering_fields = ["name", "created_at", "updated_at"]
 
 
 class MainActivityIndicatorViewSet(viewsets.ModelViewSet):
