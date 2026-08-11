@@ -1,0 +1,1 @@
+import{j as r}from"./index-TjiV0NYn.js";import{P as t}from"./PagePlaceholder-CBcVk1hY.js";import"./card-DlbGB2AY.js";function a(){return r.jsx(t,{title:"Indicators",description:"Performance indicators per contract."})}export{a as default};

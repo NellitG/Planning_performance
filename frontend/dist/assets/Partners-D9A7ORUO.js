@@ -1,1 +1,0 @@
-import{j as r}from"./index-Q4BVPCvt.js";import{P as t}from"./PagePlaceholder-CfWuv67G.js";import"./card-Dw3DgVFS.js";function a(){return r.jsx(t,{title:"Partners",description:"Implementing partners and donor organizations."})}export{a as default};
