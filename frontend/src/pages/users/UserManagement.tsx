@@ -39,8 +39,10 @@ import {
   useDeleteManagedUser,
   useDeleteStrategicPlanDocument,
   useDeleteValueChain,
+  useDepartments,
   useManagedUser,
   useManagedUsers,
+  useReferenceData,
   useStrategicPlanDocuments,
   useUpdateManagedUser,
   useUpdateStrategicPlanDocument,
@@ -66,14 +68,16 @@ const ROLES: Array<{ value: UserRoleKey; label: string }> = [
   { value: "staff_user", label: "Staff User" },
 ];
 
-const INSTITUTES = ["Headquarters", "ICT", "M&E", "Planning", "Strategy", "Projects", "Research", "Finance", "Administration"];
-
 const emptyUserForm: ManagedUserInput = {
   fullName: "",
   email: "",
   role: "staff_user",
-  institute: "",
+  instituteId: "",
+  centreId: "",
+  subCentreId: "",
+  departmentId: "",
   password: "",
+  confirmPassword: "",
   active: true,
 };
 
@@ -182,6 +186,7 @@ function ModuleTabs() {
     { label: "Development Partners", to: "/user-management/development-partners", match: "/user-management/development-partners" },
     { label: "Value Chains", to: "/user-management/value-chains", match: "/user-management/value-chains" },
     { label: "Reference Data", to: "/user-management/reference-data", match: "/user-management/reference-data" },
+    { label: "Departments", to: "/user-management/departments", match: "/user-management/departments" },
     { label: "Strategic Plan", to: "/user-management/strategic-plan", match: "/user-management/strategic-plan" },
     { label: "Audit Log", to: "/user-management/audit-log", match: "/user-management/audit-log" },
   ];
@@ -320,18 +325,50 @@ function UsersList() {
   );
 }
 
+function DepartmentsPage() {
+  const { data: departments = [], isLoading, isError } = useDepartments();
+
+  if (isLoading) return <LoadingState label="Loading departments..." />;
+  if (isError) return <ErrorState label="Unable to load departments from Reference Data." />;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Departments" description="Departments maintained in User Management Reference Data." />
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+        <Table>
+          <TableHeader><TableRow><TableHead className="w-20">#</TableHead><TableHead>Department</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {departments.map((department, index) => <TableRow key={department.id}><TableCell>{index + 1}</TableCell><TableCell className="font-medium">{department.name}</TableCell></TableRow>)}
+            {departments.length === 0 && <TableRow><TableCell colSpan={2} className="py-10 text-center text-muted-foreground">No departments are available.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 function UserFormPage({ mode }: { mode: "create" | "edit" }) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: user, isLoading, isError } = useManagedUser(mode === "edit" ? id : undefined);
+  const { data: referenceData = [], isLoading: referenceLoading, isError: referenceError } = useReferenceData();
+  const { data: departments = [], isLoading: departmentsLoading, isError: departmentsError } = useDepartments();
   const createUser = useCreateManagedUser();
   const updateUser = useUpdateManagedUser();
   const [form, setForm] = useState<ManagedUserInput>(emptyUserForm);
   const [errors, setErrors] = useState<Partial<Record<keyof ManagedUserInput, string>>>({});
+  const [instituteSearch, setInstituteSearch] = useState("");
+
+  const institutes = useMemo(() => referenceData.flatMap((county) => county.institutes), [referenceData]);
+  const selectedInstitute = institutes.find((institute) => String(institute.id) === form.instituteId);
+  const centres = selectedInstitute?.centres ?? [];
+  const selectedCentre = centres.find((centre) => String(centre.id) === form.centreId);
+  const subCentres = selectedCentre?.subCentres ?? [];
+  const matchingInstitutes = institutes.filter((institute) => institute.name.toLowerCase().includes(instituteSearch.trim().toLowerCase()));
 
   useEffect(() => {
     if (mode === "edit" && user) {
-      setForm({ fullName: user.fullName, email: user.email, role: user.role, institute: user.institute, password: "", active: user.active });
+      setForm({ fullName: user.fullName, email: user.email, role: user.role, instituteId: String(user.selectedInstituteId ?? ""), centreId: String(user.selectedCentreId ?? ""), subCentreId: String(user.selectedSubCentreId ?? ""), departmentId: String(user.selectedDepartmentId ?? ""), password: "", confirmPassword: "", active: user.active });
     }
   }, [mode, user]);
 
@@ -341,9 +378,10 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
     if (!form.email.trim()) next.email = "Email address is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
     if (!form.role) next.role = "Role is required";
-    if (!form.institute) next.institute = "Institute is required";
+    if (!form.instituteId) next.instituteId = "Institute is required";
     if (mode === "create" && !form.password) next.password = "Password is required";
     if (form.password && form.password.length < 8) next.password = "Password must be at least 8 characters";
+    if (form.password !== form.confirmPassword) next.confirmPassword = "Passwords do not match";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -393,14 +431,45 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
               <SelectContent>{ROLES.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="Institute" error={errors.institute} required>
-            <Select value={form.institute} onValueChange={(value) => setForm((current) => ({ ...current, institute: value }))}>
-              <SelectTrigger><SelectValue placeholder="Select institute" /></SelectTrigger>
-              <SelectContent>{INSTITUTES.map((institute) => <SelectItem key={institute} value={institute}>{institute}</SelectItem>)}</SelectContent>
+          <Field label="Department" error={errors.departmentId}>
+            <Select value={form.departmentId} onValueChange={(value) => setForm((current) => ({ ...current, departmentId: value }))} disabled={departmentsLoading || departmentsError}>
+              <SelectTrigger><SelectValue placeholder={departmentsLoading ? "Loading departments..." : "Select department"} /></SelectTrigger>
+              <SelectContent>{departments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>)}</SelectContent>
             </Select>
+            {departmentsError && <p className="text-xs text-red-600">Unable to load departments from Reference Data.</p>}
+          </Field>
+          <Field label="Institute" error={errors.instituteId} required>
+            <Select value={form.instituteId} onValueChange={(value) => setForm((current) => ({ ...current, instituteId: value, centreId: "", subCentreId: "" }))} disabled={referenceLoading || referenceError}>
+              <SelectTrigger><SelectValue placeholder={referenceLoading ? "Loading institutes..." : "Select institute"} /></SelectTrigger>
+              <SelectContent>
+                <div className="p-1.5">
+                  <Input value={instituteSearch} onChange={(event) => setInstituteSearch(event.target.value)} onKeyDown={(event) => event.stopPropagation()} placeholder="Search institute..." />
+                </div>
+                {matchingInstitutes.map((institute) => <SelectItem key={institute.id} value={String(institute.id)}>{institute.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {!referenceLoading && !referenceError && matchingInstitutes.length === 0 && <p className="text-xs text-muted-foreground">No Institutes match your search.</p>}
+            {referenceError && <p className="text-xs text-red-600">Unable to load Institutes from Reference Data.</p>}
+          </Field>
+          <Field label="Centre" error={errors.centreId}>
+            <Select value={form.centreId} onValueChange={(value) => setForm((current) => ({ ...current, centreId: value, subCentreId: "" }))} disabled={!form.instituteId || referenceLoading}>
+              <SelectTrigger><SelectValue placeholder={!form.instituteId ? "Select an Institute first" : referenceLoading ? "Loading centres..." : "Select centre"} /></SelectTrigger>
+              <SelectContent>{centres.map((centre) => <SelectItem key={centre.id} value={String(centre.id)}>{centre.name}</SelectItem>)}</SelectContent>
+            </Select>
+            {form.instituteId && !referenceLoading && centres.length === 0 && <p className="text-xs text-muted-foreground">No Centres are available for this Institute.</p>}
+          </Field>
+          <Field label="Sub-Centre" error={errors.subCentreId}>
+            <Select value={form.subCentreId} onValueChange={(value) => setForm((current) => ({ ...current, subCentreId: value }))} disabled={!form.centreId || referenceLoading}>
+              <SelectTrigger><SelectValue placeholder={!form.centreId ? "Select a Centre first" : referenceLoading ? "Loading sub-centres..." : "Select sub-centre"} /></SelectTrigger>
+              <SelectContent>{subCentres.map((subCentre) => <SelectItem key={subCentre.id} value={String(subCentre.id)}>{subCentre.name}</SelectItem>)}</SelectContent>
+            </Select>
+            {form.centreId && !referenceLoading && subCentres.length === 0 && <p className="text-xs text-muted-foreground">No Sub-Centres are available for this Centre.</p>}
           </Field>
           <Field label="Password" error={errors.password} required={mode === "create"}>
             <Input type="password" value={form.password || ""} placeholder={mode === "edit" ? "Leave blank to keep existing password" : "Minimum 8 characters"} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+          </Field>
+          <Field label="Confirm Password" error={errors.confirmPassword} required={mode === "create"}>
+            <Input type="password" value={form.confirmPassword || ""} placeholder="Re-enter password" onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} />
           </Field>
           <div className="flex items-end">
             <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
@@ -829,6 +898,7 @@ export default function UserManagement() {
         <Route path="value-chains/:id" element={<ValueChainDetail />} />
         <Route path="value-chains/:id/edit" element={<ValueChainFormPage mode="edit" />} />
         <Route path="reference-data" element={<ReferenceData />} />
+        <Route path="departments" element={<DepartmentsPage />} />
         <Route path="strategic-plan" element={<StrategicPlanPage />} />
         <Route path="audit-log" element={<PlaceholderPage title="Audit Log" />} />
         <Route path="*" element={<Navigate to="users" replace />} />
