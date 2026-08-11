@@ -50,6 +50,16 @@ class SubCentre(models.Model):
         return self.name
 
 
+class Department(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("system_admin", "System Admin"),
@@ -65,6 +75,11 @@ class UserAccount(models.Model):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
     institute = models.CharField(max_length=255)
+    # Keep the legacy display value while storing authoritative Reference Data links.
+    institute_reference = models.ForeignKey(Institute, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
+    centre = models.ForeignKey(Centre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
+    sub_centre = models.ForeignKey(SubCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
     password = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
