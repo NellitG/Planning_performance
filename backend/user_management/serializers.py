@@ -1,7 +1,7 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from .models import Centre, County, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 
 
 class SubCentreSerializer(serializers.ModelSerializer):
@@ -42,6 +42,12 @@ class CountyHierarchySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "institutes"]
 
 
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "name"]
+
+
 class UserAccountSerializer(serializers.ModelSerializer):
     fullName = serializers.CharField(source="full_name")
     active = serializers.BooleanField(source="is_active", required=False, default=True)
@@ -49,6 +55,16 @@ class UserAccountSerializer(serializers.ModelSerializer):
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
+    confirmPassword = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    instituteId = serializers.PrimaryKeyRelatedField(source="institute_reference", queryset=Institute.objects.all(), write_only=True, required=False, allow_null=True)
+    centreId = serializers.PrimaryKeyRelatedField(source="centre", queryset=Centre.objects.all(), write_only=True, required=False, allow_null=True)
+    subCentreId = serializers.PrimaryKeyRelatedField(source="sub_centre", queryset=SubCentre.objects.all(), write_only=True, required=False, allow_null=True)
+    departmentId = serializers.PrimaryKeyRelatedField(source="department", queryset=Department.objects.all(), write_only=True, required=False, allow_null=True)
+    selectedInstituteId = serializers.IntegerField(source="institute_reference_id", read_only=True)
+    selectedCentreId = serializers.IntegerField(source="centre_id", read_only=True)
+    selectedSubCentreId = serializers.IntegerField(source="sub_centre_id", read_only=True)
+    departmentName = serializers.CharField(source="department.name", read_only=True, allow_null=True)
+    selectedDepartmentId = serializers.IntegerField(source="department_id", read_only=True)
 
     class Meta:
         model = UserAccount
@@ -58,7 +74,17 @@ class UserAccountSerializer(serializers.ModelSerializer):
             "email",
             "role",
             "institute",
+            "instituteId",
+            "centreId",
+            "subCentreId",
+            "departmentId",
+            "selectedInstituteId",
+            "selectedCentreId",
+            "selectedSubCentreId",
+            "departmentName",
+            "selectedDepartmentId",
             "password",
+            "confirmPassword",
             "active",
             "status",
             "createdAt",
@@ -79,18 +105,30 @@ class UserAccountSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         full_name = attrs.get("full_name", getattr(self.instance, "full_name", "")).strip()
-        institute = attrs.get("institute", getattr(self.instance, "institute", "")).strip()
+        institute = attrs.get("institute_reference", getattr(self.instance, "institute_reference", None))
+        centre = attrs.get("centre", getattr(self.instance, "centre", None))
+        sub_centre = attrs.get("sub_centre", getattr(self.instance, "sub_centre", None))
         password = attrs.get("password")
+        confirm_password = attrs.pop("confirmPassword", None)
 
         if not full_name:
             raise serializers.ValidationError({"fullName": "Full name is required."})
         if not institute:
-            raise serializers.ValidationError({"institute": "Institute is required."})
+            raise serializers.ValidationError({"instituteId": "Institute is required."})
+        if centre and centre.institute_id != institute.id:
+            raise serializers.ValidationError({"centreId": "Select a Centre belonging to the selected Institute."})
+        if sub_centre:
+            if not centre or sub_centre.centre_id != centre.id:
+                raise serializers.ValidationError({"subCentreId": "Select a Sub-Centre belonging to the selected Centre."})
+            if sub_centre.institute_id != institute.id:
+                raise serializers.ValidationError({"subCentreId": "Select a Sub-Centre belonging to the selected Institute."})
         if not self.instance and not password:
             raise serializers.ValidationError({"password": "Password is required."})
+        if password and password != confirm_password:
+            raise serializers.ValidationError({"confirmPassword": "Passwords do not match."})
 
         attrs["full_name"] = full_name
-        attrs["institute"] = institute
+        attrs["institute"] = institute.name
         return attrs
 
     def create(self, validated_data):
