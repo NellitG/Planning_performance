@@ -2,13 +2,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
-from .models import Centre, County, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 from .permissions import UserManagementPermission
 from .serializers import (
     StrategicPlanDocumentSerializer,
     UserAccountSerializer,
     ValueChainSerializer,
     CountyHierarchySerializer,
+    DepartmentSerializer,
 )
 
 
@@ -23,6 +24,15 @@ class ReferenceDataViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return self.queryset.filter(institutes__isnull=False).distinct()
+
+
+class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = DepartmentSerializer
+    permission_classes = [UserManagementPermission]
+    queryset = Department.objects.all()
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name"]
+    ordering_fields = ["name"]
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
