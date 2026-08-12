@@ -232,10 +232,10 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
               )}
               {componentId && filteredObjectives.length === 0 && (
                 <p className="text-xs text-amber-600">
-                  No objectives for this KRA.{" "}
-                  <Link to="/projects/strategic-objectives/new" className="underline">
+                  {/* No objectives for this KRA.{" "} */}
+                  {/* <Link to="/projects/strategic-objectives/new" className="underline">
                     Add one
-                  </Link>
+                  </Link> */}
                   .
                 </p>
               )}
