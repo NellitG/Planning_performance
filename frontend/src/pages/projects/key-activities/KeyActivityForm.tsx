@@ -72,8 +72,8 @@ export default function KeyActivityForm({ mode = "create" }: KeyActivityFormProp
         toast.success(saved.length === 1 ? "Key activity created" : `${saved.length} key activities created`);
       }
       navigate("/projects/key-activities");
-    } catch {
-      toast.error("Failed to save key activity");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save key activity");
     }
   };
 
@@ -103,16 +103,16 @@ export default function KeyActivityForm({ mode = "create" }: KeyActivityFormProp
               <div className="space-y-1.5"><Label>Key Result Area</Label><Input readOnly value={components.find((c) => c.id === strategies.find((s) => s.id === strategyId)?.componentId)?.title ?? "Linked KRA"} className="bg-muted text-muted-foreground" /></div>
               <div className="space-y-1.5"><Label>Strategic Objective</Label><Input readOnly value={objectives.find((o) => o.id === strategies.find((s) => s.id === strategyId)?.objectiveId)?.text ?? "Linked strategic objective"} className="bg-muted text-muted-foreground" /></div>
             </>}
-          <div className="space-y-1.5">
-            <Label>Strategy <span className="text-red-600">*</span></Label>
-            {mode === "edit" ? <Input readOnly value={strategies.find((s) => s.id === strategyId)?.text ?? "Linked strategy"} className="bg-muted text-muted-foreground" /> : <Select value={strategyId} onValueChange={(v) => { setStrategyId(v); setStrategyError(""); }} disabled={strategies.length === 0}>
-              <SelectTrigger><SelectValue placeholder="Select Strategy" /></SelectTrigger>
-              <SelectContent>
-                {strategies.map((s) => <SelectItem key={s.id} value={s.id}>{s.text}</SelectItem>)}
-              </SelectContent>
-            </Select>}
-            {strategyError && <p className="text-xs text-red-600">{strategyError}</p>}
-          </div>
+            <div className="space-y-1.5">
+              <Label>Strategy <span className="text-red-600">*</span></Label>
+              {mode === "edit" ? <Input readOnly value={strategies.find((s) => s.id === strategyId)?.text ?? "Linked strategy"} className="bg-muted text-muted-foreground" /> : <Select value={strategyId} onValueChange={(v) => { setStrategyId(v); setStrategyError(""); }} disabled={strategies.length === 0}>
+                <SelectTrigger><SelectValue placeholder="Select Strategy" /></SelectTrigger>
+                <SelectContent>
+                  {strategies.map((s) => <SelectItem key={s.id} value={s.id}>{s.text}</SelectItem>)}
+                </SelectContent>
+              </Select>}
+              {strategyError && <p className="text-xs text-red-600">{strategyError}</p>}
+            </div>
           </div>
         </div>
 
