@@ -58,8 +58,8 @@ export default function ProjectObjectiveForm({ mode = "create" }: ProjectObjecti
         toast.success("Strategic objective updated successfully");
       }
       navigate("/projects/strategic-objectives");
-    } catch {
-      toast.error("Failed to save strategic objective");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save strategic objective");
     }
   };
 
@@ -95,16 +95,16 @@ export default function ProjectObjectiveForm({ mode = "create" }: ProjectObjecti
               {mode === "edit" ? (
                 <Input readOnly value={components.find((c) => c.id === form.componentId)?.title ?? "Linked KRA"} className="bg-muted text-muted-foreground" />
               ) : (
-              <Select value={form.componentId} onValueChange={(v) => update("componentId", v)} disabled={components.length === 0}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Key Result Area" />
-                </SelectTrigger>
-                <SelectContent>
-                  {components.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select value={form.componentId} onValueChange={(v) => update("componentId", v)} disabled={components.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Key Result Area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {components.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
               {errors.componentId && <p className="text-xs text-red-600">{errors.componentId}</p>}
             </div>
