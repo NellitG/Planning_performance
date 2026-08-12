@@ -107,18 +107,36 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
 
     try {
       if (mode === "edit") {
-        await updateIndicator.mutateAsync({ id: id!, text: rows[0].text, cumulativeTarget: rows[0].cumulativeTarget, year1Target: rows[0].year1Target, year2Target: rows[0].year2Target, year3Target: rows[0].year3Target, year4Target: rows[0].year4Target, year5Target: rows[0].year5Target, totalBudgetMillions: rows[0].totalBudgetMillions, budgetYear1: rows[0].budgetYear1, budgetYear2: rows[0].budgetYear2, budgetYear3: rows[0].budgetYear3, budgetYear4: rows[0].budgetYear4, budgetYear5: rows[0].budgetYear5 });
+        await updateIndicator.mutateAsync({
+          id: id!,
+          strategyId,
+          keyActivityId,
+          expectedOutputId,
+          text: rows[0].text,
+          cumulativeTarget: rows[0].cumulativeTarget,
+          year1Target: rows[0].year1Target,
+          year2Target: rows[0].year2Target,
+          year3Target: rows[0].year3Target,
+          year4Target: rows[0].year4Target,
+          year5Target: rows[0].year5Target,
+          totalBudgetMillions: rows[0].totalBudgetMillions,
+          budgetYear1: rows[0].budgetYear1,
+          budgetYear2: rows[0].budgetYear2,
+          budgetYear3: rows[0].budgetYear3,
+          budgetYear4: rows[0].budgetYear4,
+          budgetYear5: rows[0].budgetYear5,
+        });
         toast.success("Output indicator updated successfully");
       } else {
         const saved = rows.filter((r) => r.text.trim());
         for (const r of saved) {
-          await createIndicator.mutateAsync({ strategyId, keyActivityId, expectedOutputId, text: r.text, cumulativeTarget: r.cumulativeTarget, year1Target: r.year1Target, year2Target: r.year2Target, year3Target: r.year3Target, year4Target: r.year4Target, year5Target: r.year5Target, totalBudgetMillions: r.totalBudgetMillions, budgetYear1: r.budgetYear1, budgetYear2: r.budgetYear2, budgetYear3: r.budgetYear3, budgetYear4: r.budgetYear4, budgetYear5: r.budgetYear5 });
+          await createIndicator.mutateAsync({ text: r.text, cumulativeTarget: r.cumulativeTarget, year1Target: r.year1Target, year2Target: r.year2Target, year3Target: r.year3Target, year4Target: r.year4Target, year5Target: r.year5Target, totalBudgetMillions: r.totalBudgetMillions, budgetYear1: r.budgetYear1, budgetYear2: r.budgetYear2, budgetYear3: r.budgetYear3, budgetYear4: r.budgetYear4, budgetYear5: r.budgetYear5 });
         }
         toast.success(saved.length === 1 ? "Output indicator created" : `${saved.length} output indicators created`);
       }
       navigate("/projects/output-indicators");
-    } catch {
-      toast.error("Failed to save output indicator");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save output indicator");
     }
   };
 
@@ -173,8 +191,8 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
                       !strategyId
                         ? "Select a strategy first"
                         : keyActivities.length === 0
-                        ? "No key activities"
-                        : "Select Key Activity"
+                          ? "No key activities"
+                          : "Select Key Activity"
                     }
                   />
                 </SelectTrigger>
@@ -204,8 +222,8 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
                       !strategyId
                         ? "Select a strategy first"
                         : expectedOutputs.length === 0
-                        ? "No expected outputs"
-                        : "Select Expected Output"
+                          ? "No expected outputs"
+                          : "Select Expected Output"
                     }
                   />
                 </SelectTrigger>
