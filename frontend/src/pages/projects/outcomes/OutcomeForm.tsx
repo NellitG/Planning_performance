@@ -198,18 +198,26 @@ export default function OutcomeForm({ mode = "create" }: OutcomeFormProps) {
             <Label>
               Key Result Area <span className="text-red-600">*</span>
             </Label>
-            <Select value={kraId} onValueChange={(value) => { setKraId(value); setKraError(""); }} disabled={kras.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Key Result Area" />
-              </SelectTrigger>
-              <SelectContent>
-                {kras.map((kra) => (
-                  <SelectItem key={kra.id} value={kra.id}>
-                    {kra.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {mode === "edit" ? (
+              <Input
+                readOnly
+                value={kras.find((kra) => kra.id === kraId)?.title ?? "Linked KRA"}
+                className="bg-muted text-muted-foreground"
+              />
+            ) : (
+              <Select value={kraId} onValueChange={(value) => { setKraId(value); setKraError(""); }} disabled={kras.length === 0}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Key Result Area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {kras.map((kra) => (
+                    <SelectItem key={kra.id} value={kra.id}>
+                      {kra.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {kraError ? <p className="text-xs text-red-600">{kraError}</p> : null}
           </div>
           <p className="text-sm text-muted-foreground">Add one or more outcomes below. Each outcome can contain multiple indicators with baseline and target values.</p>
