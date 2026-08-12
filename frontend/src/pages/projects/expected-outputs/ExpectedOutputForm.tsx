@@ -97,8 +97,8 @@ export default function ExpectedOutputForm({ mode = "create" }: ExpectedOutputFo
         toast.success(saved.length === 1 ? "Expected output created" : `${saved.length} expected outputs created`);
       }
       navigate("/projects/expected-outputs");
-    } catch {
-      toast.error("Failed to save expected output");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save expected output");
     }
   };
 
@@ -153,8 +153,8 @@ export default function ExpectedOutputForm({ mode = "create" }: ExpectedOutputFo
                       !strategyId
                         ? "Select a strategy first"
                         : keyActivities.length === 0
-                        ? "No key activities for this strategy"
-                        : "Select Key Activity"
+                          ? "No key activities for this strategy"
+                          : "Select Key Activity"
                     }
                   />
                 </SelectTrigger>
