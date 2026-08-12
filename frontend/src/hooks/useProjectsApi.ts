@@ -176,7 +176,7 @@ export function useUpdateObjective() {
       id: string;
       text: string;
     }) =>
-      api.put<ProjectObjective>(`/strategic-objectives/${id}/`, {
+      api.patch<ProjectObjective>(`/strategic-objectives/${id}/`, {
         text,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.objectives }),
@@ -229,7 +229,7 @@ export function useUpdateStrategy() {
       id: string;
       text: string;
     }) =>
-      api.put<ProjectStrategy>(`/strategies/${id}/`, {
+      api.patch<ProjectStrategy>(`/strategies/${id}/`, {
         text,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.strategies }),
@@ -272,7 +272,7 @@ export function useUpdateKeyActivity() {
       id: string;
       text: string;
     }) =>
-      api.put<KeyActivity>(`/key-activities/${id}/`, {
+      api.patch<KeyActivity>(`/key-activities/${id}/`, {
         text,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.keyActivities }),
@@ -324,7 +324,7 @@ export function useUpdateExpectedOutput() {
       id: string;
       text: string;
     }) =>
-      api.put<ExpectedOutput>(`/expected-outputs/${id}/`, {
+      api.patch<ExpectedOutput>(`/expected-outputs/${id}/`, {
         text,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.expectedOutputs }),
@@ -439,7 +439,7 @@ export function useUpdateOutputIndicator() {
       budgetYear4?: string;
       budgetYear5?: string;
     }) =>
-      api.put<OutputIndicator>(`/output-indicators/${id}/`, {
+      api.patch<OutputIndicator>(`/output-indicators/${id}/`, {
         strategyId: nullableId(strategyId),
         keyActivityId: nullableId(keyActivityId),
         expectedOutputId: Number(expectedOutputId),
@@ -495,8 +495,7 @@ export function useUpdateOutcome() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, kraId, text, indicators }: { id: string; kraId: string; text: string; indicators: Array<{ text: string; baselineValue: string; midtermTarget: string; endtermTarget: string }> }) =>
-      api.put<Outcome>(`/outcomes/${id}/`, {
-        kraId: Number(kraId),
+      api.patch<Outcome>(`/outcomes/${id}/`, {
         text,
         indicators,
       }),
