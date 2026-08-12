@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useComponents, useObjectives, useStrategies, useCreateStrategy, useUpdateStrategy } from "@/hooks/useProjectsApi";
-import type { ProjectObjective } from "@/utils/types";
+import type { ProjectObjective, ProjectStrategy } from "@/utils/types";
 
 interface RowItem {
   _key: string;
@@ -40,6 +40,7 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
   const [filteredObjectives, setFilteredObjectives] = useState<ProjectObjective[]>([]);
   const [componentId, setComponentId] = useState("");
   const [objectiveId, setObjectiveId] = useState("");
+  const [loadedStrategy, setLoadedStrategy] = useState<ProjectStrategy | null>(null);
   const [headerErrors, setHeaderErrors] = useState<HeaderErrors>({});
 
   const [rows, setRows] = useState<RowItem[]>([{ _key: uid(), text: "", error: "" }]);
@@ -48,8 +49,7 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
     if (mode === "edit" && id && strategies.length) {
       const item = strategies.find((s) => s.id === id);
       if (item) {
-        setComponentId(item.componentId);
-        setObjectiveId(item.objectiveId);
+        setLoadedStrategy(item);
         setRows([{ _key: uid(), text: item.text, error: "" }]);
       } else {
         toast.error("Strategy not found");
@@ -59,17 +59,34 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
   }, [mode, id, strategies, navigate]);
 
   useEffect(() => {
-    if (componentId) {
-      const filtered = allObjectives.filter((o) => o.componentId === componentId);
-      setFilteredObjectives(filtered);
-      if (!filtered.find((o) => o.id === objectiveId)) {
-        setObjectiveId("");
+    if (mode === "edit" && loadedStrategy) {
+      setComponentId(loadedStrategy.componentId);
+      if (allObjectives.length > 0) {
+        const objective = allObjectives.find((o) => o.id === loadedStrategy.objectiveId);
+        if (objective) {
+          setObjectiveId(objective.id);
+        }
       }
-    } else {
+      return;
+    }
+
+    if (!componentId) {
       setFilteredObjectives([]);
       setObjectiveId("");
+      return;
     }
-  }, [componentId, allObjectives]);
+
+    const filtered = allObjectives.filter((o) => o.componentId === componentId);
+    setFilteredObjectives(filtered);
+
+    if (!objectiveId || allObjectives.length === 0) {
+      return;
+    }
+
+    if (!filtered.find((o) => o.id === objectiveId)) {
+      setObjectiveId("");
+    }
+  }, [mode, componentId, allObjectives, objectiveId, loadedStrategy]);
 
   const addRow = () => setRows((r) => [...r, { _key: uid(), text: "", error: "" }]);
 
@@ -117,8 +134,8 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
         );
       }
       navigate("/projects/strategy");
-    } catch {
-      toast.error("Failed to save strategy");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save strategy");
     }
   };
 
@@ -199,8 +216,8 @@ export default function StrategyForm({ mode = "create" }: StrategyFormProps) {
                       !componentId
                         ? "Select a KRA first"
                         : filteredObjectives.length === 0
-                        ? "No objectives for this KRA"
-                        : "Select Strategic Objective"
+                          ? "No objectives for this KRA"
+                          : "Select Strategic Objective"
                     }
                   />
                 </SelectTrigger>
