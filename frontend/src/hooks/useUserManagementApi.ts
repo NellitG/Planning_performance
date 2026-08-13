@@ -8,7 +8,8 @@ export type UserRoleKey =
   | "business_logic"
   | "project_manager"
   | "department_head"
-  | "staff_user";
+  | "staff_user"
+  | "value_chain_leads";
 
 export interface ManagedUser {
   id: string;
@@ -21,6 +22,8 @@ export interface ManagedUser {
   selectedSubCentreId: number | null;
   selectedDepartmentId: number | null;
   departmentName: string | null;
+  valueChainIds: string[];
+  valueChains: Array<{ id: string; name: string }>;
   active: boolean;
   status: "Active" | "Inactive";
   createdAt: string;
@@ -35,6 +38,7 @@ export interface ManagedUserInput {
   centreId: string;
   subCentreId: string;
   departmentId: string;
+  valueChainIds: string[];
   password?: string;
   confirmPassword?: string;
   active: boolean;
@@ -104,6 +108,7 @@ export function roleLabel(role: UserRoleKey) {
     project_manager: "Project Manager",
     department_head: "Department Head",
     staff_user: "Staff User",
+    value_chain_leads: "Value Chain Leads",
   };
   return labels[role] ?? role;
 }
@@ -144,7 +149,7 @@ export function useManagedUser(id: string | undefined) {
 export function useCreateManagedUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: ManagedUserInput) => api.post<ManagedUser>("/user-management/users/", input),
+    mutationFn: (input: ManagedUserInput) => api.post<ManagedUser>("/user-management/users/", input as any),
     onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.users }),
   });
 }
@@ -189,7 +194,7 @@ export function useValueChain(id: string | undefined) {
 export function useCreateValueChain() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: ValueChainInput) => api.post<ValueChain>("/user-management/value-chains/", input),
+    mutationFn: (input: ValueChainInput) => api.post<ValueChain>("/user-management/value-chains/", input as any),
     onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.valueChains }),
   });
 }
