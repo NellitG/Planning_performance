@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = "http://127.0.0.1:8000/api";
 
 type Json = Record<string, unknown> | unknown[] | null;
 
@@ -22,6 +22,20 @@ function transform(value: unknown): unknown {
   return value;
 }
 
+function formatApiError(data: unknown): string {
+  if (typeof data === "string") return data;
+  if (Array.isArray(data)) return data.map(formatApiError).join("; ");
+  if (data && typeof data === "object") {
+    if ("detail" in data && typeof (data as any).detail === "string") {
+      return (data as any).detail;
+    }
+    return Object.entries(data as Record<string, unknown>)
+      .map(([key, value]) => `${key}: ${formatApiError(value)}`)
+      .join("; ");
+  }
+  return String(data);
+}
+
 async function handle(res: Response): Promise<unknown> {
   if (res.status === 204) return null;
   const text = await res.text();
@@ -34,10 +48,7 @@ async function handle(res: Response): Promise<unknown> {
     }
   }
   if (!res.ok) {
-    const message =
-      data && typeof data === "object"
-        ? JSON.stringify(data)
-        : String(data || res.statusText);
+    const message = formatApiError(data);
     throw new Error(message);
   }
   return transform(data);
@@ -77,6 +88,22 @@ export const api = {
   postForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
+      headers: { Accept: "application/json" },
+      body: form,
+    });
+    return handle(res) as Promise<T>;
+  },
+  putForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "PUT",
+      headers: { Accept: "application/json" },
+      body: form,
+    });
+    return handle(res) as Promise<T>;
+  },
+  patchForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "PATCH",
       headers: { Accept: "application/json" },
       body: form,
     });
