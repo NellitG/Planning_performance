@@ -65,6 +65,10 @@ class UserAccountSerializer(serializers.ModelSerializer):
     selectedSubCentreId = serializers.IntegerField(source="sub_centre_id", read_only=True)
     departmentName = serializers.CharField(source="department.name", read_only=True, allow_null=True)
     selectedDepartmentId = serializers.IntegerField(source="department_id", read_only=True)
+    valueChainIds = serializers.PrimaryKeyRelatedField(
+        source="value_chains", queryset=ValueChain.objects.filter(is_active=True), many=True, required=False
+    )
+    valueChains = serializers.SerializerMethodField()
 
     class Meta:
         model = UserAccount
@@ -83,6 +87,8 @@ class UserAccountSerializer(serializers.ModelSerializer):
             "selectedSubCentreId",
             "departmentName",
             "selectedDepartmentId",
+            "valueChainIds",
+            "valueChains",
             "password",
             "confirmPassword",
             "active",
@@ -93,6 +99,9 @@ class UserAccountSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         return "Active" if obj.is_active else "Inactive"
+
+    def get_valueChains(self, obj):
+        return [{"id": str(chain.id), "name": chain.name} for chain in obj.value_chains.all()]
 
     def validate_email(self, value):
         qs = UserAccount.objects.filter(email__iexact=value)
@@ -110,6 +119,10 @@ class UserAccountSerializer(serializers.ModelSerializer):
         sub_centre = attrs.get("sub_centre", getattr(self.instance, "sub_centre", None))
         password = attrs.get("password")
         confirm_password = attrs.pop("confirmPassword", None)
+        role = attrs.get("role", getattr(self.instance, "role", ""))
+        value_chains = attrs.get("value_chains")
+        if value_chains is None and self.instance:
+            value_chains = self.instance.value_chains.all()
 
         if not full_name:
             raise serializers.ValidationError({"fullName": "Full name is required."})
@@ -126,6 +139,11 @@ class UserAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": "Password is required."})
         if password and password != confirm_password:
             raise serializers.ValidationError({"confirmPassword": "Passwords do not match."})
+        if role == "value_chain_leads":
+            if not value_chains:
+                raise serializers.ValidationError({"valueChainIds": "Please select at least one Value Chain for the Value Chain Leads role."})
+        else:
+            attrs["value_chains"] = []
 
         attrs["full_name"] = full_name
         attrs["institute"] = institute.name
@@ -138,11 +156,14 @@ class UserAccountSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
+        value_chains = validated_data.pop("value_chains", None)
         if password:
             instance.password = make_password(password)
         for key, value in validated_data.items():
             setattr(instance, key, value)
         instance.save()
+        if value_chains is not None:
+            instance.value_chains.set(value_chains)
         return instance
 
 
