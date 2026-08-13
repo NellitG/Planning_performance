@@ -69,6 +69,7 @@ class UserAccount(models.Model):
         ("project_manager", "Project Manager"),
         ("department_head", "Department Head"),
         ("staff_user", "Staff User"),
+        ("value_chain_leads", "Value Chain Leads"),
     ]
 
     full_name = models.CharField(max_length=255)
@@ -80,6 +81,7 @@ class UserAccount(models.Model):
     centre = models.ForeignKey(Centre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
     sub_centre = models.ForeignKey(SubCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
     department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
+    value_chains = models.ManyToManyField("ValueChain", blank=True, related_name="value_chain_leads")
     password = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
