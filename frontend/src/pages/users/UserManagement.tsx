@@ -66,6 +66,7 @@ const ROLES: Array<{ value: UserRoleKey; label: string }> = [
   { value: "project_manager", label: "Project Manager" },
   { value: "department_head", label: "Department Head" },
   { value: "staff_user", label: "Staff User" },
+  { value: "value_chain_leads", label: "Value Chain Leads" },
 ];
 
 const emptyUserForm: ManagedUserInput = {
@@ -76,6 +77,7 @@ const emptyUserForm: ManagedUserInput = {
   centreId: "",
   subCentreId: "",
   departmentId: "",
+  valueChainIds: [],
   password: "",
   confirmPassword: "",
   active: true,
@@ -353,6 +355,7 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
   const { data: user, isLoading, isError } = useManagedUser(mode === "edit" ? id : undefined);
   const { data: referenceData = [], isLoading: referenceLoading, isError: referenceError } = useReferenceData();
   const { data: departments = [], isLoading: departmentsLoading, isError: departmentsError } = useDepartments();
+  const { data: valueChains = [], isLoading: valueChainsLoading, isError: valueChainsError } = useValueChains();
   const createUser = useCreateManagedUser();
   const updateUser = useUpdateManagedUser();
   const [form, setForm] = useState<ManagedUserInput>(emptyUserForm);
@@ -368,7 +371,7 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
 
   useEffect(() => {
     if (mode === "edit" && user) {
-      setForm({ fullName: user.fullName, email: user.email, role: user.role, instituteId: String(user.selectedInstituteId ?? ""), centreId: String(user.selectedCentreId ?? ""), subCentreId: String(user.selectedSubCentreId ?? ""), departmentId: String(user.selectedDepartmentId ?? ""), password: "", confirmPassword: "", active: user.active });
+      setForm({ fullName: user.fullName, email: user.email, role: user.role, instituteId: String(user.selectedInstituteId ?? ""), centreId: String(user.selectedCentreId ?? ""), subCentreId: String(user.selectedSubCentreId ?? ""), departmentId: String(user.selectedDepartmentId ?? ""), valueChainIds: user.valueChainIds.map(String), password: "", confirmPassword: "", active: user.active });
     }
   }, [mode, user]);
 
@@ -378,6 +381,7 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
     if (!form.email.trim()) next.email = "Email address is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
     if (!form.role) next.role = "Role is required";
+    if (form.role === "value_chain_leads" && form.valueChainIds.length === 0) next.valueChainIds = "Please select at least one Value Chain for the Value Chain Leads role.";
     if (!form.instituteId) next.instituteId = "Institute is required";
     if (mode === "create" && !form.password) next.password = "Password is required";
     if (form.password && form.password.length < 8) next.password = "Password must be at least 8 characters";
@@ -426,11 +430,26 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
             <Input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
           </Field>
           <Field label="Role" error={errors.role} required>
-            <Select value={form.role} onValueChange={(value) => setForm((current) => ({ ...current, role: value as UserRoleKey }))}>
+            <Select value={form.role} onValueChange={(value) => setForm((current) => ({ ...current, role: value as UserRoleKey, valueChainIds: value === "value_chain_leads" ? current.valueChainIds : [] }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{ROLES.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
+          {form.role === "value_chain_leads" && (
+            <Field label="Value Chains" error={errors.valueChainIds} required>
+              {valueChainsLoading ? <p className="text-sm text-muted-foreground">Loading Value Chains...</p> : valueChainsError ? <p className="text-sm text-red-600">Unable to load Value Chains. Please try again.</p> : (
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+                  {valueChains.filter((chain) => chain.active).map((chain) => (
+                    <label key={chain.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={form.valueChainIds.includes(String(chain.id))} onCheckedChange={(checked) => setForm((current) => ({ ...current, valueChainIds: checked ? [...current.valueChainIds, String(chain.id)] : current.valueChainIds.filter((id) => id !== String(chain.id)) }))} />
+                      {chain.name}
+                    </label>
+                  ))}
+                  {valueChains.filter((chain) => chain.active).length === 0 && <p className="text-sm text-muted-foreground">No active Value Chains are available.</p>}
+                </div>
+              )}
+            </Field>
+          )}
           <Field label="Department" error={errors.departmentId}>
             <Select value={form.departmentId} onValueChange={(value) => setForm((current) => ({ ...current, departmentId: value }))} disabled={departmentsLoading || departmentsError}>
               <SelectTrigger><SelectValue placeholder={departmentsLoading ? "Loading departments..." : "Select department"} /></SelectTrigger>
