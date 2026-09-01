@@ -615,7 +615,7 @@ export default function NewReport() {
           </Section>
         ))} */}
 
-        <Section index={3} title="Attach Evidence">
+        <Section index={3} title="Attach Evidence (Bank Statements)">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
