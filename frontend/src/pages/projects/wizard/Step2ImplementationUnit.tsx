@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { StepProps } from "./types";
 import { useValueChains } from "@/hooks/useUserManagementApi";
 import {
@@ -42,6 +43,20 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
   const iu = data.implementationUnits;
   const { data: valueChains = [], isLoading, isError } = useValueChains();
   const activeValueChains = valueChains.filter((vc) => vc.active);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  // Re-open categories that contain values already saved on an existing project.
+  useEffect(() => {
+    if (valueChains.length === 0 || data.valueChains.length === 0) return;
+
+    const categoriesWithSelections = valueChains
+      .filter((vc) => data.valueChains.includes(vc.name) && (vc.category === "Crops" || vc.category === "Livestock"))
+      .map((vc) => vc.category);
+
+    if (categoriesWithSelections.length > 0) {
+      setSelectedCategories((current) => [...new Set([...current, ...categoriesWithSelections])]);
+    }
+  }, [data.valueChains, valueChains]);
 
   const updateIU = (updates: Partial<typeof iu>) => {
     onChange({ implementationUnits: { ...iu, ...updates } });
@@ -57,6 +72,12 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
     } else {
       onChange({ valueChains: [...current, vc] });
     }
+  };
+
+  const toggleCategory = (category: "Crops" | "Livestock", checked: boolean) => {
+    setSelectedCategories((current) =>
+      checked ? [...new Set([...current, category])] : current.filter((item) => item !== category),
+    );
   };
 
   return (
@@ -143,8 +164,8 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
         <hr className="border-border" />
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Value Chain</h3>
-          <p className="text-xs text-muted-foreground">Select all value chains relevant to this project.</p>
+          <h3 className="text-sm font-semibold">Value Chain Category</h3>
+          <p className="text-xs text-muted-foreground">Choose a category to see its available value chains.</p>
           {isLoading && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Loading value chains...
@@ -160,19 +181,48 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
               No active value chains are configured in User Management.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-            {activeValueChains.map((vc) => (
-              <label key={vc.id} className="flex items-center gap-2 cursor-pointer select-none rounded-lg border border-border p-2 hover:bg-accent transition-colors">
-                <input
-                  type="checkbox"
-                  checked={data.valueChains.includes(vc.name)}
-                  onChange={() => toggleValueChain(vc.name)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary"
-                />
-                <span className="text-sm">{vc.name}</span>
-              </label>
-            ))}
-          </div>
+          {!isLoading && !isError && activeValueChains.length > 0 && (
+            <>
+              <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-muted/20 p-3">
+                {(["Crops", "Livestock"] as const).map((category) => (
+                  <Checkbox
+                    key={category}
+                    checked={selectedCategories.includes(category)}
+                    onChange={(checked) => toggleCategory(category, checked)}
+                    label={category}
+                  />
+                ))}
+              </div>
+
+              {(["Crops", "Livestock"] as const).map((category) => {
+                if (!selectedCategories.includes(category)) return null;
+                const categoryValueChains = activeValueChains.filter((vc) => vc.category === category);
+
+                return (
+                  <div key={category} className="space-y-2 rounded-lg border border-border p-3">
+                    <h4 className="text-sm font-semibold text-primary">{category} Value Chains</h4>
+                    {categoryValueChains.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                        {categoryValueChains.map((vc) => (
+                          <label key={vc.id} className="flex items-center gap-2 cursor-pointer select-none rounded-lg border border-border p-2 hover:bg-accent transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={data.valueChains.includes(vc.name)}
+                              onChange={() => toggleValueChain(vc.name)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary"
+                            />
+                            <span className="text-sm">{vc.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No active {category.toLowerCase()} value chains are configured.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
           {data.valueChains.length > 0 && (
             <p className="text-xs text-primary font-medium">{data.valueChains.length} value chain(s) selected</p>
           )}
