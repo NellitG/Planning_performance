@@ -1,5 +1,5 @@
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -40,6 +40,11 @@ import {
   useDeleteStrategicPlanDocument,
   useDeleteValueChain,
   useDepartments,
+  useRoles,
+  useFundingAgencies,
+  useCreateFundingAgency,
+  useUpdateFundingAgency,
+  useDeleteFundingAgency,
   useManagedUser,
   useManagedUsers,
   useReferenceData,
@@ -58,21 +63,12 @@ type ValueChainSortKey = "name" | "category" | "priority" | "projects" | "status
 const PAGE_SIZE = 8;
 const ACCEPTED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
-const ROLES: Array<{ value: UserRoleKey; label: string }> = [
-  { value: "system_admin", label: "System Admin" },
-  { value: "national_me", label: "National M&E" },
-  { value: "high_level", label: "High Level" },
-  { value: "business_logic", label: "Business Logic" },
-  { value: "project_manager", label: "Project Manager" },
-  { value: "department_head", label: "Department Head" },
-  { value: "staff_user", label: "Staff User" },
-  { value: "value_chain_leads", label: "Value Chain Leads" },
-];
-
 const emptyUserForm: ManagedUserInput = {
   fullName: "",
   email: "",
   role: "staff_user",
+  roles: ["staff_user"],
+  personalNumber: "",
   instituteId: "",
   centreId: "",
   subCentreId: "",
@@ -185,7 +181,7 @@ function ModuleTabs() {
   const location = useLocation();
   const tabs = [
     { label: "Users", to: "/user-management/users", match: "/user-management/users" },
-    { label: "Development Partners", to: "/user-management/development-partners", match: "/user-management/development-partners" },
+    { label: "Funding Agencies", to: "/user-management/development-partners", match: "/user-management/development-partners" },
     { label: "Value Chains", to: "/user-management/value-chains", match: "/user-management/value-chains" },
     { label: "Reference Data", to: "/user-management/reference-data", match: "/user-management/reference-data" },
     { label: "Departments", to: "/user-management/departments", match: "/user-management/departments" },
@@ -223,6 +219,54 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+function FundingAgenciesPage() {
+  const { data: agencies = [], isLoading, isError } = useFundingAgencies();
+  const createAgency = useCreateFundingAgency();
+  const updateAgency = useUpdateFundingAgency();
+  const deleteAgency = useDeleteFundingAgency();
+  const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    try {
+      await createAgency.mutateAsync({ name: name.trim(), active: true });
+      setName("");
+      toast.success("Funding agency added successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to add funding agency");
+    }
+  };
+
+  if (isLoading) return <LoadingState label="Loading funding agencies..." />;
+  if (isError) return <ErrorState label="Unable to load funding agencies from the backend." />;
+
+  return <div className="space-y-4">
+    <PageHeader title="Funding Agencies" description="Manage funding agencies stored in the Django database." />
+    <form onSubmit={submit} className="flex max-w-xl gap-2 rounded-xl border bg-card p-4 shadow-sm">
+      <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Funding agency name" aria-label="Funding agency name" />
+      <Button type="submit" disabled={createAgency.isPending} className="bg-green-700 text-primary-foreground"><Plus className="h-4 w-4" /> Add</Button>
+    </form>
+    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <Table><TableHeader><TableRow><TableHead>Funding Agency</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>
+        {agencies.map((agency) => <TableRow key={agency.id}>
+          <TableCell>{editingId === agency.id ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} /> : agency.name}</TableCell>
+          <TableCell>{statusBadge(agency.active)}</TableCell>
+          <TableCell className="text-right">
+            {editingId === agency.id ?
+              <div className="flex justify-end gap-2"><Button size="sm" onClick={async () => { await updateAgency.mutateAsync({ id: agency.id, name: editingName.trim(), active: agency.active }); setEditingId(null); }}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button></div> :
+              <div className="flex justify-end gap-1"><Button size="sm" variant="ghost" onClick={() => { setEditingId(agency.id); setEditingName(agency.name); }}><Pencil className="h-4 w-4" /></Button>
+                <Button size="sm" variant="ghost" className="text-red-600" onClick={async () => { await deleteAgency.mutateAsync(agency.id); toast.success("Funding agency deleted successfully"); }}><Trash2 className="h-4 w-4" /></Button></div>}
+          </TableCell>
+        </TableRow>)}
+        {agencies.length === 0 && <TableRow><TableCell colSpan={3} className="py-10 text-center text-muted-foreground">No funding agencies found.</TableCell></TableRow>}
+      </TableBody></Table>
+    </div>
+  </div>;
+}
+
 function UsersList() {
   const { data = [], isLoading, isError } = useManagedUsers();
   const deleteUser = useDeleteManagedUser();
@@ -234,10 +278,10 @@ function UsersList() {
   const sorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data
-      .filter((user) => [user.fullName, user.email, roleLabel(user.role), user.institute, user.status].some((value) => value.toLowerCase().includes(q)))
+      .filter((user) => [user.fullName, user.email, user.roleNames?.map((role) => role.name).join(" ") || roleLabel(user.role), user.institute, user.personalNumber, user.status].some((value) => value.toLowerCase().includes(q)))
       .sort((a, b) => {
-        const av = sort.key === "role" ? roleLabel(a.role) : a[sort.key];
-        const bv = sort.key === "role" ? roleLabel(b.role) : b[sort.key];
+        const av = sort.key === "role" ? (a.roleNames?.map((role) => role.name).join(", ") || roleLabel(a.role)) : a[sort.key];
+        const bv = sort.key === "role" ? (b.roleNames?.map((role) => role.name).join(", ") || roleLabel(b.role)) : b[sort.key];
         return sort.direction === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       });
   }, [data, query, sort]);
@@ -298,7 +342,7 @@ function UsersList() {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.fullName}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{roleLabel(user.role)}</TableCell>
+                  <TableCell><div className="flex flex-wrap gap-1">{(user.roleNames?.length ? user.roleNames.map((role) => role.name) : [roleLabel(user.role)]).map((role) => <Badge key={role} variant="outline">{role}</Badge>)}</div></TableCell>
                   <TableCell>{user.institute}</TableCell>
                   <TableCell>{statusBadge(user.active)}</TableCell>
                   <TableCell className="text-right">
@@ -355,12 +399,14 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
   const { data: user, isLoading, isError } = useManagedUser(mode === "edit" ? id : undefined);
   const { data: referenceData = [], isLoading: referenceLoading, isError: referenceError } = useReferenceData();
   const { data: departments = [], isLoading: departmentsLoading, isError: departmentsError } = useDepartments();
+  const { data: roles = [], isLoading: rolesLoading, isError: rolesError } = useRoles();
   const { data: valueChains = [], isLoading: valueChainsLoading, isError: valueChainsError } = useValueChains();
   const createUser = useCreateManagedUser();
   const updateUser = useUpdateManagedUser();
   const [form, setForm] = useState<ManagedUserInput>(emptyUserForm);
   const [errors, setErrors] = useState<Partial<Record<keyof ManagedUserInput, string>>>({});
   const [instituteSearch, setInstituteSearch] = useState("");
+  const initializedUserId = useRef<string | null>(null);
 
   const institutes = useMemo(() => referenceData.flatMap((county) => county.institutes), [referenceData]);
   const selectedInstitute = institutes.find((institute) => String(institute.id) === form.instituteId);
@@ -370,22 +416,51 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
   const matchingInstitutes = institutes.filter((institute) => institute.name.toLowerCase().includes(instituteSearch.trim().toLowerCase()));
 
   useEffect(() => {
-    if (mode === "edit" && user) {
-      setForm({ fullName: user.fullName, email: user.email, role: user.role, instituteId: String(user.selectedInstituteId ?? ""), centreId: String(user.selectedCentreId ?? ""), subCentreId: String(user.selectedSubCentreId ?? ""), departmentId: String(user.selectedDepartmentId ?? ""), valueChainIds: user.valueChainIds.map(String), password: "", confirmPassword: "", active: user.active });
+    if (mode !== "edit") {
+      initializedUserId.current = null;
+      return;
     }
-  }, [mode, user]);
+    if (!user || referenceLoading || departmentsLoading || institutes.length === 0 || departments.length === 0) return;
+    if (initializedUserId.current === user.id) return;
+
+    const selectedRoles = user.roles?.length ? user.roles : [user.role];
+    const instituteId = user.selectedInstituteId != null
+      ? String(user.selectedInstituteId)
+      : String(institutes.find((institute) => institute.name === user.institute)?.id ?? "");
+    const institute = institutes.find((item) => String(item.id) === instituteId);
+    const centreId = user.selectedCentreId != null
+      ? String(user.selectedCentreId)
+      : String(institute?.centres.find((centre) => centre.name === user.centreName)?.id ?? "");
+    const centre = institute?.centres.find((item) => String(item.id) === centreId);
+    const subCentreId = user.selectedSubCentreId != null
+      ? String(user.selectedSubCentreId)
+      : String(centre?.subCentres.find((subCentre) => subCentre.name === user.subCentreName)?.id ?? "");
+    const departmentId = user.selectedDepartmentId != null
+      ? String(user.selectedDepartmentId)
+      : String(departments.find((department) => department.name === user.departmentName)?.id ?? "");
+    setForm({ fullName: user.fullName, email: user.email, role: user.role, roles: selectedRoles, personalNumber: user.personalNumber || "", instituteId, centreId, subCentreId, departmentId, valueChainIds: user.valueChainIds.map(String), password: "", confirmPassword: "", active: user.active });
+    initializedUserId.current = user.id;
+  }, [mode, user, institutes, departments, referenceLoading, departmentsLoading]);
+
+  useEffect(() => {
+    initializedUserId.current = null;
+  }, [mode, id]);
 
   const validate = () => {
     const next: Partial<Record<keyof ManagedUserInput, string>> = {};
     if (!form.fullName.trim()) next.fullName = "Full name is required";
     if (!form.email.trim()) next.email = "Email address is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
-    if (!form.role) next.role = "Role is required";
-    if (form.role === "value_chain_leads" && form.valueChainIds.length === 0) next.valueChainIds = "Please select at least one Value Chain for the Value Chain Leads role.";
+    if (form.roles.length === 0) next.roles = "Select at least one role";
+    if (form.roles.includes("value_chain_leads") && form.valueChainIds.length === 0) next.valueChainIds = "Please select at least one Value Chain for the Value Chain Leads role.";
     if (!form.instituteId) next.instituteId = "Institute is required";
     if (mode === "create" && !form.password) next.password = "Password is required";
     if (form.password && form.password.length < 8) next.password = "Password must be at least 8 characters";
-    if (form.password !== form.confirmPassword) next.confirmPassword = "Passwords do not match";
+    if (form.password || form.confirmPassword) {
+      if (!form.password) next.password = "Enter a new password or leave both password fields blank";
+      if (!form.confirmPassword) next.confirmPassword = "Confirm the new password";
+      else if (form.password !== form.confirmPassword) next.confirmPassword = "Passwords do not match";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -401,7 +476,12 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
         await createUser.mutateAsync(form);
         toast.success("User created successfully");
       } else {
-        await updateUser.mutateAsync({ ...form, id: id! });
+        await updateUser.mutateAsync({
+          ...form,
+          id: id!,
+          password: form.password || undefined,
+          confirmPassword: form.password ? form.confirmPassword : undefined,
+        });
         toast.success("User updated successfully");
       }
       navigate("/user-management/users");
@@ -429,13 +509,15 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
           <Field label="Email Address" error={errors.email} required>
             <Input type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
           </Field>
-          <Field label="Role" error={errors.role} required>
-            <Select value={form.role} onValueChange={(value) => setForm((current) => ({ ...current, role: value as UserRoleKey, valueChainIds: value === "value_chain_leads" ? current.valueChainIds : [] }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{ROLES.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}</SelectContent>
-            </Select>
+          <Field label="Personal Number" error={errors.personalNumber}>
+            <Input value={form.personalNumber} onChange={(event) => setForm((current) => ({ ...current, personalNumber: event.target.value }))} />
           </Field>
-          {form.role === "value_chain_leads" && (
+          <Field label="Roles" error={errors.roles} required>
+            {rolesLoading ? <p className="text-sm text-muted-foreground">Loading roles...</p> : rolesError ?
+              <p className="text-sm text-red-600">Unable to load roles.</p> :
+              <div className="space-y-2 rounded-md border p-3">{roles.map((role) => <label key={role.key} className="flex items-center gap-2 text-sm"><Checkbox checked={form.roles.includes(role.key)} onCheckedChange={(checked) => setForm((current) => { const nextRoles = checked ? [...new Set([...current.roles, role.key])] : current.roles.filter((key) => key !== role.key); return { ...current, roles: nextRoles, role: (nextRoles[0] || "staff_user") as UserRoleKey, valueChainIds: nextRoles.includes("value_chain_leads") ? current.valueChainIds : [] }; })} />{role.name}</label>)}</div>}
+          </Field>
+          {form.roles.includes("value_chain_leads") && (
             <Field label="Value Chains" error={errors.valueChainIds} required>
               {valueChainsLoading ? <p className="text-sm text-muted-foreground">Loading Value Chains...</p> : valueChainsError ? <p className="text-sm text-red-600">Unable to load Value Chains. Please try again.</p> : (
                 <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
@@ -537,7 +619,8 @@ function UserDetail() {
       <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="grid gap-4 text-sm md:grid-cols-2">
           <p><span className="font-medium">Email:</span> {user.email}</p>
-          <p><span className="font-medium">Role:</span> {roleLabel(user.role)}</p>
+          <p><span className="font-medium">Roles:</span> {user.roleNames?.length ? user.roleNames.map((role) => role.name).join(", ") : roleLabel(user.role)}</p>
+          <p><span className="font-medium">Personal Number:</span> {user.personalNumber || "Not provided"}</p>
           <p><span className="font-medium">Institute:</span> {user.institute}</p>
           <p><span className="font-medium">Status:</span> {user.status}</p>
           <p><span className="font-medium">Date Created:</span> {new Date(user.createdAt).toLocaleString()}</p>
@@ -545,7 +628,8 @@ function UserDetail() {
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <Button asChild className="bg-green-700 text-primary-foreground"><Link to={`/user-management/users/${user.id}/edit`}><Pencil className="h-4 w-4" /> Edit User</Link></Button>
+        <Button asChild className="bg-green-700 text-primary-foreground">
+          <Link to={`/user-management/users/${user.id}/edit`}><Pencil className="h-4 w-4" /> Edit User</Link></Button>
         {confirm ? (
           <>
             <Button variant="destructive" disabled={deleteUser.isPending} onClick={handleDelete}>Confirm Delete</Button>
@@ -911,7 +995,7 @@ export default function UserManagement() {
         <Route path="users/new" element={<UserFormPage mode="create" />} />
         <Route path="users/:id" element={<UserDetail />} />
         <Route path="users/:id/edit" element={<UserFormPage mode="edit" />} />
-        <Route path="development-partners" element={<PlaceholderPage title="Development Partners" />} />
+        <Route path="development-partners" element={<FundingAgenciesPage />} />
         <Route path="value-chains" element={<ValueChainsList />} />
         <Route path="value-chains/new" element={<ValueChainFormPage mode="create" />} />
         <Route path="value-chains/:id" element={<ValueChainDetail />} />

@@ -29,8 +29,7 @@ function downloadPdf(report: Record<string, any>) {
   const content = entries
     .map(
       ([key, value], index) =>
-        `BT /F1 ${
-          index ? 10 : 14
+        `BT /F1 ${index ? 10 : 14
         } Tf 50 ${790 - index * 30} Td (${String(key)}: ${String(
           value ?? "N/A"
         ).replace(/[()\\]/g, "")}) Tj ET`
@@ -132,50 +131,50 @@ export default function TechnicalReportDetails() {
           <ArrowLeft className="h-4 w-4" />
           Back to Technical Reports
         </Link>
-          <h1 className="text-2xl font-semibold">
-            Technical Report Details
-          </h1>
-        </div>
+        <h1 className="text-2xl font-semibold">
+          Technical Report Details
+        </h1>
+      </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-2 justify-end">
-          {/* Download PDF */}
-          <button
-            type="button"
-            onClick={() => downloadPdf(report)}
-            className={cn(
-              "inline-flex h-10 items-center justify-center gap-1.5",
-              "rounded-md border border-input bg-background",
-              "px-4 py-2 text-sm font-medium",
-              "shadow-sm transition-colors",
-              "hover:bg-accent hover:text-accent-foreground",
-              "focus-visible:outline-none focus-visible:ring-2",
-              "focus-visible:ring-ring focus-visible:ring-offset-2",
-              "disabled:pointer-events-none disabled:opacity-50"
-            )}
-          >
-            <Download className="h-4 w-4" />
-            Download PDF
-          </button>
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {/* Download PDF */}
+        <button
+          type="button"
+          onClick={() => downloadPdf(report)}
+          className={cn(
+            "inline-flex h-10 items-center justify-center gap-1.5",
+            "rounded-md border border-input bg-background",
+            "px-4 py-2 text-sm font-medium",
+            "shadow-sm transition-colors",
+            "hover:bg-accent hover:text-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-2",
+            "focus-visible:ring-ring focus-visible:ring-offset-2",
+            "disabled:pointer-events-none disabled:opacity-50"
+          )}
+        >
+          <Download className="h-4 w-4" />
+          Download PDF
+        </button>
 
-          {/* Edit Report */}
-          <Link
-            to={`/technical-reports/${report.id}/edit`}
-            className={cn(
-              "inline-flex h-10 items-center justify-center gap-1.5",
-              "rounded-md bg-primary",
-              "px-4 py-2 text-sm font-medium",
-              "text-primary-foreground shadow",
-              "transition-colors",
-              "hover:bg-primary/90",
-              "focus-visible:outline-none focus-visible:ring-2",
-              "focus-visible:ring-ring focus-visible:ring-offset-2"
-            )}
-          >
-            <Edit3 className="h-4 w-4" />
-            Edit Report
-          </Link>
-        </div>
+        {/* Edit Report */}
+        <Link
+          to={`/technical-reports/${report.id}/edit`}
+          className={cn(
+            "inline-flex h-10 items-center justify-center gap-1.5",
+            "rounded-md bg-primary",
+            "px-4 py-2 text-sm font-medium",
+            "text-primary-foreground shadow",
+            "transition-colors",
+            "hover:bg-primary/90",
+            "focus-visible:outline-none focus-visible:ring-2",
+            "focus-visible:ring-ring focus-visible:ring-offset-2"
+          )}
+        >
+          <Edit3 className="h-4 w-4" />
+          Edit Report
+        </Link>
+      </div>
       <br></br>
 
       {/* Report Card */}
@@ -211,10 +210,9 @@ export default function TechnicalReportDetails() {
           {item("Category", report.category)}
           {item("Value chain", report.valueChain)}
           {item("Sub activity", report.subActivityName)}
+          {item("Reporting ward", report.wardName)}
           {item("Reporting period", report.reportingPeriod)}
           {item("Date created", date(report.createdAt))}
-          {item("Start date", date(report.startDate))}
-          {item("End date", date(report.endDate))}
           {item("Amount disbursed", report.disbursedAmount)}
           {item("Amount utilized", report.utilizedAmount)}
           {item(
@@ -222,27 +220,6 @@ export default function TechnicalReportDetails() {
             `${report.percentageUtilization ?? 0}%`
           )}
         </dl>
-
-        {/* Sub-sub activities */}
-        <section>
-          <h3 className="mb-2 font-semibold">
-            Sub-sub activities
-          </h3>
-
-          <ul className="list-disc space-y-1 rounded-md border bg-muted/20 p-4 pl-9 text-sm">
-            {report.subSubActivities?.length ? (
-              report.subSubActivities.map(
-                (activity: any, index: number) => (
-                  <li key={activity.id || index}>
-                    {activity.name}
-                  </li>
-                )
-              )
-            ) : (
-              <li>N/A</li>
-            )}
-          </ul>
-        </section>
 
         {/* Indicators */}
         <section>

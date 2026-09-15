@@ -38,12 +38,11 @@ type Form = Pick<
   | "financialYear"
   | "category"
   | "valueChain"
-  | "startDate"
-  | "endDate"
   | "status"
   | "achievement"
   | "remarks"
   | "supportingInformation"
+  | "wardId"
 > & {
   projectId: string;
   mainActivityId: string;
@@ -61,14 +60,13 @@ const initial = (report: TechnicalReport): Form => ({
   subActivityId: report.subActivityId || "",
   category: report.category || "",
   valueChain: report.valueChain || "",
-  startDate: report.startDate || "",
-  endDate: report.endDate || "",
   disbursedAmount: String(report.disbursedAmount ?? 0),
   utilizedAmount: String(report.utilizedAmount ?? 0),
   status: report.status || "Draft",
   achievement: report.achievement || "",
   remarks: report.remarks || "",
   supportingInformation: report.supportingInformation || "",
+  wardId: report.wardId || null,
 });
 
 export default function EditTechnicalReport() {
@@ -90,10 +88,12 @@ export default function EditTechnicalReport() {
 
   const [form, setForm] = useState<Form | null>(null);
   const [formError, setFormError] = useState("");
+  const [indicators, setIndicators] = useState(report?.indicators || []);
 
   useEffect(() => {
     if (report) {
       setForm(initial(report));
+      setIndicators(report.indicators || []);
     }
   }, [report]);
 
@@ -141,9 +141,9 @@ export default function EditTechnicalReport() {
     setForm((current) =>
       current
         ? {
-            ...current,
-            [key]: value,
-          }
+          ...current,
+          [key]: value,
+        }
         : current
     );
   };
@@ -164,15 +164,6 @@ export default function EditTechnicalReport() {
       return;
     }
 
-    if (
-      form.endDate &&
-      form.startDate &&
-      form.endDate < form.startDate
-    ) {
-      setFormError("End date cannot be before start date.");
-      return;
-    }
-
     try {
       const disbursed = Number(form.disbursedAmount || 0);
       const utilized = Number(form.utilizedAmount || 0);
@@ -183,9 +174,6 @@ export default function EditTechnicalReport() {
 
         title: form.title.trim(),
 
-        startDate: form.startDate || null,
-        endDate: form.endDate || null,
-
         disbursedAmount: disbursed,
         utilizedAmount: utilized,
 
@@ -194,7 +182,7 @@ export default function EditTechnicalReport() {
           : 0,
 
         subSubActivities: report.subSubActivities,
-        indicators: report.indicators,
+        indicators,
         supportingDocuments: report.supportingDocuments || [],
         reportingPeriod: report.reportingPeriod,
       });
@@ -415,27 +403,6 @@ export default function EditTechnicalReport() {
               />
             )}
 
-            {field(
-              "Start date",
-              <Input
-                type="date"
-                value={form.startDate || ""}
-                onChange={(e) =>
-                  change("startDate", e.target.value)
-                }
-              />
-            )}
-
-            {field(
-              "End date",
-              <Input
-                type="date"
-                value={form.endDate || ""}
-                onChange={(e) =>
-                  change("endDate", e.target.value)
-                }
-              />
-            )}
 
             {field(
               "Amount disbursed",
@@ -499,6 +466,9 @@ export default function EditTechnicalReport() {
               </Select>
             )}
           </div>
+          <div className="mt-5 rounded-md border-l-4 border-green-700 bg-green-50 p-3 text-sm font-medium">
+            Reporting Ward: {report.wardName || "Not specified"}
+          </div>
         </Card>
 
         {/* Report Details */}
@@ -512,6 +482,13 @@ export default function EditTechnicalReport() {
               Provide the achievements, remarks, and supporting
               information for this report.
             </p>
+          </div>
+
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">Indicator</th><th className="px-3 py-2">Target</th><th className="px-3 py-2">Report Against Target</th><th className="px-3 py-2">Achievement</th><th className="px-3 py-2">Remarks</th></tr></thead>
+              <tbody>{indicators.map((indicator, index) => <tr key={indicator.id || index} className="border-t"><td className="px-3 py-2 font-medium">{indicator.indicator}</td><td className="px-3 py-2">{indicator.target || "N/A"}</td><td className="px-3 py-2"><Input value={indicator.reportedProgress || ""} onChange={(event) => setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, reportedProgress: event.target.value } : item))} /></td><td className="px-3 py-2"><Textarea rows={3} value={indicator.achievement || ""} onChange={(event) => setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, achievement: event.target.value } : item))} /></td><td className="px-3 py-2"><Textarea rows={3} value={indicator.remarks || ""} onChange={(event) => setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, remarks: event.target.value } : item))} /></td></tr>)}</tbody>
+            </table>
           </div>
 
           {field(

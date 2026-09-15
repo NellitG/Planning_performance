@@ -27,7 +27,7 @@ export interface Project {
   men?: number | string | null;
   youth?: number | string | null;
   pwds?: number | string | null;
-  locations?: Array<{ county: string; subCounty: string; ward: string }>;
+  locations?: Array<{ county: string; countyId?: string; subCounty: string; subCountyId?: string; ward: string; wardId?: string; svgId?: string }>;
   fundingSources?: Array<Record<string, unknown>>;
   isDraft?: boolean;
   currentStep?: number;
@@ -192,13 +192,13 @@ export interface TechnicalReport {
   category?: string;
   valueChain?: string;
   subActivityId: string | null;
+  wardId: string | null;
+  wardName?: string;
   mainActivityName?: string;
   subActivityName?: string;
   subSubActivities: Array<{ id?: string; name: string; approvedActivityBudget?: string | number }>;
-  indicators: Array<{ id?: string; indicator: string; target?: string; reportedProgress?: string }>;
+  indicators: Array<{ id?: string; indicator: string; target?: string; reportedProgress?: string; achievement?: string; remarks?: string }>;
   reportingPeriod: string;
-  startDate: string | null;
-  endDate: string | null;
   disbursedAmount?: string | number | null;
   utilizedAmount?: string | number | null;
   percentageUtilization?: string | number | null;

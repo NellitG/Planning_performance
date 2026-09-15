@@ -16,10 +16,15 @@ export interface ManagedUser {
   fullName: string;
   email: string;
   role: UserRoleKey;
+  roles: string[];
+  roleNames: Array<{ id: string; name: string }>;
+  personalNumber: string;
   institute: string;
   selectedInstituteId: number | null;
   selectedCentreId: number | null;
   selectedSubCentreId: number | null;
+  centreName: string | null;
+  subCentreName: string | null;
   selectedDepartmentId: number | null;
   departmentName: string | null;
   valueChainIds: string[];
@@ -34,6 +39,8 @@ export interface ManagedUserInput {
   fullName: string;
   email: string;
   role: UserRoleKey;
+  roles: string[];
+  personalNumber: string;
   instituteId: string;
   centreId: string;
   subCentreId: string;
@@ -62,6 +69,9 @@ export interface ValueChainInput {
   priority: ValueChain["priority"];
   active: boolean;
 }
+
+export interface RoleOption { id: string; key: UserRoleKey; name: string; }
+export interface FundingAgency { id: string; name: string; active: boolean; created_at: string; updated_at: string; }
 
 export interface StrategicPlanDocument {
   id: string;
@@ -95,6 +105,8 @@ export const userManagementKeys = {
   strategicPlanDocument: (id: string | undefined) => ["user-management", "strategic-plan-documents", id] as const,
   referenceData: ["user-management", "reference-data"] as const,
   departments: ["user-management", "departments"] as const,
+  roles: ["user-management", "roles"] as const,
+  fundingAgencies: ["user-management", "funding-agencies"] as const,
 };
 
 const STALE = 30_000;
@@ -127,6 +139,29 @@ export function useDepartments() {
     queryFn: () => api.get<ReferenceDepartment[]>("/user-management/departments/"),
     staleTime: STALE,
   });
+}
+
+export function useRoles() {
+  return useQuery({ queryKey: userManagementKeys.roles, queryFn: () => api.get<RoleOption[]>("/user-management/roles/"), staleTime: STALE });
+}
+
+export function useFundingAgencies() {
+  return useQuery({ queryKey: userManagementKeys.fundingAgencies, queryFn: () => api.get<FundingAgency[]>("/user-management/funding-agencies/"), staleTime: STALE });
+}
+
+export function useCreateFundingAgency() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (input: { name: string; active: boolean }) => api.post<FundingAgency>("/user-management/funding-agencies/", input), onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.fundingAgencies }) });
+}
+
+export function useUpdateFundingAgency() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ id, ...input }: { id: string; name: string; active: boolean }) => api.patch<FundingAgency>(`/user-management/funding-agencies/${id}/`, input), onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.fundingAgencies }) });
+}
+
+export function useDeleteFundingAgency() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => api.del(`/user-management/funding-agencies/${id}/`), onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.fundingAgencies }) });
 }
 
 export function useManagedUsers() {
