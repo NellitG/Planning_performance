@@ -420,8 +420,6 @@ class SubActivity(models.Model):
     )
     name = models.CharField(max_length=500)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, blank=True)
-    # Keep the legacy value_chain text column for existing reports and records, while
-    # using this relation as the authoritative assignment going forward.
     value_chains = models.ManyToManyField(
         "user_management.ValueChain", blank=True, related_name="sub_activities"
     )
@@ -442,7 +440,7 @@ class SubSubActivity(models.Model):
     sub_activity = models.ForeignKey(
         SubActivity, on_delete=models.CASCADE, related_name="sub_sub_activities"
     )
-    # Nullable for records created before value chains became a relation.
+    # Nullable for records created before value chains becames a relation.
     value_chain_reference = models.ForeignKey(
         "user_management.ValueChain",
         on_delete=models.SET_NULL,
@@ -487,7 +485,6 @@ class ActivityIndicator(models.Model):
         null=True,
         blank=True,
     )
-    # Retained temporarily to preserve legacy records; new Indicator workflows use
     # main_activity as the authoritative parent relationship.
     sub_activity = models.ForeignKey(
         SubActivity,
@@ -531,13 +528,14 @@ class TechnicalReport(models.Model):
     sub_activity = models.ForeignKey(
         SubActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )
+    ward = models.ForeignKey(
+        "Ward", on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
+    )
     sub_sub_activities = models.JSONField(default=list, blank=True)
     indicators = models.JSONField(default=list, blank=True)
     quarter = models.CharField(max_length=20, blank=True)
     financial_year = models.CharField(max_length=20, blank=True)
     reporting_period = models.CharField(max_length=120, blank=True)
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
     disbursed_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     utilized_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     percentage_utilization = models.DecimalField(max_digits=5, decimal_places=2, default=0)
@@ -568,6 +566,7 @@ class IndicatorTracking(models.Model):
     year = models.PositiveSmallIntegerField()
     target = models.FloatField(null=True, blank=True)
     achievement = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
     evidence = models.FileField(upload_to="evidence/", null=True, blank=True)
     evidence_name = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

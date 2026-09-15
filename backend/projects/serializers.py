@@ -603,6 +603,12 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
 
 
 class TechnicalReportSerializer(serializers.ModelSerializer):
+    QUARTER_MONTHS = {
+        "Quarter 1": (7, 9),
+        "Quarter 2": (10, 12),
+        "Quarter 3": (1, 3),
+        "Quarter 4": (4, 6),
+    }
     projectId = serializers.PrimaryKeyRelatedField(
         source="project",
         queryset=Project.objects.all(),
@@ -626,14 +632,16 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    wardId = serializers.PrimaryKeyRelatedField(
+        source="ward", queryset=Ward.objects.all(), required=False, allow_null=True
+    )
+    wardName = serializers.CharField(source="ward.name", read_only=True)
     mainActivityName = serializers.CharField(source="main_activity.name", read_only=True)
     subActivityName = serializers.CharField(source="sub_activity.name", read_only=True)
     valueChain = serializers.CharField(source="value_chain", required=False, allow_blank=True, default="")
     subSubActivities = serializers.JSONField(source="sub_sub_activities", required=False, default=list)
     supportingDocuments = serializers.JSONField(source="supporting_documents", required=False, default=list)
     reportingPeriod = serializers.CharField(source="reporting_period", required=False, allow_blank=True, default="")
-    startDate = serializers.DateField(source="start_date", required=False, allow_null=True)
-    endDate = serializers.DateField(source="end_date", required=False, allow_null=True)
     disbursedAmount = serializers.DecimalField(
         source="disbursed_amount",
         max_digits=20,
@@ -675,6 +683,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "category",
             "valueChain",
             "subActivityId",
+            "wardId",
+            "wardName",
             "mainActivityName",
             "subActivityName",
             "subSubActivities",
@@ -682,8 +692,6 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "quarter",
             "financialYear",
             "reportingPeriod",
-            "startDate",
-            "endDate",
             "disbursedAmount",
             "utilizedAmount",
             "percentageUtilization",
@@ -703,6 +711,7 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"title": "Report title is required."})
 
         project = attrs.get("project", getattr(self.instance, "project", None))
+        ward = attrs.get("ward", getattr(self.instance, "ward", None))
         main_activity = attrs.get("main_activity", getattr(self.instance, "main_activity", None))
         sub_activity = attrs.get("sub_activity", getattr(self.instance, "sub_activity", None))
         category = attrs.get("category", getattr(self.instance, "category", "")).strip()
@@ -730,6 +739,15 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 )
             if not category:
                 raise serializers.ValidationError({"category": "Category is required."})
+            if not ward:
+                raise serializers.ValidationError({"wardId": "Select a project ward for this report."})
+
+        if ward and project:
+            if not ProjectLocation.objects.filter(project=project, ward=ward).exists():
+                raise serializers.ValidationError({"wardId": "The selected ward is not associated with the selected project."})
+
+        if quarter and quarter not in self.QUARTER_MONTHS:
+            raise serializers.ValidationError({"quarter": "Select Quarter 1, Quarter 2, Quarter 3, or Quarter 4."})
 
         if quarter and financial_year:
             reporting_period = f"{quarter} {financial_year}"
@@ -760,11 +778,6 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                     )
         else:
             attrs["value_chain"] = ""
-
-        start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
-        end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
-        if start_date and end_date and end_date < start_date:
-            raise serializers.ValidationError({"endDate": "End date cannot be before start date."})
 
         disbursed = attrs.get("disbursed_amount", getattr(self.instance, "disbursed_amount", 0)) or 0
         utilized = attrs.get("utilized_amount", getattr(self.instance, "utilized_amount", 0)) or 0
