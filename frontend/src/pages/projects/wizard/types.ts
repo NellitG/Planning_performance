@@ -10,8 +10,12 @@ export interface ImplementationUnitData {
 
 export interface LocationEntry {
   county: string;
+  countyId?: string;
   subCounty: string;
+  subCountyId?: string;
   ward: string;
+  wardId?: string;
+  svgId?: string;
 }
 
 export interface FundingSourceEntry {
