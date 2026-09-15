@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 
 from user_management.models import ValueChain
 
@@ -25,6 +26,10 @@ from .models import (
     ProjectSubComponent,
     ProjectOutput,
     TechnicalReport,
+    County,
+    SubCounty,
+    Ward,
+    ProjectLocation,
 )
 
 
@@ -112,6 +117,75 @@ class ProjectSerializer(serializers.ModelSerializer):
             "isDraft",
             "currentStep",
         ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        saved_locations = instance.project_locations.select_related("county", "sub_county", "ward")
+        if saved_locations.exists():
+            representation["locations"] = [
+                {
+                    "county": location.county.name,
+                    "countyId": str(location.county_id),
+                    "svgId": location.county.svg_id,
+                    "subCounty": location.sub_county.name if location.sub_county else "",
+                    "subCountyId": str(location.sub_county_id) if location.sub_county_id else "",
+                    "ward": location.ward.name if location.ward else "",
+                    "wardId": str(location.ward_id) if location.ward_id else "",
+                }
+                for location in saved_locations
+            ]
+        return representation
+
+    def _sync_project_locations(self, project, locations):
+        ProjectLocation.objects.filter(project=project).delete()
+        for location in locations or []:
+            county_id = location.get("countyId") or None
+            if not county_id:
+                continue
+            county = County.objects.get(pk=county_id)
+            sub_county_id = location.get("subCountyId") or None
+            ward_id = location.get("wardId") or None
+            sub_county = SubCounty.objects.filter(pk=sub_county_id, county=county).first() if sub_county_id else None
+            ward = Ward.objects.filter(pk=ward_id, sub_county=sub_county).first() if sub_county and ward_id else None
+            ProjectLocation.objects.create(project=project, county=county, sub_county=sub_county, ward=ward)
+
+    def create(self, validated_data):
+        locations = validated_data.get("locations", [])
+        with transaction.atomic():
+            project = super().create(validated_data)
+            self._sync_project_locations(project, locations)
+        return project
+
+    def update(self, instance, validated_data):
+        locations = validated_data.get("locations", instance.locations)
+        with transaction.atomic():
+            project = super().update(instance, validated_data)
+            self._sync_project_locations(project, locations)
+        return project
+
+
+class WardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ward
+        fields = ["id", "name"]
+
+
+class SubCountySerializer(serializers.ModelSerializer):
+    wards = WardSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SubCounty
+        fields = ["id", "name", "wards"]
+
+
+class CountySerializer(serializers.ModelSerializer):
+    subCounties = SubCountySerializer(source="sub_counties", many=True, read_only=True)
+
+    class Meta:
+        model = County
+        fields = ["id", "name", "svgId", "subCounties"]
+
+    svgId = serializers.CharField(source="svg_id", allow_blank=True)
 
 
 class KeyResultAreaSerializer(serializers.ModelSerializer):

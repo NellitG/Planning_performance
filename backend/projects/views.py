@@ -1,7 +1,12 @@
+from time import sleep
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
 from django.db import transaction
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -28,6 +33,7 @@ from .models import (
     SubActivity,
     SubSubActivity,
     TechnicalReport,
+    County,
 )
 from .serializers import (
     ExpectedOutputSerializer,
@@ -52,7 +58,40 @@ from .serializers import (
     SubActivitySerializer,
     SubSubActivitySerializer,
     TechnicalReportSerializer,
+    CountySerializer,
 )
+
+
+def kenya_counties_map(request):
+    source_url = "https://simplemaps.com/static/svg/country/ke/admin1/ke.svg"
+    source_request = Request(
+        source_url,
+        headers={
+            "Accept": "image/svg+xml,text/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 KALRO-PPM/1.0",
+        },
+    )
+    last_error = "upstream request failed"
+    for attempt in range(3):
+        try:
+            with urlopen(source_request, timeout=20) as response:
+                svg = response.read()
+            return HttpResponse(svg, content_type="image/svg+xml")
+        except (OSError, URLError) as error:
+            last_error = str(error)
+            if attempt < 2:
+                sleep(0.5)
+    return HttpResponse(
+        f"Unable to load the Kenya county map from the upstream SVG: {last_error}",
+        status=502,
+        content_type="text/plain",
+    )
+
+
+@api_view(["GET"])
+def geography(request):
+    queryset = County.objects.prefetch_related("sub_counties__wards")
+    return Response(CountySerializer(queryset, many=True).data)
 
 
 class BulkCreateMixin:

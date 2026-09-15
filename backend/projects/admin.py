@@ -19,6 +19,10 @@ from .models import (
     SubActivity,
     SubSubActivity,
     TechnicalReport,
+    County,
+    SubCounty,
+    Ward,
+    ProjectLocation,
 )
 
 admin.site.register(Project)
@@ -39,3 +43,7 @@ admin.site.register(SubActivity)
 admin.site.register(SubSubActivity)
 admin.site.register(ActivityIndicator)
 admin.site.register(TechnicalReport)
+admin.site.register(County)
+admin.site.register(SubCounty)
+admin.site.register(Ward)
+admin.site.register(ProjectLocation)

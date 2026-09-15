@@ -5,19 +5,16 @@ class Project(models.Model):
     STATUS_CHOICES = [
         ("Not Started", "Not Started"),
         ("Ongoing", "Ongoing"),
-        ("Active", "Active"),
         ("Completed", "Completed"),
         ("Suspended", "Suspended"),
         ("Delayed", "Delayed"),
         ("Pending", "Pending"),
+        ("Terminated", "Terminated"),
     ]
     PROJECT_TYPE_CHOICES = [
-        ("Research", "Research"),
-        ("Development", "Development"),
-        ("Collaborative", "Collaborative"),
-        ("Multidisciplinary", "Multidisciplinary"),
+        ("Research and Development", "Research and Development"),
+        ("Infrastructure", "Infrastructure"),
         ("Corporate", "Corporate"),
-        ("Other", "Other"),
     ]
 
     project_name = models.CharField(max_length=500)
@@ -60,6 +57,51 @@ class Project(models.Model):
 
     def __str__(self):
         return self.project_name
+
+
+class County(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+    svg_id = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class SubCounty(models.Model):
+    county = models.ForeignKey(County, on_delete=models.CASCADE, related_name="sub_counties")
+    name = models.CharField(max_length=160)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["county", "name"], name="unique_subcounty_per_county")]
+
+    def __str__(self):
+        return f"{self.county.name} - {self.name}"
+
+
+class Ward(models.Model):
+    sub_county = models.ForeignKey(SubCounty, on_delete=models.CASCADE, related_name="wards")
+    name = models.CharField(max_length=160)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["sub_county", "name"], name="unique_ward_per_subcounty")]
+
+    def __str__(self):
+        return f"{self.sub_county.name} - {self.name}"
+
+
+class ProjectLocation(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="project_locations")
+    county = models.ForeignKey(County, on_delete=models.CASCADE)
+    sub_county = models.ForeignKey(SubCounty, on_delete=models.CASCADE, null=True, blank=True)
+    ward = models.ForeignKey(Ward, on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["project", "county", "sub_county", "ward"], name="unique_project_location")]
 
 
 class KeyResultArea(models.Model):

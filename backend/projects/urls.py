@@ -24,6 +24,8 @@ from .views import (
     SubActivityViewSet,
     SubSubActivityViewSet,
     TechnicalReportViewSet,
+    kenya_counties_map,
+    geography,
 )
 
 router = DefaultRouter()
@@ -51,5 +53,7 @@ router.register(r"activity-indicators", ActivityIndicatorViewSet)
 router.register(r"technical-reports", TechnicalReportViewSet)
 
 urlpatterns = [
+    path("kenya-counties/", kenya_counties_map, name="kenya-counties-map"),
+    path("geography/", geography, name="geography"),
     path("", include(router.urls)),
 ]
