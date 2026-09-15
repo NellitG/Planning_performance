@@ -60,6 +60,30 @@ class Department(models.Model):
         return self.name
 
 
+class Role(models.Model):
+    key = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=120)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class FundingAgency(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("system_admin", "System Admin"),
@@ -75,6 +99,8 @@ class UserAccount(models.Model):
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    roles = models.ManyToManyField(Role, blank=True, related_name="users")
+    personal_number = models.CharField(max_length=100, blank=True)
     institute = models.CharField(max_length=255)
     # Keep the legacy display value while storing authoritative Reference Data links.
     institute_reference = models.ForeignKey(Institute, on_delete=models.PROTECT, null=True, blank=True, related_name="users")

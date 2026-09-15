@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
-from .models import Centre, County, Department, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 from .permissions import UserManagementPermission
 from .serializers import (
     StrategicPlanDocumentSerializer,
@@ -10,6 +10,8 @@ from .serializers import (
     ValueChainSerializer,
     CountyHierarchySerializer,
     DepartmentSerializer,
+    FundingAgencySerializer,
+    RoleSerializer,
 )
 
 
@@ -36,11 +38,11 @@ class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class UserAccountViewSet(viewsets.ModelViewSet):
-    queryset = UserAccount.objects.all()
+    queryset = UserAccount.objects.prefetch_related("roles", "value_chains").all()
     serializer_class = UserAccountSerializer
     permission_classes = [UserManagementPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["role", "institute", "is_active"]
+    filterset_fields = ["role", "roles", "institute", "is_active"]
     search_fields = ["full_name", "email", "role", "institute"]
     ordering_fields = ["full_name", "email", "role", "institute", "is_active", "created_at", "updated_at"]
 
@@ -53,6 +55,22 @@ class ValueChainViewSet(viewsets.ModelViewSet):
     filterset_fields = ["category", "priority", "is_active"]
     search_fields = ["name", "category", "priority"]
     ordering_fields = ["name", "category", "priority", "is_active", "created_at", "updated_at"]
+
+
+class RoleViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    permission_classes = [UserManagementPermission]
+
+
+class FundingAgencyViewSet(viewsets.ModelViewSet):
+    queryset = FundingAgency.objects.all()
+    serializer_class = FundingAgencySerializer
+    permission_classes = [UserManagementPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["active"]
+    search_fields = ["name"]
+    ordering_fields = ["name", "active", "created_at", "updated_at"]
 
 
 class StrategicPlanDocumentViewSet(viewsets.ModelViewSet):

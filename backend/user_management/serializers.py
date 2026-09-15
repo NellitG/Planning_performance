@@ -1,7 +1,7 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from .models import Centre, County, Department, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 
 
 class SubCentreSerializer(serializers.ModelSerializer):
@@ -50,6 +50,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class UserAccountSerializer(serializers.ModelSerializer):
     fullName = serializers.CharField(source="full_name")
+    personalNumber = serializers.CharField(source="personal_number", required=False, allow_blank=True)
+    institute = serializers.CharField(read_only=True)
     active = serializers.BooleanField(source="is_active", required=False, default=True)
     status = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
@@ -63,12 +65,23 @@ class UserAccountSerializer(serializers.ModelSerializer):
     selectedInstituteId = serializers.IntegerField(source="institute_reference_id", read_only=True)
     selectedCentreId = serializers.IntegerField(source="centre_id", read_only=True)
     selectedSubCentreId = serializers.IntegerField(source="sub_centre_id", read_only=True)
+    centreName = serializers.CharField(source="centre.name", read_only=True, allow_null=True)
+    subCentreName = serializers.CharField(source="sub_centre.name", read_only=True, allow_null=True)
     departmentName = serializers.CharField(source="department.name", read_only=True, allow_null=True)
     selectedDepartmentId = serializers.IntegerField(source="department_id", read_only=True)
     valueChainIds = serializers.PrimaryKeyRelatedField(
         source="value_chains", queryset=ValueChain.objects.filter(is_active=True), many=True, required=False
     )
     valueChains = serializers.SerializerMethodField()
+    roles = serializers.SlugRelatedField(slug_field="key", queryset=Role.objects.all(), many=True, required=False)
+    roleNames = serializers.SerializerMethodField()
+
+    def to_internal_value(self, data):
+        normalized = data.copy()
+        for field in ("instituteId", "centreId", "subCentreId", "departmentId"):
+            if normalized.get(field) == "":
+                normalized[field] = None
+        return super().to_internal_value(normalized)
 
     class Meta:
         model = UserAccount
@@ -77,6 +90,9 @@ class UserAccountSerializer(serializers.ModelSerializer):
             "fullName",
             "email",
             "role",
+            "roles",
+            "roleNames",
+            "personalNumber",
             "institute",
             "instituteId",
             "centreId",
@@ -85,6 +101,8 @@ class UserAccountSerializer(serializers.ModelSerializer):
             "selectedInstituteId",
             "selectedCentreId",
             "selectedSubCentreId",
+            "centreName",
+            "subCentreName",
             "departmentName",
             "selectedDepartmentId",
             "valueChainIds",
@@ -103,6 +121,9 @@ class UserAccountSerializer(serializers.ModelSerializer):
     def get_valueChains(self, obj):
         return [{"id": str(chain.id), "name": chain.name} for chain in obj.value_chains.all()]
 
+    def get_roleNames(self, obj):
+        return [{"id": role.key, "name": role.name} for role in obj.roles.all()]
+
     def validate_email(self, value):
         qs = UserAccount.objects.filter(email__iexact=value)
         if self.instance:
@@ -120,6 +141,7 @@ class UserAccountSerializer(serializers.ModelSerializer):
         password = attrs.get("password")
         confirm_password = attrs.pop("confirmPassword", None)
         role = attrs.get("role", getattr(self.instance, "role", ""))
+        roles = attrs.get("roles")
         value_chains = attrs.get("value_chains")
         if value_chains is None and self.instance:
             value_chains = self.instance.value_chains.all()
@@ -139,6 +161,11 @@ class UserAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": "Password is required."})
         if password and password != confirm_password:
             raise serializers.ValidationError({"confirmPassword": "Passwords do not match."})
+        if roles is not None:
+            if not roles:
+                raise serializers.ValidationError({"roles": "Select at least one role."})
+            role = roles[0].key
+            attrs["role"] = role
         if role == "value_chain_leads":
             if not value_chains:
                 raise serializers.ValidationError({"valueChainIds": "Please select at least one Value Chain for the Value Chain Leads role."})
@@ -151,12 +178,16 @@ class UserAccountSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        roles = validated_data.pop("roles", [])
         validated_data["password"] = make_password(password)
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        instance.roles.set(roles or Role.objects.filter(key=instance.role))
+        return instance
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
         value_chains = validated_data.pop("value_chains", None)
+        roles = validated_data.pop("roles", None)
         if password:
             instance.password = make_password(password)
         for key, value in validated_data.items():
@@ -164,7 +195,28 @@ class UserAccountSerializer(serializers.ModelSerializer):
         instance.save()
         if value_chains is not None:
             instance.value_chains.set(value_chains)
+        if roles is not None:
+            instance.roles.set(roles)
         return instance
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ["id", "key", "name"]
+
+
+class FundingAgencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundingAgency
+        fields = ["id", "name", "active", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Funding agency name is required.")
+        return value
 
 
 class ValueChainSerializer(serializers.ModelSerializer):

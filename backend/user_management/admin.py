@@ -1,12 +1,14 @@
 from django.contrib import admin
 
-from .models import Centre, County, Department, Institute, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 
 admin.site.register(County)
 admin.site.register(Institute)
 admin.site.register(Centre)
 admin.site.register(SubCentre)
 admin.site.register(Department)
+admin.site.register(Role)
+admin.site.register(FundingAgency)
 
 
 @admin.register(UserAccount)
