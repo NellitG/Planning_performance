@@ -33,6 +33,8 @@ from .models import (
     SubActivity,
     SubSubActivity,
     TechnicalReport,
+    IndicatorReport,
+    IndicatorReportEvidence,
     County,
 )
 from .serializers import (
@@ -58,6 +60,7 @@ from .serializers import (
     SubActivitySerializer,
     SubSubActivitySerializer,
     TechnicalReportSerializer,
+    IndicatorReportEvidenceSerializer,
     CountySerializer,
 )
 
@@ -360,7 +363,11 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
 
 
 class TechnicalReportViewSet(viewsets.ModelViewSet):
-    queryset = TechnicalReport.objects.select_related("main_activity", "sub_activity").all()
+    queryset = TechnicalReport.objects.select_related(
+        "main_activity", "sub_activity", "project", "ward__sub_county__county"
+    ).prefetch_related(
+        "indicator_reports__ward__sub_county__county", "indicator_reports__evidence_files"
+    ).all()
     serializer_class = TechnicalReportSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["main_activity", "sub_activity", "status"]
@@ -378,6 +385,55 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
         # "main_activity__name",
         # "sub_activity__name",
     ]
+
+    @action(detail=False, methods=["get"], url_path="indicator-status")
+    def indicator_status(self, request):
+        """Return cumulative values, scoped to a project and ward, for form locking."""
+        project_id = request.query_params.get("project")
+        ward_id = request.query_params.get("ward")
+        indicator_ids = request.query_params.getlist("indicatorId")
+        if not project_id or not ward_id:
+            return Response({"detail": "project and ward are required."}, status=status.HTTP_400_BAD_REQUEST)
+        # Ward is stored on each indicator row.  The report.ward field is a
+        # legacy representative only and must not mix results between wards.
+        rows = IndicatorReport.objects.filter(
+            technical_report__project_id=project_id,
+            ward_id=ward_id,
+        )
+        if indicator_ids:
+            rows = rows.filter(indicator_id__in=indicator_ids)
+        cumulative = {}
+        for row in rows:
+            cumulative[row.indicator_id] = cumulative.get(row.indicator_id, 0) + float(row.reported_value)
+        return Response({"cumulative": cumulative})
+
+    @action(detail=True, methods=["post"], url_path=r"indicator-reports/(?P<indicator_report_id>[^/.]+)/evidence", parser_classes=[MultiPartParser, FormParser])
+    def upload_indicator_evidence(self, request, pk=None, indicator_report_id=None):
+        report = self.get_object()
+        try:
+            indicator_report = report.indicator_reports.get(pk=indicator_report_id)
+        except IndicatorReport.DoesNotExist:
+            return Response({"detail": "Indicator report was not found for this technical report."}, status=status.HTTP_404_NOT_FOUND)
+        if indicator_report.reported_value == 0:
+            return Response(
+                {"detail": "Evidence cannot be attached when Report Against Target is zero. Provide the required reason instead."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        files = request.FILES.getlist("files") or ([request.FILES["file"]] if request.FILES.get("file") else [])
+        if not files:
+            return Response({"detail": "Please upload evidence for this indicator."}, status=status.HTTP_400_BAD_REQUEST)
+        evidence = [IndicatorReportEvidence.objects.create(indicator_report=indicator_report, file=file, name=file.name) for file in files]
+        return Response(IndicatorReportEvidenceSerializer(evidence, many=True, context=self.get_serializer_context()).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"indicator-reports/(?P<indicator_report_id>[^/.]+)/evidence/(?P<evidence_id>[^/.]+)")
+    def delete_indicator_evidence(self, request, pk=None, indicator_report_id=None, evidence_id=None):
+        report = self.get_object()
+        try:
+            evidence = IndicatorReportEvidence.objects.get(pk=evidence_id, indicator_report_id=indicator_report_id, indicator_report__technical_report=report)
+        except IndicatorReportEvidence.DoesNotExist:
+            return Response({"detail": "Evidence file was not found."}, status=status.HTTP_404_NOT_FOUND)
+        evidence.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MainActivityViewSet(viewsets.ModelViewSet):
