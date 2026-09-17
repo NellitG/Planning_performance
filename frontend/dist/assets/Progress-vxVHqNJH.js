@@ -1,0 +1,1 @@
+import{j as r}from"./index-j43gANvP.js";import{P as t}from"./PagePlaceholder-DLkvtB1s.js";import"./card-B-0OxQom.js";function i(){return r.jsx(t,{title:"KPI Progress",description:"Quarterly KPI progress tracking."})}export{i as default};
