@@ -531,6 +531,10 @@ class TechnicalReport(models.Model):
     ward = models.ForeignKey(
         "Ward", on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )
+    
+    report_group_id = models.UUIDField(null=True, blank=True, db_index=True)
+    context_key = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    selected_locations = models.JSONField(default=list, blank=True)
     sub_sub_activities = models.JSONField(default=list, blank=True)
     indicators = models.JSONField(default=list, blank=True)
     quarter = models.CharField(max_length=20, blank=True)
@@ -554,6 +558,49 @@ class TechnicalReport(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class IndicatorReport(models.Model):
+    """A ward-specific reporting entry for one indicator in a technical report."""
+    technical_report = models.ForeignKey(
+        TechnicalReport, on_delete=models.CASCADE, related_name="indicator_reports"
+    )
+    ward = models.ForeignKey(
+        "Ward", on_delete=models.SET_NULL, related_name="indicator_reports", null=True, blank=True
+    )
+    indicator_id = models.CharField(max_length=64)
+    indicator_name = models.CharField(max_length=500)
+    target = models.DecimalField(max_digits=20, decimal_places=2)
+    reported_value = models.DecimalField(max_digits=20, decimal_places=2)
+    achievement = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
+    reason_for_zero = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["technical_report", "ward", "indicator_id"],
+                name="unique_indicator_report_per_report_ward",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.technical_report_id}: {self.indicator_name[:60]}"
+
+
+class IndicatorReportEvidence(models.Model):
+    indicator_report = models.ForeignKey(
+        IndicatorReport, on_delete=models.CASCADE, related_name="evidence_files"
+    )
+    file = models.FileField(upload_to="technical_report_evidence/")
+    name = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class IndicatorTracking(models.Model):
