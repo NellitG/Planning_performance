@@ -6,8 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, Upload, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronRight, Upload, X, CheckCircle2, FileText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useMainActivities,
@@ -17,16 +17,19 @@ import {
   useActivityIndicators,
   useCreateTechnicalReport,
   useProjects,
+  useTechnicalReports,
 } from "@/hooks/useProjectsApi";
 import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
 import type { ActivityIndicator, MainActivityIndicator } from "@/utils/types";
+import { api } from "@/utils/apiClient";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 
 }
 
-type WardIndicatorValues = Record<string, { reportedProgress: string; achievement: string; remarks: string }>;
+type IndicatorValue = { reportedProgress: string; achievement: string; remarks: string; reasonForZero: string; files: File[] };
+type WardIndicatorValues = Record<string, IndicatorValue>;
 type ProjectWard = { id: string; name: string };
 type ProjectSubCounty = { id: string; name: string; wards: ProjectWard[] };
 type ProjectCounty = { id: string; name: string; subCounties: Map<string, ProjectSubCounty> };
@@ -69,6 +72,7 @@ export default function NewReport() {
   const { data: mainIndicators = [], isLoading: loadingMainIndicators } = useMainActivityIndicators();
   const { data: activityIndicators = [], isLoading: loadingActivityIndicators } = useActivityIndicators();
   const { data: projects = [], isLoading: loadingProjects } = useProjects();
+  const { data: previousReports = [] } = useTechnicalReports();
   const createReport = useCreateTechnicalReport();
   const navigate = useNavigate();
 
@@ -82,13 +86,11 @@ export default function NewReport() {
   const [selectedSubActivityId, setSelectedSubActivityId] = useState("");
   const [disbursed, setDisbursed] = useState(0);
   const [utilized, setUtilized] = useState(0);
-  const [status, setStatus] = useState("Draft");
   const [achievement, setAchievement] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [reportedProgress, setReportedProgress] = useState<Record<string, string>>({});
   const [wardIndicatorValues, setWardIndicatorValues] = useState<Record<string, WardIndicatorValues>>({});
-  const [files, setFiles] = useState<File[]>([]);
-  const [dragOver, setDragOver] = useState(false);
+  const [cumulativeByWard, setCumulativeByWard] = useState<Record<string, Record<string, number>>>({});
+  const reportGroupId = useMemo(() => crypto.randomUUID(), []);
 
   const categoryOptions = ["Value Chain", "ICT", "Thematic Area", "Project Coordination"];
   const valueChainOptions = useMemo(() => {
@@ -144,6 +146,8 @@ export default function NewReport() {
     });
     return mainLevelIndicators.length > 0 ? mainLevelIndicators : activityLevelIndicators;
   }, [activityIndicators, category, mainIndicators, selectedMainActivityId, selectedSubActivityId, selectedValueChain]);
+  const selectedWardKey = selectedWardIds.join(",");
+  const indicatorStatusKey = availableIndicators.map((indicator) => indicator.id).join(",");
 
   const selectedMainActivity = mainActivities.find((activity) => activity.id === selectedMainActivityId);
   const selectedSubActivity = selectedSubActivities.find((activity) => activity.id === selectedSubActivityId);
@@ -189,12 +193,27 @@ export default function NewReport() {
     [disbursed, utilized],
   );
 
+  const previousUtilized = useMemo(() => previousReports
+    .filter((report) => report.projectId === selectedProjectId
+      && report.financialYear === financialYear
+      && report.quarter !== quarter
+      && report.mainActivityId === selectedMainActivityId
+      && report.subActivityId === selectedSubActivityId
+      && (report.category || "") === category
+      && (report.valueChain || "") === selectedValueChain)
+    .reduce((sum, report) => sum + Number(report.utilizedAmount || 0), 0), [previousReports, selectedProjectId, financialYear, quarter, selectedMainActivityId, selectedSubActivityId, category, selectedValueChain]);
+  const amountRemaining = Math.max(0, Number(disbursed || 0) - previousUtilized - Number(utilized || 0));
+
+  const selectedLocations = useMemo(() => selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) =>
+    [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards
+      .filter((ward) => ward.id === wardId)
+      .map((ward) => ({ countyId: county.id, countyName: county.name, subCountyId: subCounty.id, subCountyName: subCounty.name, wardId: ward.id, wardName: ward.name }))))), [selectedWardIds, projectCounties]);
+
   const handleMainActivityChange = (value: string) => {
     setSelectedMainActivityId(value);
     setCategory("");
     setSelectedValueChain("");
     setSelectedSubActivityId("");
-    setReportedProgress({});
     setWardIndicatorValues({});
     setDisbursed(0);
     setUtilized(0);
@@ -204,7 +223,6 @@ export default function NewReport() {
     setCategory(value);
     setSelectedValueChain("");
     setSelectedSubActivityId("");
-    setReportedProgress({});
     setWardIndicatorValues({});
     setDisbursed(0);
     setUtilized(0);
@@ -213,7 +231,6 @@ export default function NewReport() {
   const handleValueChainChange = (value: string) => {
     setSelectedValueChain(value);
     setSelectedSubActivityId("");
-    setReportedProgress({});
     setWardIndicatorValues({});
     setDisbursed(0);
     setUtilized(0);
@@ -224,13 +241,31 @@ export default function NewReport() {
     const budget = subSubActivities
       .filter((item) => item.subActivityId === value && (category !== "Value Chain" || item.valueChain === selectedValueChain))
       .reduce((sum, item) => sum + Number(item.approvedActivityBudget || 0), 0);
-    setReportedProgress({});
     setWardIndicatorValues({});
     setDisbursed(budget);
     setUtilized(0);
   };
 
-  const updateWardIndicator = (wardId: string, indicatorId: string, field: "reportedProgress" | "achievement" | "remarks", value: string) => {
+  useEffect(() => {
+    if (!selectedProjectId || !selectedWardIds.length || !availableIndicators.length) {
+      setCumulativeByWard({});
+      return;
+    }
+    let active = true;
+    Promise.all(selectedWardIds.map(async (wardId) => {
+      const params = new URLSearchParams({ project: selectedProjectId, ward: wardId });
+      availableIndicators.forEach((indicator) => params.append("indicatorId", indicator.id));
+      const result = await api.get<{ cumulative: Record<string, number> }>(`/technical-reports/indicator-status/?${params}`);
+      return [wardId, result.cumulative] as const;
+    })).then((results) => {
+      if (active) setCumulativeByWard(Object.fromEntries(results));
+    }).catch(() => {
+      if (active) setCumulativeByWard({});
+    });
+    return () => { active = false; };
+  }, [selectedProjectId, selectedWardKey, indicatorStatusKey]);
+
+  const updateWardIndicator = (wardId: string, indicatorId: string, field: keyof Omit<IndicatorValue, "files">, value: string) => {
     setWardIndicatorValues((current) => ({
       ...current,
       [wardId]: {
@@ -239,17 +274,27 @@ export default function NewReport() {
           reportedProgress: current[wardId]?.[indicatorId]?.reportedProgress || "",
           achievement: current[wardId]?.[indicatorId]?.achievement || "",
           remarks: current[wardId]?.[indicatorId]?.remarks || "",
-          [field]: value,
+          reasonForZero: current[wardId]?.[indicatorId]?.reasonForZero || "",
+          files: current[wardId]?.[indicatorId]?.files || [],
+          // A zero report has a different, mutually exclusive capture path.
+          // Clear hidden values so they can never be submitted/uploaded for it.
+          ...(field === "reportedProgress" && value !== "" && Number(value) === 0
+            ? { reportedProgress: value, achievement: "", remarks: "", files: [] }
+            : { [field]: value }),
         },
       },
     }));
   };
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    setFiles((f) => [...f, ...Array.from(e.dataTransfer.files)]);
-  };
+  const setIndicatorFiles = (wardId: string, indicatorId: string, files: File[]) => setWardIndicatorValues((current) => ({
+    ...current,
+    [wardId]: {
+      ...current[wardId],
+      [indicatorId]: current[wardId]?.[indicatorId]
+        ? { ...current[wardId][indicatorId], files }
+        : { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files },
+    },
+  }));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,6 +324,26 @@ export default function NewReport() {
       return;
     }
 
+    for (const wardId of selectedWardIds) {
+      for (const indicator of availableIndicators) {
+        const value = wardIndicatorValues[wardId]?.[indicator.id];
+
+        if (!value || value.reportedProgress === "") {
+          continue;
+        }
+
+        if (
+          Number(value.reportedProgress) === 0 &&
+          !value.reasonForZero?.trim()
+        ) {
+          toast.error(
+            `Please provide a reason when Report Against Target is 0 for ${indicator.indicator}.`
+          );
+          return;
+        }
+      }
+    }
+
     try {
       const generatedTitle = [
         selectedProject?.name || "Project Report",
@@ -301,21 +366,35 @@ export default function NewReport() {
         disbursedAmount: Number(disbursed || 0),
         utilizedAmount: Number(utilized || 0),
         percentageUtilization: Number(utilizationPercent || 0),
-        status,
         achievement,
         remarks,
-        supportingDocuments: files.map((file) => file.name),
+        supportingDocuments: [],
+        reportGroupId,
+        selectedLocations,
       };
-      await Promise.all(selectedWardIds.map((wardId) => createReport.mutateAsync({
-        ...reportPayload,
-        wardId,
-        indicators: availableIndicators.map((indicator) => ({
-          id: indicator.id,
+      const indicatorReports = selectedWardIds.flatMap((wardId) => availableIndicators.flatMap((indicator) => {
+        const value = wardIndicatorValues[wardId]?.[indicator.id];
+        if (!value || value.reportedProgress === "") return [];
+        return [{
+          wardId,
+          indicatorId: indicator.id,
           indicator: indicator.indicator,
-          target: indicator.target,
-          ...(wardIndicatorValues.shared?.[indicator.id] || { reportedProgress: "", achievement: "", remarks: "" }),
-        })),
-      })));
+          target: Number(indicator.target || 0),
+          reportedProgress: Number(value.reportedProgress),
+          achievement: Number(value.reportedProgress) === 0 ? "" : value.achievement,
+          remarks: Number(value.reportedProgress) === 0 ? "" : value.remarks,
+          reasonForZero: value.reasonForZero,
+        }];
+      }));
+      const saved = await createReport.mutateAsync({ ...reportPayload, wardId: selectedWardIds[0], indicatorReports } as any);
+      await Promise.all((saved.indicatorReports || []).map((row: any) => {
+        const rowValue = wardIndicatorValues[row.wardId]?.[row.indicatorId];
+        const rowFiles = rowValue && Number(rowValue.reportedProgress) !== 0 ? rowValue.files : [];
+        if (!rowFiles.length) return Promise.resolve();
+        const form = new FormData();
+        rowFiles.forEach((file: File) => form.append("files", file));
+        return api.postForm(`/technical-reports/${saved.id}/indicator-reports/${row.id}/evidence/`, form);
+      }));
 
       toast.success("Report saved successfully.");
       navigate("/technical-reports");
@@ -381,11 +460,22 @@ export default function NewReport() {
           </div>
         </Section>
         <Section index={2} title="Project Locations">
-          {!selectedProjectId ? <p className="text-sm text-muted-foreground">Select a project to view its locations.</p> : projectCounties.length === 0 ? <p className="text-sm text-muted-foreground">This project has no ward locations configured.</p> : <div className="space-y-3">{projectCounties.map((county) => { const countyWardIds = [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id)); return <div key={county.id} className="rounded-md border p-3"><label className="flex items-center gap-2 font-medium"><Checkbox checked={countyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...countyWardIds])] : current.filter((id) => !countyWardIds.includes(id)))} />{county.name}</label><div className="ml-6 mt-2 space-y-2">{[...county.subCounties.values()].map((subCounty) => { const subCountyWardIds = subCounty.wards.map((ward) => ward.id); return <div key={subCounty.id}><label className="flex items-center gap-2 text-sm font-medium"><Checkbox checked={subCountyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...subCountyWardIds])] : current.filter((id) => !subCountyWardIds.includes(id)))} />{subCounty.name}</label><div className="ml-6 mt-1 space-y-1">{subCounty.wards.map((ward) => <label key={ward.id} className="flex items-center gap-2 text-sm text-muted-foreground"><Checkbox checked={selectedWardIds.includes(ward.id)} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ward.id])] : current.filter((id) => id !== ward.id))} />{ward.name}</label>)}</div></div>; })}</div></div>; })}</div>}
-          {selectedWardIds.length > 0 && <div className="mt-4 rounded-md border-l-4 border-green-700 bg-green-50 p-3 text-sm font-medium">Reporting Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? `${county.name} / ${subCounty.name} / ${ward.name}` : "")))).filter(Boolean).join(", ")}</div>}
+          {!selectedProjectId ? <p className="text-sm text-muted-foreground">Select a project to view its locations.</p> : projectCounties.length === 0 ? <p className="text-sm text-muted-foreground">This project has no ward locations configured.</p> :
+
+            <div className="space-y-3">{projectCounties.map((county) => {
+              const countyWardIds = [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id)); return <div key={county.id} className="rounded-md border p-3">
+                <label className="flex items-center gap-2 font-medium"><Checkbox checked={countyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...countyWardIds])] : current.filter((id) => !countyWardIds.includes(id)))} />{county.name}</label>
+                <div className="ml-6 mt-2 space-y-2">{[...county.subCounties.values()].map((subCounty) => {
+                  const subCountyWardIds = subCounty.wards.map((ward) => ward.id);
+                  return <div key={subCounty.id}><label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox checked={subCountyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...subCountyWardIds])] : current.filter((id) => !subCountyWardIds.includes(id)))} />{subCounty.name}</label><div className="ml-6 mt-1 space-y-1">{subCounty.wards.map((ward) => <label key={ward.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Checkbox checked={selectedWardIds.includes(ward.id)} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ward.id])] : current.filter((id) => id !== ward.id))} />{ward.name}</label>)}</div></div>;
+                })}</div></div>;
+            })}</div>}
+          {selectedWardIds.length > 0 && <div className="mt-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">Reporting Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? `${county.name} / ${subCounty.name} / ${ward.name}` : "")))).filter(Boolean).join(", ")}</div>}
         </Section>
         {selectedWardIds.length > 0 && <Section index={3} title="Main Activity Reporting">
-          <div className="mb-4 rounded-md border-l-4 border-green-700 bg-green-50 p-3 text-sm font-medium">Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? ward.name : "")))).filter(Boolean).join(", ")}</div>
+          <div className="mb-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? ward.name : "")))).filter(Boolean).join(", ")}</div>
           <div className="space-y-4">
             <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
               {isLoadingReportingData && (
@@ -456,52 +546,78 @@ export default function NewReport() {
                     <span className="text-muted-foreground">{selectedSubActivity?.name || "Not selected"}</span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <div>
-                      <h3 className="mb-2 text-sm font-semibold text-foreground">Indicators</h3>
-                      {selectedSubActivityId ? (
-                        availableIndicators.length > 0 ? (
-                          <div className="overflow-x-auto rounded-md border border-border/60">
-                            <table className="w-full  text-sm">
-                              <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                                <tr>
-                                  <th className="px-3 py-2 font-semibold">Indicator</th>
-                                  <th className="px-3 py-2 font-semibold">Target</th>
-                                  <th className="px-3 py-2 font-semibold">Report Against Target</th>
-                                  <th className="min-w-64 px-3 py-2 font-semibold">Achievement</th>
-                                  <th className="min-w-64 px-3 py-2 font-semibold">Remarks</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {availableIndicators.map((indicator) => (
-                                  <tr key={indicator.id} className="border-t border-border/60">
-                                    <td className="px-3 py-2 align-top font-medium text-foreground">{indicator.indicator}</td>
-                                    <td className="px-3 py-2 align-top text-muted-foreground">{indicator.target || "N/A"}</td>
-                                    <td className="px-3 py-2 align-top">
-                                      <Input
-                                        value={wardIndicatorValues.shared?.[indicator.id]?.reportedProgress || ""}
-                                        onChange={(e) => updateWardIndicator("shared", indicator.id, "reportedProgress", e.target.value)}
-                                        placeholder="Enter your target achievement"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2 align-top"><Textarea rows={4} value={wardIndicatorValues.shared?.[indicator.id]?.achievement || ""} onChange={(e) => updateWardIndicator("shared", indicator.id, "achievement", e.target.value)} placeholder="Describe the achievement" /></td>
-                                    <td className="px-3 py-2 align-top"><Textarea rows={4} value={wardIndicatorValues.shared?.[indicator.id]?.remarks || ""} onChange={(e) => updateWardIndicator("shared", indicator.id, "remarks", e.target.value)} placeholder="Enter remarks" /></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
-                            No indicators found for the selected reporting path.
-                          </p>
-                        )
-                      ) : (
-                        <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">
-                          Select a sub activity to view indicators and targets.
-                        </p>
-                      )}
-                    </div>
+                  <div className="space-y-5">
+                    {!selectedSubActivityId ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">Select a sub activity to view indicators and targets.</p> : availableIndicators.length === 0 ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">No indicators found for the selected reporting path.</p> : selectedWardIds.map((wardId, wardIndex) => {
+                      const location = selectedLocations.find((item) => item.wardId === wardId);
+                      const wardName = location?.wardName || "Selected ward";
+                      return <div key={wardId} className="space-y-3 rounded-lg border border-green-200 bg-green-50/40 p-4">
+                        <div className="sticky top-0 z-10 -mx-4 -mt-4 rounded-t-lg border-b border-green-200 bg-green-100/80 p-4 text-green-950">
+                          <h3 className="font-semibold">Ward {wardIndex + 1} — {wardName}</h3>
+                          <p className="mt-1 text-sm">County: {location?.countyName || "Not recorded"} → Sub-county: {location?.subCountyName || "Not recorded"} → Ward: {wardName}</p>
+                          <p className="mt-1 text-sm"><span className="font-medium">Main Activity:</span> {selectedMainActivity?.name || "Not selected"}</p>
+                        </div>
+                        {availableIndicators.map((indicator) => {
+                          const value = wardIndicatorValues[wardId]?.[indicator.id] || { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
+                          const target = Number(indicator.target || 0);
+                          const cumulative = cumulativeByWard[wardId]?.[indicator.id] || 0;
+                          const entered = Number(value.reportedProgress || 0);
+                          const isZeroReport = value.reportedProgress !== "" && Number(value.reportedProgress) === 0;
+                          const progress = target > 0 ? Math.min(100, (entered / target) * 100) : 0;
+                          const fullyAchieved = target > 0 && cumulative >= target;
+                          return <div key={indicator.id} className="rounded-lg border border-border bg-background p-5 shadow-sm">
+                            <div className="grid gap-4 lg:grid-cols-2">
+                              <div>
+                                <p className="text-sm font-semibold">{indicator.indicator}</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Target: {indicator.target || "0"} · Cumulative report: {cumulative}</p>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Target</Label>
+                                <Input value={indicator.target || "0"} readOnly aria-readonly className="bg-muted font-medium" />
+                              </div>
+                            </div>
+                            {fullyAchieved ? <div className="mt-4 rounded-md bg-green-100 p-3 text-sm font-medium text-green-800">
+                              <CheckCircle2 className="mr-1 inline h-4 w-4" />Target fully achieved. No further reporting is allowed.</div> : <div className="mt-4 space-y-1.5"><Label>Report Against Target</Label><Input type="number" min="0" step="any" max={Math.max(0, target - cumulative)} value={value.reportedProgress} onChange={(e) => updateWardIndicator(wardId, indicator.id, "reportedProgress", e.target.value)} placeholder={`Remaining: ${Math.max(0, target - cumulative)}`} /><p className="text-xs text-muted-foreground">Whole and decimal values are accepted. Remaining target: {Math.max(0, target - cumulative)}</p></div>}
+                            <div className="mt-4 rounded-md bg-muted/35 p-3">
+                              <div className="mb-1 flex justify-between text-xs font-medium">
+                                <span>Progress</span><span>{progress.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full bg-green-700 transition-all" style={{ width: `${progress}%` }} />
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">Calculated from reported value ÷ fixed target.</p>
+                            </div>
+                            {!fullyAchieved && isZeroReport && <div className="mt-4 space-y-1.5">
+                              <Label>Reason for Zero <span className="text-red-600">*</span>
+                              </Label>
+                              <Textarea rows={4} value={value.reasonForZero} onChange={(e) => updateWardIndicator(wardId, indicator.id, "reasonForZero", e.target.value)} placeholder="Explain why no progress was reported for this indicator." />
+                            </div>}
+                            {!fullyAchieved && !isZeroReport && <div className="mt-4 grid gap-4 md:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <Label>Achievement</Label>
+                                <Textarea rows={5} value={value.achievement} onChange={(e) => updateWardIndicator(wardId, indicator.id, "achievement", e.target.value)} placeholder="Describe the achievement" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label>Remarks</Label>
+                                <Textarea rows={5} value={value.remarks} onChange={(e) => updateWardIndicator(wardId, indicator.id, "remarks", e.target.value)} placeholder="Enter remarks" />
+                              </div>
+                            </div>}
+                            {!fullyAchieved && !isZeroReport && <div className="mt-4 rounded-md border border-dashed border-green-300 bg-green-50/40 p-4">
+                              <Label className="text-sm font-semibold">Evidence (any technical or financial)</Label>
+                              <p className="mt-1 text-xs text-muted-foreground">Upload supporting documentation for this indicator only.</p>
+                              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800">
+                                <Upload className="h-4 w-4" />
+                                <span>Upload Evidence</span>
+                                <input className="hidden" type="file" multiple onChange={(e) => setIndicatorFiles(wardId, indicator.id, [...value.files, ...Array.from(e.target.files || [])])} />
+                              </label>{value.files.length > 0 && <ul className="mt-3 space-y-2">{value.files.map((file, index) => <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded-md bg-background px-3 py-2 text-sm">
+                                <span className="flex min-w-0 items-center gap-2 truncate">
+                                  <FileText className="h-4 w-4 shrink-0 text-green-700" />{file.name}</span>
+                                <button type="button" className="text-xs font-medium text-red-600" onClick={() => setIndicatorFiles(wardId, indicator.id, value.files.filter((_, fileIndex) => fileIndex !== index))}>Remove</button>
+                              </li>)}</ul>}
+                            </div>}
+                          </div>;
+                        })}
+                      </div>;
+                    })}
                   </div>
                 </div>
               )}
@@ -523,70 +639,18 @@ export default function NewReport() {
                     {utilizationPercent}%
                   </div>
                 </div>
-                {/* <div className="space-y-1.5">
-                    <Label>Status</Label>
-                    <Select value={status} onValueChange={setStatus}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Draft">Draft</SelectItem>
-                        <SelectItem value="Submitted">Submitted</SelectItem>
-                        <SelectItem value="Under Review">Under Review</SelectItem>
-                        <SelectItem value="Approved">Approved</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div> */}
-                {/* <div className="space-y-1.5">
-                    <Label>Achievements</Label>
-                    <Textarea value={achievement} onChange={(e) => setAchievement(e.target.value)} placeholder="Achievement details" rows={4} />
-                  </div> */}
-                {/* <div className="space-y-1.5">
-                    <Label>Remarks</Label>
-                    <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Remarks" rows={4} />
-                  </div> */}
+                <div className="space-y-1.5">
+                  <Label>Amount Remaining</Label>
+                  <div className="grid h-9 place-items-center rounded-md border bg-muted/40 text-sm font-semibold text-(--brand-green)">
+                    KES {amountRemaining.toLocaleString()}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </Section>}
-        <Section index={3} title="Attach Evidence (Bank Statements)">
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            className={`grid place-items-center rounded-lg border-2 border-dashed p-8 text-center transition ${dragOver ? "border-(--brand-green) bg-green-50" : "border-muted-foreground/30"
-              }`}
-          >
-            <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-            <div className="text-sm font-medium">Drag &amp; drop your evidence here</div>
-            <div className="text-xs text-muted-foreground">PDF, DOCX, PPTX up to 25 MB each</div>
-            <label className="mt-3 inline-flex">
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => setFiles((f) => [...f, ...Array.from(e.target.files ?? [])])}
-              />
-              <span className="cursor-pointer rounded-md bg-(--brand-navy) px-3 py-1.5 text-xs font-medium text-white">
-                Browse files
-              </span>
-            </label>
-          </div>
-          {files.length > 0 && (
-            <ul className="mt-4 space-y-2">
-              {files.map((f, i) => (
-                <li key={i} className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                  <span className="truncate">{f.name}</span>
-                  <button type="button" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}>
-                    <X className="h-4 w-4 text-muted-foreground hover:text-red-500" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
         <div className="flex justify-end gap-2">
-          <Button type="submit" variant="outline" onClick={() => setStatus("Draft")}>Save Draft</Button>
-          <Button type="submit" className="bg-(--brand-navy) hover:opacity-90">Submit Report</Button>
+          <Button type="submit" className="bg-(--brand-navy) hover:opacity-90">Save Report</Button>
         </div>
       </form>
     </>
