@@ -20,7 +20,7 @@ function Field({ label, error, required, children }: { label: string; error?: st
   );
 }
 
-export default function Step1Identification({ data, onChange, onNext, isSaving }: StepProps) {
+export default function Step1Identification({ data, onChange, onNext, isSaving, allowAdditionalTitles = true }: StepProps & { allowAdditionalTitles?: boolean }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { data: users = [] } = useManagedUsers();
   const { data: counties = [] } = useReferenceData();
@@ -35,6 +35,7 @@ export default function Step1Identification({ data, onChange, onNext, isSaving }
   const handleNext = () => {
     const e: Record<string, string> = {};
     if (!data.title.trim()) e.title = "Project title is required";
+    if (!data.mainProject.trim()) e.mainProject = "Main Project is required";
     if (!data.projectType) e.projectType = "Please select a project type";
     if (!data.status) e.status = "Please select a status";
     setErrors(e);
@@ -55,14 +56,13 @@ export default function Step1Identification({ data, onChange, onNext, isSaving }
                     else { const titles = [...data.additionalTitles]; titles[index - 1] = e.target.value; onChange({ additionalTitles: titles }); }
                     setErrors((p) => ({ ...p, title: "" }));
                   }} placeholder={index === 0 ? "e.g. Climate-Smart Agriculture Initiative" : "Additional project title"} />
-                  {index > 0 && <Button type="button" variant="outline" size="icon" aria-label="Remove project title" onClick={() => onChange({ additionalTitles: data.additionalTitles.filter((_, i) => i !== index - 1) })}><X className="h-4 w-4" /></Button>}
+                  {allowAdditionalTitles && index > 0 && <Button type="button" variant="outline" size="icon" aria-label="Remove project title" onClick={() => onChange({ additionalTitles: data.additionalTitles.filter((_, i) => i !== index - 1) })}><X className="h-4 w-4" /></Button>}
                 </div>
               ))}
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => onChange({ additionalTitles: [...data.additionalTitles, ""] })}><Plus className="h-4 w-4" /> Add project title</Button>
-              <p className="text-xs text-muted-foreground">Each title is created as a separate project record with its own workflow.</p>
+              {allowAdditionalTitles && <><Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => onChange({ additionalTitles: [...data.additionalTitles, ""] })}><Plus className="h-4 w-4" /> Add project title</Button><p className="text-xs text-muted-foreground">The first title starts now. Added titles are saved as independent drafts when this title is finished.</p></>}
             </div>
           </Field>
-          <Field label="Main Project"><Input value={data.mainProject} onChange={(e) => onChange({ mainProject: e.target.value })} placeholder="Parent/main project" /></Field>
+          <Field label="Main Project" required error={errors.mainProject}><Input disabled={!allowAdditionalTitles} value={data.mainProject} onChange={(e) => { onChange({ mainProject: e.target.value }); setErrors((p) => ({ ...p, mainProject: "" })); }} placeholder="e.g. Climate Smart Agriculture Programme" /></Field>
           <Field label="Project Coordinator">
             <select value={data.coordinatorUserId} onChange={(e) => { const user = users.find((x) => x.id === e.target.value); onChange({ coordinatorUserId: e.target.value, coordinator: user?.fullName || "" }); }} className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm">
               <option value="">— Select coordinator —</option>{byRole("project_coordinator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}

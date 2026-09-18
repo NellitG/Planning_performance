@@ -41,6 +41,7 @@ export interface WizardData {
   title: string;
   additionalTitles: string[];
   mainProject: string;
+  mainProjectId?: string | null;
   coordinator: string;
   coordinatorUserId: string;
   principalInvestigatorIds: string[];

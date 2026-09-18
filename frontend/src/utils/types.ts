@@ -31,6 +31,25 @@ export interface Project {
   fundingSources?: Array<Record<string, unknown>>;
   isDraft?: boolean;
   currentStep?: number;
+  mainProjectId?: string | null;
+  mainProject?: string;
+}
+
+export interface MainProject {
+  id: string;
+  name: string;
+  logo: string;
+  description?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  status: string;
+  projectTitles: Array<{
+    id: string;
+    name: string;
+    status: string;
+    isDraft: boolean;
+    currentStep: number;
+  }>;
 }
 
 export interface FundUtilization {
@@ -186,6 +205,8 @@ export interface TechnicalReport {
   title: string;
   projectId: string | null;
   projectName?: string;
+  mainProjectId?: string | null;
+  mainProjectName?: string;
   quarter: string;
   financialYear: string;
   mainActivityId: string | null;
