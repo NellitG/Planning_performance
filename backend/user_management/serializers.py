@@ -166,7 +166,7 @@ class UserAccountSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"roles": "Select at least one role."})
             role = roles[0].key
             attrs["role"] = role
-        if role == "value_chain_leads":
+        if role == "value_chain_lead":
             if not value_chains:
                 raise serializers.ValidationError({"valueChainIds": "Please select at least one Value Chain for the Value Chain Leads role."})
         else:

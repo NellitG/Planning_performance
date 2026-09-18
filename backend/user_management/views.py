@@ -1,8 +1,14 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, viewsets
+from django.contrib.auth.hashers import check_password
+from django.utils import timezone
+from rest_framework import filters, status, viewsets
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.response import Response
 
-from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, UserSession, ValueChain
+from .authentication import create_session
 from .permissions import UserManagementPermission
 from .serializers import (
     StrategicPlanDocumentSerializer,
@@ -81,3 +87,32 @@ class StrategicPlanDocumentViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["document_title", "uploaded_by"]
     ordering_fields = ["document_title", "date_uploaded", "updated_at", "uploaded_by"]
+
+
+def _account_payload(account):
+    return {"id": account.id, "email": account.email, "name": account.full_name,
+            "roles": list(account.roles.values_list("key", flat=True)) or [account.role]}
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def login(request):
+    email, password = request.data.get("email", "").strip().lower(), request.data.get("password", "")
+    account = UserAccount.objects.prefetch_related("roles").filter(email__iexact=email, is_active=True).first()
+    if not account or not check_password(password, account.password):
+        return Response({"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
+    session = create_session(account)
+    return Response({"token": session.token, "user": _account_payload(account)})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def logout(request):
+    UserSession.objects.filter(token=request.auth, revoked_at__isnull=True).update(revoked_at=timezone.now())
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def me(request):
+    return Response({"user": _account_payload(request.user.account)})

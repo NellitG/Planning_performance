@@ -87,13 +87,13 @@ class FundingAgency(models.Model):
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("system_admin", "System Admin"),
-        ("national_me", "National M&E"),
-        ("high_level", "High Level"),
-        ("business_logic", "Business Logic"),
-        ("project_manager", "Project Manager"),
-        ("department_head", "Department Head"),
+        ("value_chain_lead", "Value Chain Lead"),
+        ("accountant", "Accountant"),
+        ("project_coordinator", "Project-Coordinator"),
+        ("me", "M&E"),
+        ("principal_investigator", "Principal Investigator"),
+        ("co_principal_investigator", "Co-principal investigator"),
         ("staff_user", "Staff User"),
-        ("value_chain_leads", "Value Chain Leads"),
     ]
 
     full_name = models.CharField(max_length=255)
@@ -120,6 +120,14 @@ class UserAccount(models.Model):
 
     def __str__(self):
         return f"{self.full_name} <{self.email}>"
+
+
+class UserSession(models.Model):
+    user = models.ForeignKey(UserAccount, on_delete=models.CASCADE, related_name="sessions")
+    token = models.CharField(max_length=128, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
 
 
 class ValueChain(models.Model):

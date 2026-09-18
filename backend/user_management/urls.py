@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import DepartmentViewSet, FundingAgencyViewSet, ReferenceDataViewSet, RoleViewSet, StrategicPlanDocumentViewSet, UserAccountViewSet, ValueChainViewSet
+from .views import DepartmentViewSet, FundingAgencyViewSet, ReferenceDataViewSet, RoleViewSet, StrategicPlanDocumentViewSet, UserAccountViewSet, ValueChainViewSet, login, logout, me
 
 router = DefaultRouter()
 router.register(r"users", UserAccountViewSet, basename="user-management-users")
@@ -17,5 +17,8 @@ router.register(
 )
 
 urlpatterns = [
+    path("auth/login/", login),
+    path("auth/logout/", logout),
+    path("auth/me/", me),
     path("user-management/", include(router.urls)),
 ]
