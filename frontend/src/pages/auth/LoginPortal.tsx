@@ -37,7 +37,7 @@ export default function LoginPortal() {
           {MODULE_LIST.map((mod) => (
             <Link
               key={mod.key}
-              to={mod.key === "projects" ? "/" : mod.loginPath}
+              to={mod.loginPath}
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg"
             >
               <div className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${mod.accent}`} />

@@ -7,12 +7,6 @@ import { MODULES } from "@/utils/modules";
 import type { ModuleKey } from "@/utils/types";
 import logoSrc from "@/assets/logo.png";
 
-const CREDENTIALS: Record<ModuleKey, { email: string; password: string }> = {
-  "strategic-objectives": { email: "strategic@gmail.com", password: "strategic254." },
-  "performance-contracts": { email: "pc@gmail.com", password: "pc254." },
-  projects: { email: "project@gmail.com", password: "project254." },
-};
-
 interface LoginFormProps {
   moduleKey: ModuleKey;
 }
@@ -38,20 +32,12 @@ export function LoginForm({ moduleKey }: LoginFormProps) {
     }
 
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-
-    const creds = CREDENTIALS[moduleKey];
-    if (
-      email.trim().toLowerCase() !== creds.email.toLowerCase() ||
-      password !== creds.password
-    ) {
-      setError("Invalid email or password. Please check your credentials.");
-      setSubmitting(false);
-      return;
-    }
-
-    login({ email: email.trim(), moduleKey: mod.key });
-    navigate(mod.dashboard);
+    try {
+      await login({ email: email.trim(), password, moduleKey: mod.key });
+      navigate(mod.dashboard);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in.");
+    } finally { setSubmitting(false); }
   };
 
   return (

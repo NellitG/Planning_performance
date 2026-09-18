@@ -452,7 +452,7 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
     if (!form.email.trim()) next.email = "Email address is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Enter a valid email address";
     if (form.roles.length === 0) next.roles = "Select at least one role";
-    if (form.roles.includes("value_chain_leads") && form.valueChainIds.length === 0) next.valueChainIds = "Please select at least one Value Chain for the Value Chain Leads role.";
+    if (form.roles.includes("value_chain_lead") && form.valueChainIds.length === 0) next.valueChainIds = "Please select at least one Value Chain for the Value Chain Lead role.";
     if (!form.instituteId) next.instituteId = "Institute is required";
     if (mode === "create" && !form.password) next.password = "Password is required";
     if (form.password && form.password.length < 8) next.password = "Password must be at least 8 characters";
@@ -515,9 +515,9 @@ function UserFormPage({ mode }: { mode: "create" | "edit" }) {
           <Field label="Roles" error={errors.roles} required>
             {rolesLoading ? <p className="text-sm text-muted-foreground">Loading roles...</p> : rolesError ?
               <p className="text-sm text-red-600">Unable to load roles.</p> :
-              <div className="space-y-2 rounded-md border p-3">{roles.map((role) => <label key={role.key} className="flex items-center gap-2 text-sm"><Checkbox checked={form.roles.includes(role.key)} onCheckedChange={(checked) => setForm((current) => { const nextRoles = checked ? [...new Set([...current.roles, role.key])] : current.roles.filter((key) => key !== role.key); return { ...current, roles: nextRoles, role: (nextRoles[0] || "staff_user") as UserRoleKey, valueChainIds: nextRoles.includes("value_chain_leads") ? current.valueChainIds : [] }; })} />{role.name}</label>)}</div>}
+              <div className="space-y-2 rounded-md border p-3">{roles.map((role) => <label key={role.key} className="flex items-center gap-2 text-sm"><Checkbox checked={form.roles.includes(role.key)} onCheckedChange={(checked) => setForm((current) => { const nextRoles = checked ? [...new Set([...current.roles, role.key])] : current.roles.filter((key) => key !== role.key); return { ...current, roles: nextRoles, role: (nextRoles[0] || "staff_user") as UserRoleKey, valueChainIds: nextRoles.includes("value_chain_lead") ? current.valueChainIds : [] }; })} />{role.name}</label>)}</div>}
           </Field>
-          {form.roles.includes("value_chain_leads") && (
+          {form.roles.includes("value_chain_lead") && (
             <Field label="Value Chains" error={errors.valueChainIds} required>
               {valueChainsLoading ? <p className="text-sm text-muted-foreground">Loading Value Chains...</p> : valueChainsError ? <p className="text-sm text-red-600">Unable to load Value Chains. Please try again.</p> : (
                 <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
