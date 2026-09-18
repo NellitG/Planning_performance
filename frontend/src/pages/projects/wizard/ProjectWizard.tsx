@@ -57,6 +57,7 @@ function projectToWizardData(project: Record<string, unknown>): Partial<WizardDa
   return {
     title: (project.name as string) || "",
     mainProject: (project.mainProject as string) || "",
+    mainProjectId: project.mainProjectId ? String(project.mainProjectId) : null,
     coordinator: (project.coordinator as string) || "",
     coordinatorUserId: (project.coordinatorUserId as string) || "",
     principalInvestigatorIds: (project.principalInvestigatorIds as string[]) || [],
@@ -157,6 +158,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   const isEdit = mode === "edit";
 
   const [projectId, setProjectId] = useState<string | undefined>(isEdit ? editId : undefined);
+  const [mainProjectId, setMainProjectId] = useState<string | undefined>();
   const [currentStep, setCurrentStep] = useState(1);
   const [data, setData] = useState<WizardData>(INITIAL_WIZARD_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,6 +180,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   // component instance. Reset explicitly so create never inherits edit state.
   useEffect(() => {
     setProjectId(isEdit ? editId : undefined);
+    setMainProjectId(undefined);
     setCurrentStep(1);
     setData(INITIAL_WIZARD_DATA);
     setHydrated(!isEdit);
@@ -223,6 +226,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       selectedOutputIds: existingMapping?.expectedOutputIds || [],
       selectedOutputIndicatorIds: existingMapping?.outputIndicatorIds || [],
     }));
+    if (existingProject.mainProjectId) setMainProjectId(String(existingProject.mainProjectId));
     setCurrentStep(Math.min(Math.max(Number(existingProject.currentStep || 1), 1), 9));
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -241,6 +245,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     status: data.status || "Not Started",
     coordinator: data.coordinator,
     mainProject: data.mainProject,
+    mainProjectId: mainProjectId || null,
     coordinatorUserId: data.coordinatorUserId || null,
     principalInvestigatorIds: data.principalInvestigatorIds.map(Number),
     coPrincipalInvestigatorIds: data.coPrincipalInvestigatorIds.map(Number),
@@ -343,10 +348,24 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     if (!data.title.trim()) return projectId;
     setIsSaving(true);
     try {
+      let effectiveMainProjectId = mainProjectId;
+      if (!effectiveMainProjectId) {
+        const parent = await api.post<{ id: string }>("/main-projects/", {
+          name: data.mainProject.trim() || data.title.trim(),
+          logo: initials(data.mainProject.trim() || data.title),
+          startDate: data.startDate || null,
+          endDate: data.expectedEndDate || null,
+          status: data.status || "Not Started",
+        });
+        effectiveMainProjectId = parent.id;
+        setMainProjectId(effectiveMainProjectId);
+      }
       let savedId = projectId;
+      const projectPayload = buildProjectPayload();
+      projectPayload.mainProjectId = effectiveMainProjectId;
       if (!projectId) {
         const created = await api.post<{ id: string }>("/projects/", {
-          ...buildProjectPayload(),
+          ...projectPayload,
           isDraft: !markComplete,
           currentStep: stepToSave,
         });
@@ -354,7 +373,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
         setProjectId(created.id);
       } else {
         await api.patch(`/projects/${projectId}/`, {
-          ...buildProjectPayload(),
+          ...projectPayload,
           isDraft: !markComplete,
           currentStep: stepToSave,
         });
@@ -404,24 +423,34 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       if (!id) {
         throw new Error("Project could not be saved before completion.");
       }
-      const additionalTitles = data.additionalTitles.map((title) => title.trim()).filter(Boolean);
-      const allProjectIds = [id];
-      for (const title of additionalTitles) {
-        const duplicate = await api.post<{ id: string }>("/projects/", {
-          ...buildProjectPayload(), name: title, logo: initials(title), isDraft: false, currentStep: 9,
-        });
-        allProjectIds.push(duplicate.id);
-        if (data.selectedKeyActivityIds.length || data.selectedOutputIds.length || data.selectedOutputIndicatorIds.length) {
-          await api.post("/project-mappings/", buildMappingPayload(duplicate.id));
+      const additionalTitles = [...new Set(
+        data.additionalTitles
+          .map((title) => title.trim())
+          .filter((title) => title && title.toLocaleLowerCase() !== data.title.trim().toLocaleLowerCase()),
+      )];
+      // State updates from the first save are asynchronous; read the saved
+      // title so queued titles always receive the correct parent ID.
+      const savedProject = await api.get<{ mainProjectId?: string | number | null }>(`/projects/${id}/`);
+      const parentId = mainProjectId || (savedProject.mainProjectId ? String(savedProject.mainProjectId) : undefined);
+      if (parentId) {
+        for (const title of additionalTitles) {
+          await api.post<{ id: string }>("/projects/", {
+            name: title,
+            logo: initials(title),
+            mainProject: data.mainProject,
+            mainProjectId: parentId,
+            isDraft: true,
+            currentStep: 1,
+            status: "Not Started",
+          });
         }
       }
-      // Upload the selected documents to every independently-created title.
-      for (const projectRecordId of allProjectIds) await syncDocuments(projectRecordId, false);
+      await syncDocuments(id, false);
       setData((prev) => ({ ...prev, documents: prev.documents.filter((doc) => doc.id) }));
 
       await qc.invalidateQueries({ queryKey: qk.projects });
       toast.success(isEdit ? "Project updated successfully!" : "Project created successfully!");
-      navigate("/projects");
+      navigate(parentId ? `/projects/main/${parentId}` : "/projects");
     } catch (err) {
       console.error(err);
       toast.error(`Failed to ${isEdit ? "update" : "create"} project. Please try again.`);
@@ -444,8 +473,8 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     <div className="space-y-6">
       <div className="flex items-center gap-4 justify-left">
         <Button asChild variant="outline" size="sm">
-          <Link to="/projects">
-            <ArrowLeft className="h-4 w-4" /> Back to Projects
+          <Link to={mainProjectId ? `/projects/main/${mainProjectId}` : "/projects"}>
+            <ArrowLeft className="h-4 w-4" /> {mainProjectId ? "Back to Main Project" : "Back to Projects"}
           </Link>
         </Button>
         <div>
@@ -466,7 +495,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
 
       <StepperHeader current={currentStep} onJump={jumpTo} />
 
-      {currentStep === 1 && <Step1Identification {...stepProps} />}
+      {currentStep === 1 && <Step1Identification {...stepProps} allowAdditionalTitles={!isEdit} />}
       {currentStep === 2 && <Step2ImplementationUnit {...stepProps} />}
       {currentStep === 3 && <Step3StrategicAlignment {...stepProps} />}
       {currentStep === 4 && <Step9Documents {...stepProps} />}

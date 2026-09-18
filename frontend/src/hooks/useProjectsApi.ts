@@ -25,11 +25,13 @@ import type {
   ActivityIndicator,
   Outcome,
   TechnicalReport,
+  MainProject,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
 export const qk = {
   projects: ["projects"] as const,
+  mainProjects: ["mainProjects"] as const,
   kras: ["kras"] as const,
   objectives: ["objectives"] as const,
   strategies: ["strategies"] as const,
@@ -64,6 +66,55 @@ export function useProjects() {
     queryKey: qk.projects,
     queryFn: () => api.get<Project[]>("/projects/"),
     staleTime: STALE,
+  });
+}
+
+export function useMainProjects() {
+  return useQuery({
+    queryKey: qk.mainProjects,
+    queryFn: () => api.get<MainProject[]>("/main-projects/"),
+    staleTime: STALE,
+  });
+}
+
+export function useMainProject(id: string | undefined) {
+  return useQuery({
+    queryKey: ["mainProject", id],
+    queryFn: () => api.get<MainProject>(`/main-projects/${id}/`),
+    enabled: Boolean(id),
+    staleTime: STALE,
+  });
+}
+
+export function useCreateMainProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; logo?: string; startDate?: string | null; endDate?: string | null; status?: string }) =>
+      api.post<MainProject>("/main-projects/", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.mainProjects }),
+  });
+}
+
+export function useUpdateMainProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: Partial<MainProject> & { id: string }) =>
+      api.patch<MainProject>(`/main-projects/${id}/`, input),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.mainProjects });
+      qc.invalidateQueries({ queryKey: ["mainProject", vars.id] });
+    },
+  });
+}
+
+export function useDeleteMainProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/main-projects/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.mainProjects });
+      qc.invalidateQueries({ queryKey: qk.projects });
+    },
   });
 }
 

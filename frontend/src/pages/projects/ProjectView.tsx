@@ -372,10 +372,10 @@ export default function ProjectView() {
         actions={
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link to="/projects"><ArrowLeft className="h-4 w-4" /> Back</Link>
+              <Link to={project?.mainProjectId ? `/projects/main/${project.mainProjectId}` : "/projects"}><ArrowLeft className="h-4 w-4" /> Main Project</Link>
             </Button>
             <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link to={`/projects/${id}`}>
+              <Link to={`/projects/${id}/edit`}>
                 <Pencil className="h-4 w-4" /> {isMapped ? "Edit Mapping" : "Start Workflow"}
               </Link>
             </Button>
@@ -423,7 +423,7 @@ export default function ProjectView() {
               This project has not been mapped to a component, strategic objectives, or strategies yet. Complete the 2-step workflow to activate it.
             </p>
             <Button asChild size="sm" className="mt-3 bg-amber-600 text-white hover:bg-amber-700">
-              <Link to={`/projects/${id}`}>Start Workflow</Link>
+              <Link to={`/projects/${id}/edit`}>Continue Workflow</Link>
             </Button>
           </div>
         </div>

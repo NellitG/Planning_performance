@@ -65,6 +65,7 @@ const PCReports = lazy(() => import("@/pages/performance-contracts/PCReports"));
 
 const ProjectDetail = lazy(() => import("@/pages/projects/ProjectDetail"));
 const ProjectView = lazy(() => import("@/pages/projects/ProjectView"));
+const MainProjectDetail = lazy(() => import("@/pages/projects/MainProjectDetail"));
 const ProjectComponents = lazy(() => import("@/pages/projects/components/Components"));
 const ComponentForm = lazy(() => import("@/pages/projects/components/ComponentForm"));
 const ComponentView = lazy(() => import("@/pages/projects/components/ComponentView"));
@@ -102,6 +103,8 @@ const TechnicalReports = lazy(() => import("@/pages/reports/TechnicalReports"));
 const NewReport = lazy(() => import("@/pages/reports/NewReport"));
 const TechnicalReportDetails = lazy(() => import("@/pages/reports/TechnicalReportDetails"));
 const EditTechnicalReport = lazy(() => import("@/pages/reports/EditTechnicalReport"));
+const TechnicalReportMainProject = lazy(() => import("@/pages/reports/TechnicalReportHierarchy").then((module) => ({ default: module.TechnicalReportMainProject })));
+const TechnicalReportProjectTitle = lazy(() => import("@/pages/reports/TechnicalReportHierarchy").then((module) => ({ default: module.TechnicalReportProjectTitle })));
 
 const Notifications = lazy(() => import("@/pages/notifications/Notifications"));
 const UserManagement = lazy(() => import("@/pages/users/UserManagement"));
@@ -143,6 +146,7 @@ function AppRoutes() {
 
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/new" element={<ProjectWizard mode="create" />} />
+        <Route path="/projects/main/:id" element={<MainProjectDetail />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/view" element={<ProjectView />} />
         <Route path="/projects/:id/edit" element={<ProjectWizard mode="edit" />} />
@@ -264,6 +268,8 @@ function AppRoutes() {
         <Route path="/technical-reports" element={<TechnicalReports />} />
         <Route path="/technical-reports/:id" element={<TechnicalReportDetails />} />
         <Route path="/technical-reports/:id/edit" element={<EditTechnicalReport />} />
+        <Route path="/technical-reports/main/:id" element={<TechnicalReportMainProject />} />
+        <Route path="/technical-reports/main/:mainId/title/:projectId" element={<TechnicalReportProjectTitle />} />
         <Route path="/new-report" element={<NewReport />} />
 
         <Route path="/notifications" element={<Notifications />} />
