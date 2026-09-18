@@ -6,6 +6,7 @@ from django.db import models, transaction
 from user_management.models import Institute, UserAccount, ValueChain
 
 from .models import (
+    MainProject,
     Project,
     KeyResultArea,
     StrategicObjective,
@@ -37,12 +38,49 @@ from .models import (
 )
 
 
+class MainProjectSerializer(serializers.ModelSerializer):
+    projectTitles = serializers.SerializerMethodField()
+    startDate = serializers.DateField(source="start_date", required=False, allow_null=True)
+    endDate = serializers.DateField(source="end_date", required=False, allow_null=True)
+
+    class Meta:
+        model = MainProject
+        fields = [
+            "id",
+            "name",
+            "logo",
+            "description",
+            "startDate",
+            "endDate",
+            "status",
+            "projectTitles",
+        ]
+
+    def get_projectTitles(self, obj):
+        return [
+            {
+                "id": str(project.id),
+                "name": project.project_name,
+                "status": project.status,
+                "isDraft": project.is_draft,
+                "currentStep": project.current_step,
+            }
+            for project in obj.project_titles.all().order_by("created_at")
+        ]
+
+
 class ProjectSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="project_name")
     coordinator = serializers.CharField(
         source="project_coordinator", required=False, allow_blank=True, default=""
     )
     mainProject = serializers.CharField(source="main_project", required=False, allow_blank=True, default="")
+    mainProjectId = serializers.PrimaryKeyRelatedField(
+        source="main_project_record",
+        queryset=MainProject.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     coordinatorUserId = serializers.PrimaryKeyRelatedField(source="coordinator_user", queryset=UserAccount.objects.filter(is_active=True), required=False, allow_null=True)
     principalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
     coPrincipalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="co_principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
@@ -111,6 +149,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "status",
             "coordinator",
             "mainProject",
+            "mainProjectId",
             "coordinatorUserId",
             "principalInvestigatorIds",
             "coPrincipalInvestigatorIds",
@@ -174,6 +213,19 @@ class ProjectSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         locations = validated_data.get("locations", [])
         with transaction.atomic():
+            if not validated_data.get("main_project_record"):
+                parent_name = validated_data.get("main_project") or validated_data.get("project_name")
+                parent, _ = MainProject.objects.get_or_create(
+                    name=parent_name,
+                    defaults={
+                        "logo": validated_data.get("logo", ""),
+                        "description": validated_data.get("description", ""),
+                        "start_date": validated_data.get("start_date"),
+                        "end_date": validated_data.get("end_date"),
+                        "status": validated_data.get("status", "Not Started"),
+                    },
+                )
+                validated_data["main_project_record"] = parent
             project = super().create(validated_data)
             self._sync_project_locations(project, locations)
         return project
@@ -752,6 +804,10 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     projectName = serializers.CharField(source="project.project_name", read_only=True)
+    mainProjectId = serializers.PrimaryKeyRelatedField(
+        source="main_project", queryset=MainProject.objects.all(), required=False, allow_null=True
+    )
+    mainProjectName = serializers.CharField(source="main_project.name", read_only=True)
     quarter = serializers.CharField(required=False, allow_blank=True, default="")
     financialYear = serializers.CharField(
         source="financial_year", required=False, allow_blank=True, default=""
@@ -824,6 +880,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "title",
             "projectId",
             "projectName",
+            "mainProjectId",
+            "mainProjectName",
             "mainActivityId",
             "category",
             "valueChain",
@@ -979,6 +1037,13 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"title": "Report title is required."})
 
         project = attrs.get("project", getattr(self.instance, "project", None))
+        main_project = attrs.get("main_project", getattr(self.instance, "main_project", None))
+        # A Project is a Project Title. Its Main Project is authoritative so a
+        # report can never be saved under a mismatched parent/title pair.
+        if project and project.main_project_record_id:
+            if main_project and main_project.pk != project.main_project_record_id:
+                raise serializers.ValidationError({"mainProjectId": "The selected Project Title does not belong to this Main Project."})
+            attrs["main_project"] = project.main_project_record
         ward = attrs.get("ward", getattr(self.instance, "ward", None))
         main_activity = attrs.get("main_activity", getattr(self.instance, "main_activity", None))
         sub_activity = attrs.get("sub_activity", getattr(self.instance, "sub_activity", None))
@@ -1008,6 +1073,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"projectId": "Please select a project."}
                 )
+            if not project or not project.main_project_record_id:
+                raise serializers.ValidationError({"projectId": "The selected Project Title is not linked to a Main Project."})
             if not quarter:
                 raise serializers.ValidationError(
                     {"quarter": "Quarter is required."}

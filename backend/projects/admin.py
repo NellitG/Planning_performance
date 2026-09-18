@@ -7,6 +7,7 @@ from .models import (
     KeyActivity,
     KeyResultArea,
     MainActivity,
+    MainProject,
     OutputIndicator,
     Project,
     ProjectComponent,
@@ -26,6 +27,7 @@ from .models import (
 )
 
 admin.site.register(Project)
+admin.site.register(MainProject)
 admin.site.register(KeyResultArea)
 admin.site.register(StrategicObjective)
 admin.site.register(Strategy)

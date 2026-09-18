@@ -19,6 +19,7 @@ from .views import (
     ProjectSubComponentViewSet,
     ProjectOutputViewSet,
     ProjectViewSet,
+    MainProjectViewSet,
     StrategicObjectiveViewSet,
     StrategyViewSet,
     SubActivityViewSet,
@@ -30,6 +31,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"projects", ProjectViewSet)
+router.register(r"main-projects", MainProjectViewSet)
 router.register(r"kras", KeyResultAreaViewSet)
 router.register(r"strategic-objectives", StrategicObjectiveViewSet)
 router.register(r"strategies", StrategyViewSet)

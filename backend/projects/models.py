@@ -1,6 +1,33 @@
 from django.db import models
 
 
+class MainProject(models.Model):
+    STATUS_CHOICES = [
+        ("Not Started", "Not Started"),
+        ("Ongoing", "Ongoing"),
+        ("Completed", "Completed"),
+        ("Suspended", "Suspended"),
+        ("Delayed", "Delayed"),
+        ("Pending", "Pending"),
+        ("Terminated", "Terminated"),
+    ]
+
+    name = models.CharField(max_length=500)
+    logo = models.CharField(max_length=20, blank=True)
+    description = models.TextField(blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Not Started")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class Project(models.Model):
     STATUS_CHOICES = [
         ("Not Started", "Not Started"),
@@ -25,9 +52,15 @@ class Project(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Not Started")
 
     project_coordinator = models.CharField(max_length=500, blank=True)
-    # The display field above remains for backwards compatibility.  These
-    # relationships are the authoritative source for new projects.
+    
     main_project = models.CharField(max_length=500, blank=True)
+    main_project_record = models.ForeignKey(
+        MainProject,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="project_titles",
+    )
     project_group_id = models.UUIDField(null=True, blank=True, db_index=True)
     coordinator_user = models.ForeignKey("user_management.UserAccount", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="coordinated_projects")
@@ -537,6 +570,11 @@ class TechnicalReport(models.Model):
     title = models.CharField(max_length=500)
     project = models.ForeignKey(
         Project, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
+    )
+    # This is derived from the selected project title and retained with the
+    # report so parent-level report navigation remains stable.
+    main_project = models.ForeignKey(
+        MainProject, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True
     )
     main_activity = models.ForeignKey(
         MainActivity, on_delete=models.SET_NULL, related_name="technical_reports", null=True, blank=True

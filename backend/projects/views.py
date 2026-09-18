@@ -9,6 +9,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 
 from .models import (
     ExpectedOutput,
@@ -35,6 +36,7 @@ from .models import (
     TechnicalReport,
     IndicatorReport,
     IndicatorReportEvidence,
+    MainProject,
     County,
     ReportWorkflowAudit,
     WorkflowNotification,
@@ -66,6 +68,7 @@ from .serializers import (
     TechnicalReportSerializer,
     IndicatorReportEvidenceSerializer,
     CountySerializer,
+    MainProjectSerializer,
 )
 
 
@@ -119,6 +122,13 @@ class BulkCreateMixin:
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
+    filterset_fields = ["status"]
+    permission_classes = [ProjectPermission]
+
+
+class MainProjectViewSet(viewsets.ModelViewSet):
+    queryset = MainProject.objects.prefetch_related("project_titles").all()
+    serializer_class = MainProjectSerializer
     filterset_fields = ["status"]
     permission_classes = [ProjectPermission]
 
@@ -369,14 +379,14 @@ class IndicatorTrackingViewSet(viewsets.ModelViewSet):
 
 class TechnicalReportViewSet(viewsets.ModelViewSet):
     queryset = TechnicalReport.objects.select_related(
-        "main_activity", "sub_activity", "project", "ward__sub_county__county"
+        "main_activity", "sub_activity", "project", "main_project", "ward__sub_county__county"
     ).prefetch_related(
         "indicator_reports__ward__sub_county__county", "indicator_reports__evidence_files"
     ).all()
     serializer_class = TechnicalReportSerializer
     permission_classes = [ReportPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["main_activity", "sub_activity", "status"]
+    filterset_fields = ["main_activity", "sub_activity", "status", "project", "main_project"]
     search_fields = [
         "title",
         "reporting_period",
@@ -418,16 +428,29 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Report contents cannot be edited at this workflow stage.")
         serializer.save()
 
+    def perform_destroy(self, instance):
+        if not has_role(self.request.user, "system_admin", "value_chain_lead") or (
+            not has_role(self.request.user, "system_admin") and instance.created_by_id != self.request.user.pk
+        ):
+            raise PermissionDenied("Only the report's Value Chain Lead can delete it.")
+        if instance.status not in ("Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"):
+            raise PermissionDenied("Reports cannot be deleted while under review or after finalization.")
+        instance.delete()
+
     def _notify_roles(self, roles, report, message):
         recipients = UserAccount.objects.filter(is_active=True, roles__key__in=roles).distinct()
-        WorkflowNotification.objects.bulk_create([WorkflowNotification(recipient=user, report=report, message=message) for user in recipients])
+        for recipient in recipients:
+            WorkflowNotification.objects.get_or_create(recipient=recipient, report=report, message=message)
+
+    def _role_key(self, user):
+        return next((key for key in ("accountant", "project_coordinator", "me", "value_chain_lead") if has_role(user, key)), user.account.role)
 
     def _transition(self, report, action, next_status, reason=""):
         previous = report.status
         report.status = next_status
         report.save(update_fields=["status", "updated_at"])
         ReportWorkflowAudit.objects.create(report=report, action=action, user=self.request.user.account,
-            user_role=self.request.user.account.role, previous_status=previous, new_status=next_status, rejection_reason=reason)
+            user_role=self._role_key(self.request.user), previous_status=previous, new_status=next_status, rejection_reason=reason)
         if report.created_by_id:
             text = f"Report '{report.title}' was {action.lower()} by {self.request.user.account.full_name}."
             if reason: text += f" Reason: {reason}"
@@ -446,21 +469,25 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         report = self.get_object()
-        transitions = {"accountant": ("Submitted to Accountant", "Approved by Accountant", "Approved"),
-                       "project_coordinator": ("Submitted to Project Coordinator", "Approved by Project Coordinator", "Approved"),
+        transitions = {"accountant": ("Submitted to Accountant", "Submitted to Project Coordinator", "Approved"),
+                       "project_coordinator": ("Submitted to Project Coordinator", "Submitted to M&E", "Approved"),
                        "me": ("Submitted to M&E", "Approved/Finalized", "Approved")}
         match = next((v for key, v in transitions.items() if has_role(request.user, key)), None)
         if not match or report.status != match[0]: return Response({"detail": "Invalid approval transition."}, status=400)
         with transaction.atomic():
             self._transition(report, match[2], match[1])
-            if report.status == "Approved by Accountant":
-                report.status = "Submitted to Project Coordinator"; report.save(update_fields=["status"]); self._notify_roles(["project_coordinator"], report, f"Report '{report.title}' is awaiting Project Coordinator review.")
-            elif report.status == "Approved by Project Coordinator":
-                report.status = "Submitted to M&E"; report.save(update_fields=["status"]); self._notify_roles(["me"], report, f"Report '{report.title}' is awaiting M&E review.")
+            if report.status == "Submitted to Project Coordinator":
+                self._notify_roles(["project_coordinator"], report, f"Report '{report.title}' passed Accountant review and is awaiting Project Coordinator review.")
+            elif report.status == "Submitted to M&E":
+                self._notify_roles(["me"], report, f"Report '{report.title}' passed Project Coordinator review and is awaiting M&E review.")
             elif report.status == "Approved/Finalized" and not hasattr(report, "value_chain_lead_copy"):
-                copy = TechnicalReport.objects.get(pk=report.pk); copy.pk = None; copy.id = None; copy.original_report = report; copy.status = "Approved/Finalized"; copy.save()
+                copy = TechnicalReport.objects.get(pk=report.pk); copy.pk = None; copy.id = None; copy.original_report = report; copy.created_by = report.created_by; copy.status = "Approved/Finalized"; copy.save()
                 for row in report.indicator_reports.all():
+                    evidence = list(row.evidence_files.all())
                     old = row; old.pk = None; old.id = None; old.technical_report = copy; old.save()
+                    for item in evidence:
+                        item.pk = None; item.id = None; item.indicator_report = old; item.save()
+                self._notify_roles(["value_chain_lead"], report, f"Report '{report.title}' has been approved and finalized.")
         return Response(self.get_serializer(report).data)
 
     @action(detail=True, methods=["post"])
@@ -497,6 +524,8 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path=r"indicator-reports/(?P<indicator_report_id>[^/.]+)/evidence", parser_classes=[MultiPartParser, FormParser])
     def upload_indicator_evidence(self, request, pk=None, indicator_report_id=None):
         report = self.get_object()
+        if not has_role(request.user, "system_admin", "value_chain_lead") or (not has_role(request.user, "system_admin") and (report.created_by_id != request.user.pk or report.status not in ("Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"))):
+            raise PermissionDenied("Evidence can only be changed by the owning Value Chain Lead while the report is editable.")
         try:
             indicator_report = report.indicator_reports.get(pk=indicator_report_id)
         except IndicatorReport.DoesNotExist:
@@ -515,6 +544,8 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["delete"], url_path=r"indicator-reports/(?P<indicator_report_id>[^/.]+)/evidence/(?P<evidence_id>[^/.]+)")
     def delete_indicator_evidence(self, request, pk=None, indicator_report_id=None, evidence_id=None):
         report = self.get_object()
+        if not has_role(request.user, "system_admin", "value_chain_lead") or (not has_role(request.user, "system_admin") and (report.created_by_id != request.user.pk or report.status not in ("Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"))):
+            raise PermissionDenied("Evidence can only be changed by the owning Value Chain Lead while the report is editable.")
         try:
             evidence = IndicatorReportEvidence.objects.get(pk=evidence_id, indicator_report_id=indicator_report_id, indicator_report__technical_report=report)
         except IndicatorReportEvidence.DoesNotExist:
