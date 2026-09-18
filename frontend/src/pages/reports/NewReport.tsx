@@ -17,6 +17,7 @@ import {
   useActivityIndicators,
   useCreateTechnicalReport,
   useProjects,
+  useMainProjects,
   useTechnicalReports,
 } from "@/hooks/useProjectsApi";
 import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
@@ -72,10 +73,12 @@ export default function NewReport() {
   const { data: mainIndicators = [], isLoading: loadingMainIndicators } = useMainActivityIndicators();
   const { data: activityIndicators = [], isLoading: loadingActivityIndicators } = useActivityIndicators();
   const { data: projects = [], isLoading: loadingProjects } = useProjects();
+  const { data: mainProjects = [], isLoading: loadingMainProjects } = useMainProjects();
   const { data: previousReports = [] } = useTechnicalReports();
   const createReport = useCreateTechnicalReport();
   const navigate = useNavigate();
 
+  const [selectedMainProjectId, setSelectedMainProjectId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedWardIds, setSelectedWardIds] = useState<string[]>([]);
   const [quarter, setQuarter] = useState("");
@@ -181,7 +184,7 @@ export default function NewReport() {
   }, [projectLocations]);
 
   const isLoadingReportingData =
-    loadingProjects ||
+    loadingProjects || loadingMainProjects ||
     loadingMainActivities ||
     loadingSubActivities ||
     loadingSubSubActivities ||
@@ -217,6 +220,21 @@ export default function NewReport() {
     setWardIndicatorValues({});
     setDisbursed(0);
     setUtilized(0);
+  };
+
+  const projectTitles = useMemo(() => {
+    const parent = mainProjects.find((item) => item.id === selectedMainProjectId);
+    if (!parent) return [];
+    const titleIds = new Set(parent.projectTitles.map((title) => title.id));
+    return projects.filter((project) => titleIds.has(project.id));
+  }, [mainProjects, projects, selectedMainProjectId]);
+
+  const handleMainProjectChange = (value: string) => {
+    setSelectedMainProjectId(value);
+    setSelectedProjectId("");
+    setSelectedWardIds([]);
+    setWardIndicatorValues({});
+    setCumulativeByWard({});
   };
 
   const handleCategoryChange = (value: string) => {
@@ -299,8 +317,8 @@ export default function NewReport() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedProjectId) {
-      toast.error("Please select a project.");
+    if (!selectedMainProjectId || !selectedProjectId) {
+      toast.error("Please select a Main Project and Project Title.");
       return;
     }
 
@@ -357,6 +375,7 @@ export default function NewReport() {
       const reportPayload = {
         title: generatedTitle,
         projectId: selectedProjectId,
+        mainProjectId: selectedMainProjectId,
         quarter,
         financialYear,
         mainActivityId: selectedMainActivityId,
@@ -429,16 +448,17 @@ export default function NewReport() {
 
       <form id="report-form" onSubmit={submit} className="space-y-5">
         <Section index={1} title="Project Activity">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Project</Label>
-              <Select value={selectedProjectId} onValueChange={(value) => { setSelectedProjectId(value); setSelectedWardIds([]); }}>
-                <SelectTrigger><SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select Project"} /></SelectTrigger>
+              <Label className="text-xs font-medium">Main Project</Label>
+              <Select value={selectedMainProjectId} onValueChange={handleMainProjectChange}>
+                <SelectTrigger><SelectValue placeholder={loadingMainProjects ? "Loading Main Projects..." : "Select Main Project"} /></SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {mainProjects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5"><Label className="text-xs font-medium">Project Title</Label><Select value={selectedProjectId} disabled={!selectedMainProjectId} onValueChange={(value) => { setSelectedProjectId(value); setSelectedWardIds([]); setWardIndicatorValues({}); }}><SelectTrigger><SelectValue placeholder={!selectedMainProjectId ? "Select Main Project first" : loadingProjects ? "Loading Project Titles..." : "Select Project Title"} /></SelectTrigger><SelectContent>{projectTitles.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Financial Year</Label>
               <Select value={financialYear} onValueChange={setFinancialYear}>

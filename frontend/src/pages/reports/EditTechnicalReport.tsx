@@ -33,7 +33,7 @@ export default function EditTechnicalReport() {
 
   const project = projects.find((item) => item.id === report?.projectId);
   const availableLocations = useMemo(() => (project?.locations || []).filter((item) => item.countyId && item.subCountyId && item.wardId).map((item) => ({ countyId: item.countyId!, countyName: item.county, subCountyId: item.subCountyId!, subCountyName: item.subCounty, wardId: item.wardId!, wardName: item.ward })), [project]);
-  const changeValue = (wardId: string, index: number, field: string, value: string) => setWardValues((current) => ({ ...current, [wardId]: (current[wardId] || []).map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row) }));
+  const changeValue = (wardId: string, index: number, field: string, value: string) => setWardValues((current) => ({ ...current, [wardId]: (current[wardId] || []).map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value, ...(field === "reportedProgress" && value !== "" && Number(value) === 0 ? { achievement: "", remarks: "" } : {}) } : row) }));
   const uploadEvidence = async (rowId: string, files: FileList | null) => {
     if (!id || !files?.length)
       return; 
@@ -108,25 +108,25 @@ export default function EditTechnicalReport() {
             <div className="sticky top-0 z-10 bg-green-50 p-4">
               <h3 className="font-semibold">Report Details — {location.wardName}</h3><p className="text-sm">County: {location.countyName} → Sub-county: {location.subCountyName} → Ward:
                 {location.wardName}</p></div>{!rows.length ?
-                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this ward.</p> : rows.map((row, index) => <div key={row.id || row.indicatorId}
+                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this ward.</p> : rows.map((row, index) => { const isZeroReport = row.reportedProgress !== "" && Number(row.reportedProgress) === 0; return <div key={row.id || row.indicatorId}
                     className="space-y-3 border-t p-4"><div className="grid gap-3 md:grid-cols-3"><p><b>Indicator:</b> {row.indicator}</p>
                       <p>
                         <b>Target:</b> {row.target}</p>
                       <div>
                         <Label>Report against target</Label>
-                        <Input value={row.reportedProgress} onChange={(event) => changeValue(location.wardId, index, "reportedProgress", event.target.value)} />
+                        <Input type="number" min="0" step="any" value={row.reportedProgress} onChange={(event) => changeValue(location.wardId, index, "reportedProgress", event.target.value)} />
                       </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-2"><div>
+                    {isZeroReport ? <div><Label>Reason for Zero <span className="text-red-600">*</span></Label><Textarea value={row.reasonForZero || ""} onChange={(event) => changeValue(location.wardId, index, "reasonForZero", event.target.value)} placeholder="Explain why no progress was reported for this indicator." /></div> : <div className="grid gap-3 md:grid-cols-2"><div>
                       <Label>Achievement</Label><Textarea value={row.achievement} onChange={(event) => changeValue(location.wardId, index, "achievement", event.target.value)} />
                     </div><div><Label>Remarks</Label><Textarea value={row.remarks} onChange={(event) => changeValue(location.wardId, index, "remarks", event.target.value)} />
                       </div>
-                    </div>
+                    </div>}
                     <div className="text-sm"><b>Evidence:</b> {row.evidenceFiles?.map((file: any) => <a key={file.id} className="ml-2 text-green-700 underline" href={file.url || undefined} target="_blank" rel="noreferrer">{file.name}</a>)}
                       <label className="ml-2 cursor-pointer text-green-700 underline">Upload<input className="hidden" type="file" multiple onChange={(event) => uploadEvidence(row.id, event.target.files)} />
                       </label>
                     </div>
-                  </div>)}
+                  </div>; })}
           </section>;
         })}
           <div className="flex justify-end gap-2 border-t pt-5">
