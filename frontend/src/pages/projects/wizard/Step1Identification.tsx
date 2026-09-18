@@ -2,10 +2,11 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, LoaderCircle } from "lucide-react";
+import { ChevronRight, LoaderCircle, Plus, X } from "lucide-react";
 import type { StepProps } from "./types";
 import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD } from "./data";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useManagedUsers, useReferenceData } from "@/hooks/useUserManagementApi";
 
 function Field({ label, error, required, children }: { label: string; error?: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -21,6 +22,15 @@ function Field({ label, error, required, children }: { label: string; error?: st
 
 export default function Step1Identification({ data, onChange, onNext, isSaving }: StepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { data: users = [] } = useManagedUsers();
+  const { data: counties = [] } = useReferenceData();
+  const institutes = counties.flatMap((county) => county.institutes);
+  const byRole = (role: string) => users.filter((user) => user.active && user.roles.includes(role));
+  useEffect(() => {
+    if (data.coordinatorUserId) return;
+    const defaultCoordinator = byRole("project_coordinator").find((user) => user.fullName.toLowerCase() === "dr. michael okoti");
+    if (defaultCoordinator) onChange({ coordinatorUserId: defaultCoordinator.id, coordinator: defaultCoordinator.fullName });
+  }, [users]);
 
   const handleNext = () => {
     const e: Record<string, string> = {};
@@ -36,20 +46,31 @@ export default function Step1Identification({ data, onChange, onNext, isSaving }
       <div className="rounded-xl border border-border p-6 shadow-sm space-y-5">
         <h2 className="text-base font-semibold text-foreground">Identification</h2>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field label="Project Title" required error={errors.title}>
-            <Input
-              value={data.title}
-              onChange={(e) => { onChange({ title: e.target.value }); setErrors((p) => ({ ...p, title: "" })); }}
-              placeholder="e.g. Climate-Smart Agriculture Initiative"
-            />
+          <Field label="Project Titles" required error={errors.title}>
+            <div className="space-y-2">
+              {[data.title, ...data.additionalTitles].map((title, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input value={title} onChange={(e) => {
+                    if (index === 0) onChange({ title: e.target.value });
+                    else { const titles = [...data.additionalTitles]; titles[index - 1] = e.target.value; onChange({ additionalTitles: titles }); }
+                    setErrors((p) => ({ ...p, title: "" }));
+                  }} placeholder={index === 0 ? "e.g. Climate-Smart Agriculture Initiative" : "Additional project title"} />
+                  {index > 0 && <Button type="button" variant="outline" size="icon" aria-label="Remove project title" onClick={() => onChange({ additionalTitles: data.additionalTitles.filter((_, i) => i !== index - 1) })}><X className="h-4 w-4" /></Button>}
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => onChange({ additionalTitles: [...data.additionalTitles, ""] })}><Plus className="h-4 w-4" /> Add project title</Button>
+              <p className="text-xs text-muted-foreground">Each title is created as a separate project record with its own workflow.</p>
+            </div>
           </Field>
+          <Field label="Main Project"><Input value={data.mainProject} onChange={(e) => onChange({ mainProject: e.target.value })} placeholder="Parent/main project" /></Field>
           <Field label="Project Coordinator">
-            <Input
-              value={data.coordinator}
-              onChange={(e) => onChange({ coordinator: e.target.value })}
-              placeholder="Full name"
-            />
+            <select value={data.coordinatorUserId} onChange={(e) => { const user = users.find((x) => x.id === e.target.value); onChange({ coordinatorUserId: e.target.value, coordinator: user?.fullName || "" }); }} className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm">
+              <option value="">— Select coordinator —</option>{byRole("project_coordinator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
+            </select>
           </Field>
+          <Field label="Principal Investigator"><select multiple value={data.principalInvestigatorIds} onChange={(e) => onChange({ principalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("principal_investigator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}</select></Field>
+          <Field label="Co-Principal Investigator"><select multiple value={data.coPrincipalInvestigatorIds} onChange={(e) => onChange({ coPrincipalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("co_principal_investigator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}</select></Field>
+          <Field label="PI / Co-PI Institute"><select multiple value={data.investigatorInstituteIds} onChange={(e) => onChange({ investigatorInstituteIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{institutes.map((institute) => <option key={institute.id} value={institute.id}>{institute.name}</option>)}</select></Field>
           <Field label="Project Type" required error={errors.projectType}>
             <select
               value={data.projectType}

@@ -56,7 +56,12 @@ function projectToWizardData(project: Record<string, unknown>): Partial<WizardDa
   const implementationUnits = (project.implementationUnits as Record<string, unknown>) || {};
   return {
     title: (project.name as string) || "",
+    mainProject: (project.mainProject as string) || "",
     coordinator: (project.coordinator as string) || "",
+    coordinatorUserId: (project.coordinatorUserId as string) || "",
+    principalInvestigatorIds: (project.principalInvestigatorIds as string[]) || [],
+    coPrincipalInvestigatorIds: (project.coPrincipalInvestigatorIds as string[]) || [],
+    investigatorInstituteIds: (project.investigatorInstituteIds as string[]) || [],
     projectType: (project.projectType as string) || "",
     status: (project.status as string) || "Not Started",
     description: (project.description as string) || "",
@@ -235,6 +240,11 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     description: data.description,
     status: data.status || "Not Started",
     coordinator: data.coordinator,
+    mainProject: data.mainProject,
+    coordinatorUserId: data.coordinatorUserId || null,
+    principalInvestigatorIds: data.principalInvestigatorIds.map(Number),
+    coPrincipalInvestigatorIds: data.coPrincipalInvestigatorIds.map(Number),
+    investigatorInstituteIds: data.investigatorInstituteIds.map(Number),
     projectType: data.projectType,
     implementationUnits: data.implementationUnits,
     valueChains: data.valueChains,
@@ -311,7 +321,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     };
   };
 
-  const syncDocuments = async (id: string) => {
+  const syncDocuments = async (id: string, clearState = true) => {
     const docsToUpload = data.documents.filter((doc) => !doc.id && doc.title.trim());
     if (docsToUpload.length === 0) return;
 
@@ -325,14 +335,11 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       await api.postForm("/project-documents/", fd);
     }
 
-    setData((prev) => ({
-      ...prev,
-      documents: prev.documents.filter((doc) => doc.id),
-    }));
+    if (clearState) setData((prev) => ({ ...prev, documents: prev.documents.filter((doc) => doc.id) }));
     await qc.invalidateQueries({ queryKey: qk.documents(id) });
   };
 
-  const persistStep = async (stepToSave = currentStep, markComplete = false) => {
+  const persistStep = async (stepToSave = currentStep, markComplete = false, syncProjectDocuments = true) => {
     if (!data.title.trim()) return projectId;
     setIsSaving(true);
     try {
@@ -356,7 +363,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
         await api.post("/project-mappings/", buildMappingPayload(savedId));
         await qc.invalidateQueries({ queryKey: qk.mapping(savedId) });
       }
-      if (savedId && stepToSave > 4) {
+      if (savedId && stepToSave > 4 && syncProjectDocuments) {
         await syncDocuments(savedId);
       }
       await qc.invalidateQueries({ queryKey: qk.projects });
@@ -393,10 +400,24 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
 
     setIsSubmitting(true);
     try {
-      const id = await persistStep(9, true);
+      const id = await persistStep(9, true, false);
       if (!id) {
         throw new Error("Project could not be saved before completion.");
       }
+      const additionalTitles = data.additionalTitles.map((title) => title.trim()).filter(Boolean);
+      const allProjectIds = [id];
+      for (const title of additionalTitles) {
+        const duplicate = await api.post<{ id: string }>("/projects/", {
+          ...buildProjectPayload(), name: title, logo: initials(title), isDraft: false, currentStep: 9,
+        });
+        allProjectIds.push(duplicate.id);
+        if (data.selectedKeyActivityIds.length || data.selectedOutputIds.length || data.selectedOutputIndicatorIds.length) {
+          await api.post("/project-mappings/", buildMappingPayload(duplicate.id));
+        }
+      }
+      // Upload the selected documents to every independently-created title.
+      for (const projectRecordId of allProjectIds) await syncDocuments(projectRecordId, false);
+      setData((prev) => ({ ...prev, documents: prev.documents.filter((doc) => doc.id) }));
 
       await qc.invalidateQueries({ queryKey: qk.projects });
       toast.success(isEdit ? "Project updated successfully!" : "Project created successfully!");

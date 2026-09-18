@@ -1,4 +1,10 @@
 const BASE = "http://127.0.0.1:8000/api";
+let authToken: string | null = sessionStorage.getItem("kalro_session");
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (token) sessionStorage.setItem("kalro_session", token); else sessionStorage.removeItem("kalro_session");
+}
+function headers(json = false): HeadersInit { return { Accept: "application/json", ...(json ? { "Content-Type": "application/json" } : {}), ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }; }
 
 type Json = Record<string, unknown> | unknown[] | null;
 
@@ -57,14 +63,14 @@ async function handle(res: Response): Promise<unknown> {
 export const api = {
   get: async <T = unknown>(path: string): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
-      headers: { Accept: "application/json" },
+      headers: headers(),
     });
     return handle(res) as Promise<T>;
   },
   post: async <T = unknown>(path: string, body?: Json): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: headers(true),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     return handle(res) as Promise<T>;
@@ -72,7 +78,7 @@ export const api = {
   put: async <T = unknown>(path: string, body?: Json): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: headers(true),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     return handle(res) as Promise<T>;
@@ -80,7 +86,7 @@ export const api = {
   patch: async <T = unknown>(path: string, body?: Json): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: headers(true),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     return handle(res) as Promise<T>;
@@ -88,7 +94,7 @@ export const api = {
   postForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
-      headers: { Accept: "application/json" },
+      headers: headers(),
       body: form,
     });
     return handle(res) as Promise<T>;
@@ -96,7 +102,7 @@ export const api = {
   putForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "PUT",
-      headers: { Accept: "application/json" },
+      headers: headers(),
       body: form,
     });
     return handle(res) as Promise<T>;
@@ -110,7 +116,7 @@ export const api = {
     return handle(res) as Promise<T>;
   },
   del: async (path: string): Promise<void> => {
-    const res = await fetch(`${BASE}${path}`, { method: "DELETE" });
+    const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers: headers() });
     await handle(res);
   },
 };

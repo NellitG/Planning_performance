@@ -39,7 +39,13 @@ export interface DocumentEntry {
 export interface WizardData {
   id?: string;
   title: string;
+  additionalTitles: string[];
+  mainProject: string;
   coordinator: string;
+  coordinatorUserId: string;
+  principalInvestigatorIds: string[];
+  coPrincipalInvestigatorIds: string[];
+  investigatorInstituteIds: string[];
   projectType: string;
   status: string;
   description: string;
@@ -75,7 +81,13 @@ export interface WizardData {
 
 export const INITIAL_WIZARD_DATA: WizardData = {
   title: "",
+  additionalTitles: [],
+  mainProject: "",
   coordinator: "",
+  coordinatorUserId: "",
+  principalInvestigatorIds: [],
+  coPrincipalInvestigatorIds: [],
+  investigatorInstituteIds: [],
   projectType: "",
   status: "Not Started",
   description: "",

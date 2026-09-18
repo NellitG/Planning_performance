@@ -3,13 +3,13 @@ import { api } from "@/utils/apiClient";
 
 export type UserRoleKey =
   | "system_admin"
-  | "national_me"
-  | "high_level"
-  | "business_logic"
-  | "project_manager"
-  | "department_head"
+  | "value_chain_lead"
+  | "accountant"
+  | "project_coordinator"
+  | "me"
+  | "principal_investigator"
+  | "co_principal_investigator"
   | "staff_user"
-  | "value_chain_leads";
 
 export interface ManagedUser {
   id: string;
@@ -114,13 +114,13 @@ const STALE = 30_000;
 export function roleLabel(role: UserRoleKey) {
   const labels: Record<UserRoleKey, string> = {
     system_admin: "System Admin",
-    national_me: "National M&E",
-    high_level: "High Level",
-    business_logic: "Business Logic",
-    project_manager: "Project Manager",
-    department_head: "Department Head",
+    value_chain_lead: "Value Chain Lead",
+    accountant: "Accountant",
+    project_coordinator: "Project-Coordinator",
+    me: "M&E",
+    principal_investigator: "Principal Investigator",
+    co_principal_investigator: "Co-principal investigator",
     staff_user: "Staff User",
-    value_chain_leads: "Value Chain Leads",
   };
   return labels[role] ?? role;
 }
