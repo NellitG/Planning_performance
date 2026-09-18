@@ -358,14 +358,14 @@ export interface AuthState {
 
 export interface LoginParams {
   email: string;
+  password: string;
   moduleKey: string;
-  role?: string;
 }
 
 export interface AuthContextValue {
   auth: AuthState | null;
   hydrated: boolean;
-  login: (params: LoginParams) => AuthState;
+  login: (params: LoginParams) => Promise<AuthState>;
   logout: () => void;
 }
 
