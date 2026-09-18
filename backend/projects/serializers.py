@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from django.db import models, transaction
 
-from user_management.models import ValueChain
+from user_management.models import Institute, UserAccount, ValueChain
 
 from .models import (
     Project,
@@ -42,6 +42,15 @@ class ProjectSerializer(serializers.ModelSerializer):
     coordinator = serializers.CharField(
         source="project_coordinator", required=False, allow_blank=True, default=""
     )
+    mainProject = serializers.CharField(source="main_project", required=False, allow_blank=True, default="")
+    coordinatorUserId = serializers.PrimaryKeyRelatedField(source="coordinator_user", queryset=UserAccount.objects.filter(is_active=True), required=False, allow_null=True)
+    principalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
+    coPrincipalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="co_principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
+    investigatorInstituteIds = serializers.PrimaryKeyRelatedField(source="investigator_institutes", queryset=Institute.objects.all(), many=True, required=False)
+    coordinators = serializers.SerializerMethodField()
+    principalInvestigators = serializers.SerializerMethodField()
+    coPrincipalInvestigators = serializers.SerializerMethodField()
+    investigatorInstitutes = serializers.SerializerMethodField()
     projectType = serializers.CharField(
         source="project_type", required=False, allow_blank=True, default=""
     )
@@ -101,6 +110,15 @@ class ProjectSerializer(serializers.ModelSerializer):
             "description",
             "status",
             "coordinator",
+            "mainProject",
+            "coordinatorUserId",
+            "principalInvestigatorIds",
+            "coPrincipalInvestigatorIds",
+            "investigatorInstituteIds",
+            "coordinators",
+            "principalInvestigators",
+            "coPrincipalInvestigators",
+            "investigatorInstitutes",
             "projectType",
             "startDate",
             "endDate",
@@ -166,6 +184,43 @@ class ProjectSerializer(serializers.ModelSerializer):
             project = super().update(instance, validated_data)
             self._sync_project_locations(project, locations)
         return project
+
+    def _people(self, people):
+        return [{"id": user.id, "fullName": user.full_name, "email": user.email,
+                 "instituteId": user.institute_reference_id, "institute": user.institute}
+                for user in people.all()]
+
+    def get_coordinators(self, obj):
+        if not obj.coordinator_user_id:
+            return []
+        return self._people(UserAccount.objects.filter(pk=obj.coordinator_user_id))
+
+    def get_principalInvestigators(self, obj):
+        return self._people(obj.principal_investigators)
+
+    def get_coPrincipalInvestigators(self, obj):
+        return self._people(obj.co_principal_investigators)
+
+    def get_investigatorInstitutes(self, obj):
+        return [{"id": institute.id, "name": institute.name}
+                for institute in obj.investigator_institutes.all()]
+
+    def validate(self, attrs):
+        # Roles are data-driven and must be present on the selected user.
+        role_checks = (("coordinator_user", "project_coordinator"),
+                       ("principal_investigators", "principal_investigator"),
+                       ("co_principal_investigators", "co_principal_investigator"))
+        for field, role_key in role_checks:
+            users = attrs.get(field)
+            if users is None:
+                continue
+            users = [users] if field == "coordinator_user" and users else users
+            invalid = [user.full_name for user in users if not user.roles.filter(key=role_key).exists()]
+            if invalid:
+                raise serializers.ValidationError({
+                    field: "Selected users do not have the required role: " + ", ".join(invalid)
+                })
+        return attrs
 
 
 class WardSerializer(serializers.ModelSerializer):
@@ -759,6 +814,8 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
     relatedWardReports = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    workflowHistory = serializers.SerializerMethodField()
+    isValueChainLeadCopy = serializers.BooleanField(source="original_report_id", read_only=True)
 
     class Meta:
         model = TechnicalReport
@@ -794,6 +851,9 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "remarks",
             "supportingInformation",
             "supportingDocuments",
+            "status",
+            "workflowHistory",
+            "isValueChainLeadCopy",
             "createdAt",
             "updatedAt",
         ]
@@ -861,6 +921,12 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             }
             for item in grouped.values()
         ]
+
+    def get_workflowHistory(self, obj):
+        return [{"action": x.action, "user": x.user.full_name if x.user else "Deleted user",
+                 "role": x.user_role, "previousStatus": x.previous_status, "newStatus": x.new_status,
+                 "rejectionReason": x.rejection_reason, "at": x.created_at}
+                for x in obj.workflow_audit.all()]
 
     @staticmethod
     def _configured_indicator(main_activity, category, value_chain, indicator_id):

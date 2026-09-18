@@ -36,7 +36,11 @@ from .models import (
     IndicatorReport,
     IndicatorReportEvidence,
     County,
+    ReportWorkflowAudit,
+    WorkflowNotification,
 )
+from .permissions import ProjectPermission, ReportPermission, has_role
+from user_management.models import UserAccount
 from .serializers import (
     ExpectedOutputSerializer,
     ActivityIndicatorSerializer,
@@ -116,6 +120,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     filterset_fields = ["status"]
+    permission_classes = [ProjectPermission]
 
 
 class KeyResultAreaViewSet(viewsets.ModelViewSet):
@@ -369,6 +374,7 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
         "indicator_reports__ward__sub_county__county", "indicator_reports__evidence_files"
     ).all()
     serializer_class = TechnicalReportSerializer
+    permission_classes = [ReportPermission]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["main_activity", "sub_activity", "status"]
     search_fields = [
@@ -385,6 +391,87 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
         # "main_activity__name",
         # "sub_activity__name",
     ]
+
+    def get_queryset(self):
+        qs = super().get_queryset().prefetch_related("workflow_audit__user")
+        user = self.request.user
+        if has_role(user, "system_admin"):
+            return qs
+        if has_role(user, "value_chain_lead"):
+            return qs.filter(created_by=user.account)
+        allowed = {"accountant": "Submitted to Accountant", "project_coordinator": "Submitted to Project Coordinator", "me": "Submitted to M&E"}
+        for role, report_status in allowed.items():
+            if has_role(user, role):
+                return qs.filter(status=report_status)
+        return qs.none()
+
+    def perform_create(self, serializer):
+        if not has_role(self.request.user, "value_chain_lead", "system_admin"):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only a Value Chain Lead can create reports.")
+        serializer.save(created_by=self.request.user.account)
+
+    def perform_update(self, serializer):
+        report = self.get_object()
+        if not has_role(self.request.user, "system_admin") and (not has_role(self.request.user, "value_chain_lead") or report.created_by_id != self.request.user.pk or report.status not in ("Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E")):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Report contents cannot be edited at this workflow stage.")
+        serializer.save()
+
+    def _notify_roles(self, roles, report, message):
+        recipients = UserAccount.objects.filter(is_active=True, roles__key__in=roles).distinct()
+        WorkflowNotification.objects.bulk_create([WorkflowNotification(recipient=user, report=report, message=message) for user in recipients])
+
+    def _transition(self, report, action, next_status, reason=""):
+        previous = report.status
+        report.status = next_status
+        report.save(update_fields=["status", "updated_at"])
+        ReportWorkflowAudit.objects.create(report=report, action=action, user=self.request.user.account,
+            user_role=self.request.user.account.role, previous_status=previous, new_status=next_status, rejection_reason=reason)
+        if report.created_by_id:
+            text = f"Report '{report.title}' was {action.lower()} by {self.request.user.account.full_name}."
+            if reason: text += f" Reason: {reason}"
+            WorkflowNotification.objects.get_or_create(recipient=report.created_by, report=report, message=text)
+        return report
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        report = self.get_object()
+        if not has_role(request.user, "value_chain_lead", "system_admin") or report.created_by_id != request.user.pk or report.status not in ("Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"):
+            return Response({"detail": "This report cannot be submitted by the current user."}, status=403)
+        self._transition(report, "Submitted", "Submitted to Accountant")
+        self._notify_roles(["accountant"], report, f"Report '{report.title}' is awaiting Accountant review.")
+        return Response(self.get_serializer(report).data)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        report = self.get_object()
+        transitions = {"accountant": ("Submitted to Accountant", "Approved by Accountant", "Approved"),
+                       "project_coordinator": ("Submitted to Project Coordinator", "Approved by Project Coordinator", "Approved"),
+                       "me": ("Submitted to M&E", "Approved/Finalized", "Approved")}
+        match = next((v for key, v in transitions.items() if has_role(request.user, key)), None)
+        if not match or report.status != match[0]: return Response({"detail": "Invalid approval transition."}, status=400)
+        with transaction.atomic():
+            self._transition(report, match[2], match[1])
+            if report.status == "Approved by Accountant":
+                report.status = "Submitted to Project Coordinator"; report.save(update_fields=["status"]); self._notify_roles(["project_coordinator"], report, f"Report '{report.title}' is awaiting Project Coordinator review.")
+            elif report.status == "Approved by Project Coordinator":
+                report.status = "Submitted to M&E"; report.save(update_fields=["status"]); self._notify_roles(["me"], report, f"Report '{report.title}' is awaiting M&E review.")
+            elif report.status == "Approved/Finalized" and not hasattr(report, "value_chain_lead_copy"):
+                copy = TechnicalReport.objects.get(pk=report.pk); copy.pk = None; copy.id = None; copy.original_report = report; copy.status = "Approved/Finalized"; copy.save()
+                for row in report.indicator_reports.all():
+                    old = row; old.pk = None; old.id = None; old.technical_report = copy; old.save()
+        return Response(self.get_serializer(report).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        report, reason = self.get_object(), request.data.get("reason", "").strip()
+        if not reason: return Response({"reason": "A rejection reason is required."}, status=400)
+        transitions = {"accountant": ("Submitted to Accountant", "Rejected by Accountant"), "project_coordinator": ("Submitted to Project Coordinator", "Rejected by Project Coordinator"), "me": ("Submitted to M&E", "Rejected by M&E")}
+        match = next((v for key, v in transitions.items() if has_role(request.user, key)), None)
+        if not match or report.status != match[0]: return Response({"detail": "Invalid rejection transition."}, status=400)
+        self._transition(report, "Rejected", match[1], reason)
+        return Response(self.get_serializer(report).data)
 
     @action(detail=False, methods=["get"], url_path="indicator-status")
     def indicator_status(self, request):

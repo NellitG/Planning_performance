@@ -25,6 +25,18 @@ class Project(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Not Started")
 
     project_coordinator = models.CharField(max_length=500, blank=True)
+    # The display field above remains for backwards compatibility.  These
+    # relationships are the authoritative source for new projects.
+    main_project = models.CharField(max_length=500, blank=True)
+    project_group_id = models.UUIDField(null=True, blank=True, db_index=True)
+    coordinator_user = models.ForeignKey("user_management.UserAccount", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="coordinated_projects")
+    principal_investigators = models.ManyToManyField("user_management.UserAccount", blank=True,
+        related_name="principal_investigator_projects")
+    co_principal_investigators = models.ManyToManyField("user_management.UserAccount", blank=True,
+        related_name="co_principal_investigator_projects")
+    investigator_institutes = models.ManyToManyField("user_management.Institute", blank=True,
+        related_name="investigator_projects")
     project_type = models.CharField(max_length=50, blank=True)
 
     implementation_units = models.JSONField(default=dict, blank=True)
@@ -511,9 +523,15 @@ class ActivityIndicator(models.Model):
 class TechnicalReport(models.Model):
     STATUS_CHOICES = [
         ("Draft", "Draft"),
-        ("Submitted", "Submitted"),
-        ("Under Review", "Under Review"),
-        ("Approved", "Approved"),
+        ("Submitted to Accountant", "Submitted to Accountant"),
+        ("Rejected by Accountant", "Rejected by Accountant"),
+        ("Approved by Accountant", "Approved by Accountant"),
+        ("Submitted to Project Coordinator", "Submitted to Project Coordinator"),
+        ("Rejected by Project Coordinator", "Rejected by Project Coordinator"),
+        ("Approved by Project Coordinator", "Approved by Project Coordinator"),
+        ("Submitted to M&E", "Submitted to M&E"),
+        ("Rejected by M&E", "Rejected by M&E"),
+        ("Approved/Finalized", "Approved/Finalized"),
     ]
 
     title = models.CharField(max_length=500)
@@ -543,7 +561,11 @@ class TechnicalReport(models.Model):
     disbursed_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     utilized_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     percentage_utilization = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Draft")
+    status = models.CharField(max_length=60, choices=STATUS_CHOICES, default="Draft")
+    created_by = models.ForeignKey("user_management.UserAccount", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="created_reports")
+    original_report = models.OneToOneField("self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="value_chain_lead_copy")
     achievement = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
     supporting_information = models.TextField(blank=True)
@@ -558,6 +580,31 @@ class TechnicalReport(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ReportWorkflowAudit(models.Model):
+    report = models.ForeignKey(TechnicalReport, on_delete=models.CASCADE, related_name="workflow_audit")
+    action = models.CharField(max_length=30)
+    user = models.ForeignKey("user_management.UserAccount", null=True, on_delete=models.SET_NULL)
+    user_role = models.CharField(max_length=80)
+    previous_status = models.CharField(max_length=80)
+    new_status = models.CharField(max_length=80)
+    rejection_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
+class WorkflowNotification(models.Model):
+    recipient = models.ForeignKey("user_management.UserAccount", on_delete=models.CASCADE, related_name="workflow_notifications")
+    report = models.ForeignKey(TechnicalReport, on_delete=models.CASCADE, related_name="notifications")
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class IndicatorReport(models.Model):
