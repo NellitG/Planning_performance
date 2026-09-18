@@ -1,1 +1,0 @@
-import{j as r}from"./index-DPwriL9V.js";import{P as t}from"./PagePlaceholder-0yb68yJ4.js";import"./card-yCYIh8sk.js";function i(){return r.jsx(t,{title:"Strategic Reports",description:"Published strategic performance reports."})}export{i as default};
