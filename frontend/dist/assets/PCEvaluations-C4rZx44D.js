@@ -1,1 +1,0 @@
-import{j as t}from"./index-j43gANvP.js";import{P as a}from"./PagePlaceholder-DLkvtB1s.js";import"./card-B-0OxQom.js";function e(){return t.jsx(t.Fragment,{children:t.jsx(a,{title:"Evaluations",description:"Quarterly and annual contract evaluations."})})}export{e as default};
