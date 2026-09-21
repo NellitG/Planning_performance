@@ -9,7 +9,9 @@ type CountyPath = { id: string; name: string };
 type Ward = { id: string; name: string };
 type SubCounty = { id: string; name: string; wards: Ward[] };
 type County = { id: string; name: string; svgId: string; subCounties: SubCounty[] };
-const SVG_URL = "http://127.0.0.1:8000/api/kenya-counties/";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const SVG_URL = `${API_BASE_URL}/kenya-counties/`;
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
