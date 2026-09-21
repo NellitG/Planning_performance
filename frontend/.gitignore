@@ -41,3 +41,4 @@ backend/.env
 *.sw?
 .replit
 replit.md
+.env
