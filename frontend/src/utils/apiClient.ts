@@ -1,8 +1,9 @@
-const BASE = "VITE_API_URL/api";
+const BASE = `${import.meta.env.VITE_API_URL}/api`;
 let authToken: string | null = sessionStorage.getItem("kalro_session");
 export function setAuthToken(token: string | null) {
   authToken = token;
-  if (token) sessionStorage.setItem("kalro_session", token); else sessionStorage.removeItem("kalro_session");
+  if (token) sessionStorage.setItem("kalro_session", token); 
+    else sessionStorage.removeItem("kalro_session");
 }
 function headers(json = false): HeadersInit { return { Accept: "application/json", ...(json ? { "Content-Type": "application/json" } : {}), ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }; }
 
