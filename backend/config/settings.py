@@ -1,13 +1,21 @@
 """Django settings for the KALRO PPM Projects backend."""
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-kalro-ppm-dev-key-change-in-production"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-kalro-ppm-dev-key-change-in-production")
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "false").lower() in {"1", "true", "yes", "on"}
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "planning-performance.onrender.com,localhost,127.0.0.1",
+    ).split(",")
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -35,17 +43,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINs = {
-   "https://planning-performance.vercel.app",
-   "http://localhost:5000",
-   "127.0.0.1:5000",
-}
-
-ALLOWED_HOSTS = [
-    "planning-performance.onrender.com",
-    "127.0.0.1",
-    "localhost",
-    ]
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "https://planning-performance.vercel.app,http://localhost:5000,http://127.0.0.1:5000",
+    ).split(",")
+    if origin.strip()
+]
 
 ROOT_URLCONF = "config.urls"
 
@@ -108,7 +113,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB

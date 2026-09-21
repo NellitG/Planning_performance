@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown, ChevronLeft, ChevronRight, LoaderCircle, MapPin, X } from "lucide-react";
-import { api } from "@/utils/apiClient";
+import { api, API_BASE_URL } from "@/utils/apiClient";
 import type { StepProps, LocationEntry } from "./types";
 
 type CountyPath = { id: string; name: string };
@@ -10,7 +10,6 @@ type Ward = { id: string; name: string };
 type SubCounty = { id: string; name: string; wards: Ward[] };
 type County = { id: string; name: string; svgId: string; subCounties: SubCounty[] };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
 const SVG_URL = `${API_BASE_URL}/kenya-counties/`;
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
