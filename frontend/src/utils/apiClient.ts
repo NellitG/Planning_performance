@@ -1,4 +1,4 @@
-const BASE = "http://127.0.0.1:8000/api";
+const BASE = "VITE_API_URL/api";
 let authToken: string | null = sessionStorage.getItem("kalro_session");
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -116,7 +116,10 @@ export const api = {
     return handle(res) as Promise<T>;
   },
   del: async (path: string): Promise<void> => {
-    const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers: headers() });
+    const res = await fetch(`${BASE}${path}`, { 
+      method: "DELETE", 
+      headers: headers() 
+    });
     await handle(res);
   },
 };
