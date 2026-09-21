@@ -35,6 +35,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+CORS_ORIGIN_ALLOW_ALL = {
+   "https://planning-performance.vercel.app/" 
+}
+
+ALLOWED_HOSTS = ["https://planning-performance.onrender.com"]
+
 ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
@@ -96,8 +102,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_CREDENTIALS = True
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400  # 25 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 26214400
