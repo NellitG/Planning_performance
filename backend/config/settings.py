@@ -35,14 +35,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGIN = {
+CORS_ALLOWED_ORIGINs = {
    "https://planning-performance.vercel.app",
    "http://localhost:5000",
    "127.0.0.1:5000",
 }
 
 ALLOWED_HOSTS = [
-    "planning-performance.onrender.com"
+    "planning-performance.onrender.com",
     "127.0.0.1",
     "localhost",
     ]
