@@ -1,4 +1,9 @@
-const BASE = import.meta.env.VITE_API_URL;
+const configuredBase = import.meta.env.VITE_API_URL?.trim();
+const BASE = (
+  configuredBase ||
+  (import.meta.env.DEV ? "/api" : "https://planning-performance.onrender.com/api")
+).replace(/\/+$/, "");
+export const API_BASE_URL = BASE;
 let authToken: string | null = sessionStorage.getItem("kalro_session");
 export function setAuthToken(token: string | null) {
   authToken = token;
