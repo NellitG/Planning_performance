@@ -1,14 +1,18 @@
 const configuredBase = import.meta.env.VITE_API_URL?.trim();
+
 const BASE = (
   configuredBase ||
   (import.meta.env.DEV ? "/api" : "https://planning-performance.onrender.com/api")
 ).replace(/\/+$/, "");
+
 export const API_BASE_URL = BASE;
+
 let authToken: string | null = sessionStorage.getItem("kalro_session");
+
 export function setAuthToken(token: string | null) {
   authToken = token;
-  if (token) sessionStorage.setItem("kalro_session", token); 
-    else sessionStorage.removeItem("kalro_session");
+  if (token) sessionStorage.setItem("kalro_session", token);
+  else sessionStorage.removeItem("kalro_session");
 }
 function headers(json = false): HeadersInit { return { Accept: "application/json", ...(json ? { "Content-Type": "application/json" } : {}), ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }; }
 
@@ -97,6 +101,7 @@ export const api = {
     });
     return handle(res) as Promise<T>;
   },
+
   postForm: async <T = unknown>(path: string, form: FormData): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
@@ -122,9 +127,9 @@ export const api = {
     return handle(res) as Promise<T>;
   },
   del: async (path: string): Promise<void> => {
-    const res = await fetch(`${BASE}${path}`, { 
-      method: "DELETE", 
-      headers: headers() 
+    const res = await fetch(`${BASE}${path}`, {
+      method: "DELETE",
+      headers: headers()
     });
     await handle(res);
   },
