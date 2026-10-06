@@ -7,8 +7,10 @@ import type { StepProps } from "./types";
 import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD } from "./data";
 import { useEffect, useState } from "react";
 import { useManagedUsers, useReferenceData } from "@/hooks/useUserManagementApi";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-function Field({ label, error, required, children }: { label: string; error?: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, error, required, children }:
+  { label: string; error?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-sm font-medium">
@@ -26,6 +28,7 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
   const { data: counties = [] } = useReferenceData();
   const institutes = counties.flatMap((county) => county.institutes);
   const byRole = (role: string) => users.filter((user) => user.active && user.roles.includes(role));
+
   useEffect(() => {
     if (data.coordinatorUserId) return;
     const defaultCoordinator = byRole("project_coordinator").find((user) => user.fullName.toLowerCase() === "dr. michael okoti");
@@ -47,6 +50,13 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
       <div className="rounded-xl border border-border p-6 shadow-sm space-y-5">
         <h2 className="text-base font-semibold text-foreground">Identification</h2>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="Main Project" required error={errors.mainProject}>
+            <Input disabled={!allowAdditionalTitles} value={data.mainProject} onChange={(e) => {
+              onChange({ mainProject: e.target.value });
+              setErrors((p) => ({ ...p, mainProject: "" }));
+            }}
+              placeholder="e.g. Climate Smart Agriculture Programme" />
+          </Field>
           <Field label="Project Titles" required error={errors.title}>
             <div className="space-y-2">
               {[data.title, ...data.additionalTitles].map((title, index) => (
@@ -56,21 +66,44 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
                     else { const titles = [...data.additionalTitles]; titles[index - 1] = e.target.value; onChange({ additionalTitles: titles }); }
                     setErrors((p) => ({ ...p, title: "" }));
                   }} placeholder={index === 0 ? "e.g. Climate-Smart Agriculture Initiative" : "Additional project title"} />
-                  {allowAdditionalTitles && index > 0 && <Button type="button" variant="outline" size="icon" aria-label="Remove project title" onClick={() => onChange({ additionalTitles: data.additionalTitles.filter((_, i) => i !== index - 1) })}><X className="h-4 w-4" /></Button>}
+                  {allowAdditionalTitles && index > 0 && <Button type="button" variant="outline" size="icon" aria-label="Remove project title"
+                    onClick={() => onChange({ additionalTitles: data.additionalTitles.filter((_, i) => i !== index - 1) })}>
+                    <X className="h-4 w-4" />
+                  </Button>}
                 </div>
               ))}
-              {allowAdditionalTitles && <><Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => onChange({ additionalTitles: [...data.additionalTitles, ""] })}><Plus className="h-4 w-4" /> Add project title</Button><p className="text-xs text-muted-foreground">The first title starts now. Added titles are saved as independent drafts when this title is finished.</p></>}
+              {allowAdditionalTitles && <><Button type="button" variant="outline" size="sm" className="gap-1.5"
+                onClick={() => onChange({ additionalTitles: [...data.additionalTitles, ""] })}>
+                <Plus className="h-4 w-4" /> Add project title</Button></>}
             </div>
           </Field>
-          <Field label="Main Project" required error={errors.mainProject}><Input disabled={!allowAdditionalTitles} value={data.mainProject} onChange={(e) => { onChange({ mainProject: e.target.value }); setErrors((p) => ({ ...p, mainProject: "" })); }} placeholder="e.g. Climate Smart Agriculture Programme" /></Field>
           <Field label="Project Coordinator">
-            <select value={data.coordinatorUserId} onChange={(e) => { const user = users.find((x) => x.id === e.target.value); onChange({ coordinatorUserId: e.target.value, coordinator: user?.fullName || "" }); }} className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm">
-              <option value="">— Select coordinator —</option>{byRole("project_coordinator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}
+            <select value={data.coordinatorUserId} onChange={(e) => {
+              const user = users.find((x) => x.id === e.target.value);
+              onChange({ coordinatorUserId: e.target.value, coordinator: user?.fullName || "" });
+            }}
+              className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm">
+              <option value="">— Select coordinator —</option>{byRole("project_coordinator").map((user) =>
+                <option key={user.id} value={user.id}>{user.fullName}</option>)}
             </select>
           </Field>
-          <Field label="Principal Investigator"><select multiple value={data.principalInvestigatorIds} onChange={(e) => onChange({ principalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("principal_investigator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}</select></Field>
-          <Field label="Co-Principal Investigator"><select multiple value={data.coPrincipalInvestigatorIds} onChange={(e) => onChange({ coPrincipalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("co_principal_investigator").map((user) => <option key={user.id} value={user.id}>{user.fullName}</option>)}</select></Field>
-          <Field label="PI / Co-PI Institute"><select multiple value={data.investigatorInstituteIds} onChange={(e) => onChange({ investigatorInstituteIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })} className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{institutes.map((institute) => <option key={institute.id} value={institute.id}>{institute.name}</option>)}</select></Field>
+          <Field label="Principal Investigator">
+            <select multiple value={data.principalInvestigatorIds} onChange={(e) => onChange({ principalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}
+              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("principal_investigator").map((user) =>
+                <option key={user.id} value={user.id}>{user.fullName}</option>)}
+            </select>
+          </Field>
+          <Field label="Co-Principal Investigator">
+            <select multiple value={data.coPrincipalInvestigatorIds} onChange={(e) => onChange({ coPrincipalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}
+              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("co_principal_investigator").map((user) =>
+                <option key={user.id} value={user.id}>{user.fullName}</option>)}
+            </select>
+          </Field>
+          <Field label="PI / Co-PI Institute"><select multiple value={data.investigatorInstituteIds} onChange={(e) => onChange({ investigatorInstituteIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}
+            className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{institutes.map((institute) =>
+              <option key={institute.id} value={institute.id}>{institute.name}</option>)}
+          </select>
+          </Field>
           <Field label="Project Type" required error={errors.projectType}>
             <select
               value={data.projectType}
@@ -88,7 +121,8 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               <option value="">— Select Status —</option>
-              {PROJECT_STATUSES_WIZARD.map((s) => <option key={s} value={s}>{s}</option>)}
+              {PROJECT_STATUSES_WIZARD.map((s) =>
+                <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
         </div>
