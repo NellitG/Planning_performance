@@ -1,0 +1,1 @@
+import{j as t}from"./index-CTuoImCB.js";import{P as e}from"./PagePlaceholder-1D6j0lIf.js";import"./card-DwwA09Vj.js";function s(){return t.jsx(e,{title:"Project Staff",description:"Manage project teams and assignments."})}export{s as default};
