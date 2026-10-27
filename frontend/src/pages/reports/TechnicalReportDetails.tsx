@@ -205,7 +205,7 @@ export default function TechnicalReportDetails() {
           {item("Category", report.category)}
           {item("Value chain", report.valueChain)}
           {item("Sub activity", report.subActivityName)}
-          {item("Reporting ward", report.wardName)}
+          {item("Reporting location", report.selectedLocations?.length ? report.selectedLocations.map((place) => [place.countyName, place.subCountyName, place.wardName].filter(Boolean).join(" / ")).join(", ") : report.wardName || "General")}
           {item("Reporting period", report.reportingPeriod)}
           {item("Date created", date(report.createdAt))}
           {item("Amount disbursed", report.disbursedAmount)}
@@ -220,12 +220,9 @@ export default function TechnicalReportDetails() {
           <h3 className="mb-3 font-semibold">Geographic Coverage</h3>
           <div className="space-y-2 rounded-md border bg-muted/20 p-4 text-sm">
             {(report.selectedLocations?.length ? report.selectedLocations : report.wardName ? [{ countyName: report.countyName || "County not recorded", subCountyName: report.subCountyName || "Sub-county not recorded", wardName: report.wardName }] : []).map((place, index) => (
-              <div key={`${place.wardName}-${index}`} className="flex items-start gap-2">
+              <div key={`${place.countyName}-${place.subCountyName}-${place.wardName}-${index}`} className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-green-700" /><span>
-                  <strong>{place.countyName}</strong>
-                  <span className="text-muted-foreground">→</span>
-                  <strong>{place.subCountyName}</strong>
-                  <span className="text-muted-foreground">→</span> {place.wardName}</span>
+                  {[place.countyName, place.subCountyName, place.wardName].filter(Boolean).join(" → ")}</span>
               </div>
             ))}
             {!report.selectedLocations?.length && !report.wardName && <span>N/A</span>}
@@ -235,9 +232,9 @@ export default function TechnicalReportDetails() {
         <section>
           <h3 className="mb-3 font-semibold">Indicators &amp; Reporting</h3>
           <div className="space-y-4">
-            {(report.relatedWardReports?.length ? report.relatedWardReports : [{ id: report.id, wardName: report.wardName || "Reporting ward", subCountyName: report.subCountyName || "", countyName: report.countyName || "", indicatorReports: report.indicatorReports || [], disbursedAmount: report.disbursedAmount || 0, utilizedAmount: report.utilizedAmount || 0 }]).map((wardReport) => (
+            {(report.relatedWardReports?.length ? report.relatedWardReports : [{ id: report.id, wardId: report.wardId, wardName: report.wardName || "", locationId: null, locationLevel: report.wardName ? "Ward" : "General", subCountyName: report.subCountyName || "", countyName: report.countyName || "", indicatorReports: report.indicatorReports || [], disbursedAmount: report.disbursedAmount || 0, utilizedAmount: report.utilizedAmount || 0 }]).map((wardReport) => (
               <div key={wardReport.id} className="rounded-md border p-4">
-                <p className="mb-3 text-sm font-semibold text-green-800">{[wardReport.countyName, wardReport.subCountyName, wardReport.wardName].filter(Boolean).join(" → ")}</p>
+                <p className="mb-3 text-sm font-semibold text-green-800">{[wardReport.countyName, wardReport.subCountyName, wardReport.wardName].filter(Boolean).join(" → ") || wardReport.locationLevel || "General report"}</p>
                 <div className="space-y-3">
                   {wardReport.indicatorReports.map((indicator) => <div key={indicator.id} className="rounded-md bg-muted/20 p-3 text-sm">
                     <div className="grid gap-3 md:grid-cols-3"><div>

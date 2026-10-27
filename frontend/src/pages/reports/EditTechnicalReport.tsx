@@ -14,6 +14,7 @@ import { api } from "@/utils/apiClient";
 
 type Location = NonNullable<TechnicalReport["selectedLocations"]>[number];
 type WardValues = Record<string, Array<Record<string, any>>>;
+const locationKey = (location: Location) => location.projectLocationId ? `location:${location.projectLocationId}` : location.wardId ? `ward:${location.wardId}` : location.subCountyId ? `subcounty:${location.subCountyId}` : `county:${location.countyId}`;
 
 export default function EditTechnicalReport() {
   const { id } = useParams(); const navigate = useNavigate();
@@ -26,13 +27,17 @@ export default function EditTechnicalReport() {
     if (!report) return;
     setTitle(report.title || ""); setUtilizedAmount(String(report.utilizedAmount ?? 0));
     setLocations(report.selectedLocations || (report.wardId ? [{ countyId: "", countyName: report.countyName || "", subCountyId: "", subCountyName: report.subCountyName || "", wardId: report.wardId, wardName: report.wardName || "" }] : []));
-    setWardValues((report.indicatorReports || []).reduce<WardValues>((result, row) => { const wardId = row.wardId || report.wardId; 
-      if (wardId) (result[wardId] ||= []).push({ ...row }); 
+    setWardValues((report.indicatorReports || []).reduce<WardValues>((result, row) => { const key = row.projectLocationId || row.wardId || report.wardId || "__none__";
+      (result[key] ||= []).push({ ...row });
       return result; }, {}));
   }, [report]);
 
   const project = projects.find((item) => item.id === report?.projectId);
-  const availableLocations = useMemo(() => (project?.locations || []).filter((item) => item.countyId && item.subCountyId && item.wardId).map((item) => ({ countyId: item.countyId!, countyName: item.county, subCountyId: item.subCountyId!, subCountyName: item.subCounty, wardId: item.wardId!, wardName: item.ward })), [project]);
+  const availableLocations = useMemo(() => {
+    const configured = project?.locations || [];
+    return configured.filter((item) => item.projectLocationId && item.countyId)
+      .map((item) => ({ projectLocationId: item.projectLocationId, level: item.wardId ? "Ward" : item.subCountyId ? "Sub-county" : "County", countyId: item.countyId!, countyName: item.county, ...(item.subCountyId ? { subCountyId: item.subCountyId, subCountyName: item.subCounty } : {}), ...(item.wardId ? { wardId: item.wardId, wardName: item.ward } : {}) }));
+  }, [project]);
   const changeValue = (wardId: string, index: number, field: string, value: string) => setWardValues((current) => ({ ...current, [wardId]: (current[wardId] || []).map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value, ...(field === "reportedProgress" && value !== "" && Number(value) === 0 ? { achievement: "", remarks: "" } : {}) } : row) }));
   const uploadEvidence = async (rowId: string, files: FileList | null) => {
     if (!id || !files?.length)
@@ -41,19 +46,20 @@ export default function EditTechnicalReport() {
     await api.postForm(`/technical-reports/${id}/indicator-reports/${rowId}/evidence/`, data); await refetch();
   };
   const save = async (event: React.FormEvent) => {
-    event.preventDefault(); if (!report || !title.trim() || !locations.length)
-      return toast.error("A title and at least one ward are required.");
+    event.preventDefault(); if (!report || !title.trim())
+      return toast.error("A report title is required.");
     const disbursed = Number(report.disbursedAmount || 0), utilized = Number(utilizedAmount || 0);
     try {
       await update.mutateAsync({
         ...report, id: report.id, title: title.trim(),
         selectedLocations: locations,
-        wardId: locations[0].wardId,
+        wardId: locations.find((location) => location.wardId)?.wardId || null,
         utilizedAmount: utilized,
         percentageUtilization: disbursed ? Number(((utilized / disbursed) * 100).toFixed(2)) : 0,
-        indicatorReports: locations.flatMap((location) => (wardValues[location.wardId] || []).map((row) =>
+        indicatorReports: (locations.length ? locations : [{ countyId: "", countyName: "" }]).flatMap((location) => ((location.projectLocationId ? (wardValues[location.projectLocationId] || (location.wardId ? wardValues[location.wardId] : undefined)) : wardValues[location.wardId || "__none__"]) || []).map((row) =>
         ({
-          wardId: location.wardId, indicatorId: row.indicatorId,
+          ...(location.projectLocationId ? { projectLocationId: location.projectLocationId } : {}),
+          ...(location.wardId ? { wardId: location.wardId } : {}), indicatorId: row.indicatorId,
           indicator: row.indicator, target: row.target,
           reportedProgress: Number(row.reportedProgress || 0),
           achievement: row.achievement || "", remarks: row.remarks || "",
@@ -95,31 +101,31 @@ export default function EditTechnicalReport() {
           </div>
         </Card>
         <Card className="p-6"><h2 className="text-lg font-semibold">Geographic Coverage</h2>
-          <div className="mt-4 space-y-2">{availableLocations.map((location) => <label key={location.wardId} className="flex items-center gap-2 text-sm">
-            <Checkbox checked={locations.some((item) => item.wardId === location.wardId)} onCheckedChange={(checked) => setLocations((current) => checked ? [...current, location] : current.filter((item) => item.wardId !== location.wardId))} />
-            {location.countyName} → {location.subCountyName} → {location.wardName}</label>)}
+          <div className="mt-4 space-y-2"><label className="flex items-center gap-2 text-sm"><Checkbox checked={locations.length === 0} onCheckedChange={() => setLocations([])} />No specific location</label>{availableLocations.map((location) => <label key={locationKey(location)} className="flex items-center gap-2 text-sm">
+            <Checkbox checked={locations.some((item) => locationKey(item) === locationKey(location) || (!!item.wardId && item.wardId === location.wardId))} onCheckedChange={(checked) => setLocations((current) => checked ? [...current, location] : current.filter((item) => locationKey(item) !== locationKey(location) && (!location.wardId || item.wardId !== location.wardId)))} />
+            <span className="text-xs font-semibold uppercase text-muted-foreground">{location.level}</span> {[location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" → ")}</label>)}
           </div>
         </Card>
         <Card className="space-y-5 p-6"><div>
-          <h2 className="text-lg font-semibold">Ward Report Details</h2>
-          <p className="text-sm text-muted-foreground">Details are saved independently for each ward.</p>
-        </div>{locations.map((location) => {
-          const rows = wardValues[location.wardId] || []; return <section key={location.wardId} className="overflow-hidden rounded-lg border border-green-200">
+          <h2 className="text-lg font-semibold">Report Details</h2>
+          <p className="text-sm text-muted-foreground">Details follow each selected Project Title location.</p>
+        </div>{(locations.length ? locations : [{ countyId: "", countyName: "No specific location" }]).map((location) => {
+          const key = location.projectLocationId || location.wardId || "__none__";
+          const rows = wardValues[key] || (location.wardId ? wardValues[location.wardId] : undefined) || []; return <section key={locationKey(location)} className="overflow-hidden rounded-lg border border-green-200">
             <div className="sticky top-0 z-10 bg-green-50 p-4">
-              <h3 className="font-semibold">Report Details — {location.wardName}</h3><p className="text-sm">County: {location.countyName} → Sub-county: {location.subCountyName} → Ward:
-                {location.wardName}</p></div>{!rows.length ?
-                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this ward.</p> : rows.map((row, index) => { const isZeroReport = row.reportedProgress !== "" && Number(row.reportedProgress) === 0; return <div key={row.id || row.indicatorId}
+              <h3 className="font-semibold">Report Details — {[location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ")}</h3></div>{!rows.length ?
+                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this location.</p> : rows.map((row, index) => { const isZeroReport = row.reportedProgress !== "" && Number(row.reportedProgress) === 0; return <div key={row.id || row.indicatorId}
                     className="space-y-3 border-t p-4"><div className="grid gap-3 md:grid-cols-3"><p><b>Indicator:</b> {row.indicator}</p>
                       <p>
                         <b>Target:</b> {row.target}</p>
                       <div>
                         <Label>Report against target</Label>
-                        <Input type="number" min="0" step="any" value={row.reportedProgress} onChange={(event) => changeValue(location.wardId, index, "reportedProgress", event.target.value)} />
+                        <Input type="number" min="0" step="any" value={row.reportedProgress} onChange={(event) => changeValue(key, index, "reportedProgress", event.target.value)} />
                       </div>
                     </div>
-                    {isZeroReport ? <div><Label>Reason for Zero <span className="text-red-600">*</span></Label><Textarea value={row.reasonForZero || ""} onChange={(event) => changeValue(location.wardId, index, "reasonForZero", event.target.value)} placeholder="Explain why no progress was reported for this indicator." /></div> : <div className="grid gap-3 md:grid-cols-2"><div>
-                      <Label>Achievement</Label><Textarea value={row.achievement} onChange={(event) => changeValue(location.wardId, index, "achievement", event.target.value)} />
-                    </div><div><Label>Remarks</Label><Textarea value={row.remarks} onChange={(event) => changeValue(location.wardId, index, "remarks", event.target.value)} />
+                    {isZeroReport ? <div><Label>Reason for Zero <span className="text-red-600">*</span></Label><Textarea value={row.reasonForZero || ""} onChange={(event) => changeValue(key, index, "reasonForZero", event.target.value)} placeholder="Explain why no progress was reported for this indicator." /></div> : <div className="grid gap-3 md:grid-cols-2"><div>
+                      <Label>Achievement</Label><Textarea value={row.achievement} onChange={(event) => changeValue(key, index, "achievement", event.target.value)} />
+                    </div><div><Label>Remarks</Label><Textarea value={row.remarks} onChange={(event) => changeValue(key, index, "remarks", event.target.value)} />
                       </div>
                     </div>}
                     <div className="text-sm"><b>Evidence:</b> {row.evidenceFiles?.map((file: any) => <a key={file.id} className="ml-2 text-green-700 underline" href={file.url || undefined} target="_blank" rel="noreferrer">{file.name}</a>)}

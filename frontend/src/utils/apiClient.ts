@@ -1,8 +1,7 @@
 const configuredBase = import.meta.env.VITE_API_URL?.trim();
 
 const BASE = (
-  configuredBase ||
-  (import.meta.env.DEV ? "/api" : "https://planning-performance.onrender.com/api")
+  import.meta.env.DEV ? "/api" : configuredBase || "http://localhost:5000/api"
 ).replace(/\/+$/, "");
 
 export const API_BASE_URL = BASE;

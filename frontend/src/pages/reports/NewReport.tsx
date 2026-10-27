@@ -21,7 +21,7 @@ import {
   useTechnicalReports,
 } from "@/hooks/useProjectsApi";
 import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
-import type { ActivityIndicator, MainActivityIndicator } from "@/utils/types";
+import type { ActivityIndicator, MainActivityIndicator, Project } from "@/utils/types";
 import { api } from "@/utils/apiClient";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -31,9 +31,18 @@ interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 type IndicatorValue = { reportedProgress: string; achievement: string; remarks: string; reasonForZero: string; files: File[] };
 type WardIndicatorValues = Record<string, IndicatorValue>;
-type ProjectWard = { id: string; name: string };
-type ProjectSubCounty = { id: string; name: string; wards: ProjectWard[] };
-type ProjectCounty = { id: string; name: string; subCounties: Map<string, ProjectSubCounty> };
+type ReportingLocation = {
+  key: string;
+  projectLocationId: string;
+  level: "County" | "Sub-county" | "Ward";
+  countyId: string;
+  countyName: string;
+  subCountyId?: string;
+  subCountyName?: string;
+  wardId?: string;
+  wardName?: string;
+};
+const EMPTY_PROJECT_LOCATIONS: NonNullable<Project["locations"]> = [];
 
 function Field({ label, ...props }: FieldProps) {
   return (
@@ -155,32 +164,25 @@ export default function NewReport() {
   const selectedMainActivity = mainActivities.find((activity) => activity.id === selectedMainActivityId);
   const selectedSubActivity = selectedSubActivities.find((activity) => activity.id === selectedSubActivityId);
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
-  const projectLocations = selectedProject?.locations || [];
+  const projectLocations = selectedProject?.locations ?? EMPTY_PROJECT_LOCATIONS;
 
-  const projectCounties = useMemo(() => {
-    const counties = new Map<string, ProjectCounty>();
+  const reportingLocations = useMemo<ReportingLocation[]>(() => {
+    const unique = new Map<string, ReportingLocation>();
     projectLocations.forEach((location) => {
-      if
-        (!location.countyId || !location.subCountyId || !location.wardId)
-        return;
-      const county: ProjectCounty = counties.get(location.countyId) || {
-        id: location.countyId,
-        name: location.county,
-        subCounties: new Map<string, ProjectSubCounty>(),
-      };
-      const subCounty: ProjectSubCounty = county.subCounties.get(location.subCountyId) || {
-        id: location.subCountyId,
-        name: location.subCounty,
-        wards: [],
-      };
-      if
-        (!subCounty.wards.some((ward) => ward.id === location.wardId)) subCounty.wards.push({ id: location.wardId, name: location.ward });
-
-      county.subCounties.set(subCounty.id, subCounty);
-      counties.set(county.id, county);
+      if (!location.countyId || !location.projectLocationId) return;
+      const level = location.wardId ? "Ward" : location.subCountyId ? "Sub-county" : "County";
+      const key = `location:${location.projectLocationId}`;
+      unique.set(key, {
+        key,
+        projectLocationId: location.projectLocationId!,
+        level,
+        countyId: location.countyId!,
+        countyName: location.county,
+        ...(location.subCountyId ? { subCountyId: location.subCountyId, subCountyName: location.subCounty } : {}),
+        ...(location.wardId ? { wardId: location.wardId, wardName: location.ward } : {}),
+      });
     });
-
-    return [...counties.values()];
+    return [...unique.values()];
   }, [projectLocations]);
 
   const isLoadingReportingData =
@@ -207,10 +209,8 @@ export default function NewReport() {
     .reduce((sum, report) => sum + Number(report.utilizedAmount || 0), 0), [previousReports, selectedProjectId, financialYear, quarter, selectedMainActivityId, selectedSubActivityId, category, selectedValueChain]);
   const amountRemaining = Math.max(0, Number(disbursed || 0) - previousUtilized - Number(utilized || 0));
 
-  const selectedLocations = useMemo(() => selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) =>
-    [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards
-      .filter((ward) => ward.id === wardId)
-      .map((ward) => ({ countyId: county.id, countyName: county.name, subCountyId: subCounty.id, subCountyName: subCounty.name, wardId: ward.id, wardName: ward.name }))))), [selectedWardIds, projectCounties]);
+  const selectedLocations = useMemo(() => reportingLocations.filter((location) => selectedWardIds.includes(location.key)), [reportingLocations, selectedWardIds]);
+  const reportingKeys = selectedWardIds.length ? selectedWardIds : ["__none__"];
 
   const handleMainActivityChange = (value: string) => {
     setSelectedMainActivityId(value);
@@ -266,42 +266,33 @@ export default function NewReport() {
 
   useEffect(() => {
     if (!selectedProjectId || !selectedWardIds.length || !availableIndicators.length) {
-      setCumulativeByWard({});
+      setCumulativeByWard((current) => Object.keys(current).length ? {} : current);
       return;
     }
     let active = true;
-    Promise.all(selectedWardIds.map(async (wardId) => {
-      const params = new URLSearchParams({ project: selectedProjectId, ward: wardId });
+    Promise.all(selectedWardIds.map(async (locationKey) => {
+      const location = selectedLocations.find((item) => item.key === locationKey);
+      if (!location) return [locationKey, {}] as const;
+      const params = new URLSearchParams({ project: selectedProjectId, location: location.projectLocationId });
       availableIndicators.forEach((indicator) => params.append("indicatorId", indicator.id));
       const result = await api.get<{ cumulative: Record<string, number> }>(`/technical-reports/indicator-status/?${params}`);
-      return [wardId, result.cumulative] as const;
+      return [locationKey, result.cumulative] as const;
     })).then((results) => {
       if (active) setCumulativeByWard(Object.fromEntries(results));
     }).catch(() => {
-      if (active) setCumulativeByWard({});
+      if (active) setCumulativeByWard((current) => Object.keys(current).length ? {} : current);
     });
     return () => { active = false; };
-  }, [selectedProjectId, selectedWardKey, indicatorStatusKey]);
+  }, [selectedProjectId, selectedWardKey, indicatorStatusKey, selectedLocations]);
 
   const updateWardIndicator = (wardId: string, indicatorId: string, field: keyof Omit<IndicatorValue, "files">, value: string) => {
-    setWardIndicatorValues((current) => ({
-      ...current,
-      [wardId]: {
-        ...current[wardId],
-        [indicatorId]: {
-          reportedProgress: current[wardId]?.[indicatorId]?.reportedProgress || "",
-          achievement: current[wardId]?.[indicatorId]?.achievement || "",
-          remarks: current[wardId]?.[indicatorId]?.remarks || "",
-          reasonForZero: current[wardId]?.[indicatorId]?.reasonForZero || "",
-          files: current[wardId]?.[indicatorId]?.files || [],
-          // A zero report has a different, mutually exclusive capture path.
-          // Clear hidden values so they can never be submitted/uploaded for it.
-          ...(field === "reportedProgress" && value !== "" && Number(value) === 0
-            ? { reportedProgress: value, achievement: "", remarks: "", files: [] }
-            : { [field]: value }),
-        },
-      },
-    }));
+    setWardIndicatorValues((current) => {
+      const previous = current[wardId]?.[indicatorId] || { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
+      const next = field === "reportedProgress" && value !== "" && Number(value) === 0
+        ? { ...previous, reportedProgress: value, achievement: "", remarks: "", files: [] }
+        : { ...previous, [field]: value };
+      return { ...current, [wardId]: { ...current[wardId], [indicatorId]: next } };
+    });
   };
 
   const setIndicatorFiles = (wardId: string, indicatorId: string, files: File[]) => setWardIndicatorValues((current) => ({
@@ -319,11 +310,6 @@ export default function NewReport() {
 
     if (!selectedMainProjectId || !selectedProjectId) {
       toast.error("Please select a Main Project and Project Title.");
-      return;
-    }
-
-    if (selectedWardIds.length === 0) {
-      toast.error("Select at least one project ward before saving.");
       return;
     }
 
@@ -391,11 +377,13 @@ export default function NewReport() {
         reportGroupId,
         selectedLocations,
       };
-      const indicatorReports = selectedWardIds.flatMap((wardId) => availableIndicators.flatMap((indicator) => {
-        const value = wardIndicatorValues[wardId]?.[indicator.id];
+      const indicatorReports = reportingKeys.flatMap((locationKey) => availableIndicators.flatMap((indicator) => {
+        const value = wardIndicatorValues[locationKey]?.[indicator.id];
         if (!value || value.reportedProgress === "") return [];
+        const location = selectedLocations.find((item) => item.key === locationKey);
         return [{
-          wardId,
+          ...(location ? { projectLocationId: location.projectLocationId } : {}),
+          ...(location?.wardId ? { wardId: location.wardId } : {}),
           indicatorId: indicator.id,
           indicator: indicator.indicator,
           target: Number(indicator.target || 0),
@@ -405,9 +393,14 @@ export default function NewReport() {
           reasonForZero: value.reasonForZero,
         }];
       }));
-      const saved = await createReport.mutateAsync({ ...reportPayload, wardId: selectedWardIds[0], indicatorReports } as any);
+      const saved = await createReport.mutateAsync({
+        ...reportPayload,
+        ...(selectedLocations[0]?.wardId ? { wardId: selectedLocations[0].wardId } : {}),
+        indicatorReports,
+      } as any);
       await Promise.all((saved.indicatorReports || []).map((row: any) => {
-        const rowValue = wardIndicatorValues[row.wardId]?.[row.indicatorId];
+        const locationKey = selectedLocations.find((location) => location.projectLocationId === row.projectLocationId)?.key || (row.wardId ? `location:${row.projectLocationId || ""}` : "__none__");
+        const rowValue = wardIndicatorValues[locationKey]?.[row.indicatorId];
         const rowFiles = rowValue && Number(rowValue.reportedProgress) !== 0 ? rowValue.files : [];
         if (!rowFiles.length) return Promise.resolve();
         const form = new FormData();
@@ -480,22 +473,16 @@ export default function NewReport() {
           </div>
         </Section>
         <Section index={2} title="Project Locations">
-          {!selectedProjectId ? <p className="text-sm text-muted-foreground">Select a project to view its locations.</p> : projectCounties.length === 0 ? <p className="text-sm text-muted-foreground">This project has no ward locations configured.</p> :
-
-            <div className="space-y-3">{projectCounties.map((county) => {
-              const countyWardIds = [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id)); return <div key={county.id} className="rounded-md border p-3">
-                <label className="flex items-center gap-2 font-medium"><Checkbox checked={countyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...countyWardIds])] : current.filter((id) => !countyWardIds.includes(id)))} />{county.name}</label>
-                <div className="ml-6 mt-2 space-y-2">{[...county.subCounties.values()].map((subCounty) => {
-                  const subCountyWardIds = subCounty.wards.map((ward) => ward.id);
-                  return <div key={subCounty.id}><label className="flex items-center gap-2 text-sm font-medium">
-                    <Checkbox checked={subCountyWardIds.some((id) => selectedWardIds.includes(id))} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ...subCountyWardIds])] : current.filter((id) => !subCountyWardIds.includes(id)))} />{subCounty.name}</label><div className="ml-6 mt-1 space-y-1">{subCounty.wards.map((ward) => <label key={ward.id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Checkbox checked={selectedWardIds.includes(ward.id)} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...new Set([...current, ward.id])] : current.filter((id) => id !== ward.id))} />{ward.name}</label>)}</div></div>;
-                })}</div></div>;
-            })}</div>}
-          {selectedWardIds.length > 0 && <div className="mt-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">Reporting Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? `${county.name} / ${subCounty.name} / ${ward.name}` : "")))).filter(Boolean).join(", ")}</div>}
+          {!selectedProjectId ? <p className="text-sm text-muted-foreground">Select a project to view its locations.</p> : reportingLocations.length === 0 ? <p className="text-sm text-muted-foreground">This project has no locations configured. You may submit a general report without a specific location.</p> :
+            <div className="space-y-2">{reportingLocations.map((location) => <label key={location.key} className="flex items-center gap-2 rounded-md border p-3 text-sm">
+              <Checkbox checked={selectedWardIds.includes(location.key)} onCheckedChange={(checked) => setSelectedWardIds((current) => checked ? [...current, location.key] : current.filter((key) => key !== location.key))} />
+              <span className="text-xs font-semibold uppercase text-muted-foreground">{location.level}</span>
+              {[location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ")}
+            </label>)}</div>}
+          {selectedLocations.length > 0 && <div className="mt-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">Reporting locations: {selectedLocations.map((location) => [location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ")).join(", ")}</div>}
         </Section>
-        {selectedWardIds.length > 0 && <Section index={3} title="Main Activity Reporting">
-          <div className="mb-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">Wards: {selectedWardIds.flatMap((wardId) => projectCounties.flatMap((county) => [...county.subCounties.values()].flatMap((subCounty) => subCounty.wards.map((ward) => ward.id === wardId ? ward.name : "")))).filter(Boolean).join(", ")}</div>
+        {!!selectedProjectId && <Section index={3} title="Main Activity Reporting">
+          <div className="mb-4 rounded-md border-l-4 border-green-200 bg-green-50 p-3 text-sm font-medium">{selectedLocations.length ? `Locations: ${selectedLocations.map((location) => [location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ")).join(", ")}` : "General report (no specific location selected)"}</div>
           <div className="space-y-4">
             <div className="space-y-4 rounded-lg border border-border bg-muted/10 p-4">
               {isLoadingReportingData && (
@@ -567,13 +554,13 @@ export default function NewReport() {
                   </div>
 
                   <div className="space-y-5">
-                    {!selectedSubActivityId ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">Select a sub activity to view indicators and targets.</p> : availableIndicators.length === 0 ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">No indicators found for the selected reporting path.</p> : selectedWardIds.map((wardId, wardIndex) => {
-                      const location = selectedLocations.find((item) => item.wardId === wardId);
-                      const wardName = location?.wardName || "Selected ward";
+                    {!selectedSubActivityId ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">Select a sub activity to view indicators and targets.</p> : availableIndicators.length === 0 ? <p className="rounded-md border border-dashed border-border/70 bg-muted/10 p-3 text-sm text-muted-foreground">No indicators found for the selected reporting path.</p> : reportingKeys.map((locationKey, locationIndex) => {
+                      const location = selectedLocations.find((item) => item.key === locationKey);
+                      const locationName = location ? [location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ") : "No specific location";
+                      const wardId = locationKey;
                       return <div key={wardId} className="space-y-3 rounded-lg border border-green-200 bg-green-50/40 p-4">
                         <div className="sticky top-0 z-10 -mx-4 -mt-4 rounded-t-lg border-b border-green-200 bg-green-100/80 p-4 text-green-950">
-                          <h3 className="font-semibold">Ward {wardIndex + 1} — {wardName}</h3>
-                          <p className="mt-1 text-sm">County: {location?.countyName || "Not recorded"} → Sub-county: {location?.subCountyName || "Not recorded"} → Ward: {wardName}</p>
+                          <h3 className="font-semibold">{location?.level || "General"} report {location ? locationIndex + 1 : ""} — {locationName}</h3>
                           <p className="mt-1 text-sm"><span className="font-medium">Main Activity:</span> {selectedMainActivity?.name || "Not selected"}</p>
                         </div>
                         {availableIndicators.map((indicator) => {
