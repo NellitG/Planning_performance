@@ -1,0 +1,1 @@
+import{j as e}from"./index-BjBgJ01P.js";import{P as t}from"./PagePlaceholder-DWAb2Wc2.js";import"./card-pgIOzUqX.js";function s(){return e.jsx(t,{title:"Objectives",description:"Strategic objectives linked to each plan."})}export{s as default};

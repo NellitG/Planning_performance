@@ -1,0 +1,1 @@
+import{j as r}from"./index-BjBgJ01P.js";import{P as t}from"./PagePlaceholder-DWAb2Wc2.js";import"./card-pgIOzUqX.js";function p(){return r.jsx(t,{title:"PC Reports",description:"Performance contract periodic reports."})}export{p as default};
