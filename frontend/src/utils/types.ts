@@ -27,7 +27,7 @@ export interface Project {
   men?: number | string | null;
   youth?: number | string | null;
   pwds?: number | string | null;
-  locations?: Array<{ county: string; countyId?: string; subCounty: string; subCountyId?: string; ward: string; wardId?: string; svgId?: string }>;
+  locations?: Array<{ projectLocationId?: string; county: string; countyId?: string; subCounty: string; subCountyId?: string; ward: string; wardId?: string; svgId?: string }>;
   fundingSources?: Array<Record<string, unknown>>;
   isDraft?: boolean;
   currentStep?: number;
@@ -221,11 +221,12 @@ export interface TechnicalReport {
   subActivityName?: string;
   subSubActivities: Array<{ id?: string; name: string; approvedActivityBudget?: string | number }>;
   reportGroupId?: string | null;
-  selectedLocations?: Array<{ countyId: string; countyName: string; subCountyId: string; subCountyName: string; wardId: string; wardName: string }>;
+  selectedLocations?: Array<{ projectLocationId?: string; level?: string; countyId: string; countyName: string; subCountyId?: string; subCountyName?: string; wardId?: string; wardName?: string }>;
   indicators: Array<{ id?: string; indicator: string; target?: string; reportedProgress?: string; achievement?: string; remarks?: string }>;
   indicatorReports?: Array<{
     id: string;
     wardId: string | null;
+    projectLocationId?: string | null;
     wardName?: string;
     indicatorId: string;
     indicator: string;
@@ -242,6 +243,8 @@ export interface TechnicalReport {
   relatedWardReports?: Array<{
     id: string;
     wardId: string | null;
+    locationId?: string | null;
+    locationLevel?: string;
     wardName: string;
     subCountyName: string;
     countyName: string;
