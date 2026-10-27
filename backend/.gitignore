@@ -9,15 +9,17 @@ __pycache__/
 *.log
 *.pot
 *.pyc
-# db.sqlite3
+db.sqlite3
+
 
 # Environment
 .env
 .env.*
-.venv/
+venv/
 ENV/
 env/
 *.env
+.venv
 
 # IDEs
 .vscode/
@@ -36,5 +38,3 @@ Thumbs.db
 # Static/media files (if generated)
 staticfiles/
 media/
-
-# db.sqlite3.before_questions_20260528_160234.bak

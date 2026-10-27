@@ -3,6 +3,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
@@ -37,6 +38,7 @@ from .models import (
     IndicatorReport,
     IndicatorReportEvidence,
     MainProject,
+    ProjectLocation,
     County,
     ReportWorkflowAudit,
     WorkflowNotification,
@@ -502,18 +504,25 @@ class TechnicalReportViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="indicator-status")
     def indicator_status(self, request):
-        """Return cumulative values, scoped to a project and ward, for form locking."""
+        """Return cumulative values scoped to a Project Title location."""
         project_id = request.query_params.get("project")
         ward_id = request.query_params.get("ward")
+        project_location_id = request.query_params.get("location")
         indicator_ids = request.query_params.getlist("indicatorId")
-        if not project_id or not ward_id:
-            return Response({"detail": "project and ward are required."}, status=status.HTTP_400_BAD_REQUEST)
-        # Ward is stored on each indicator row.  The report.ward field is a
-        # legacy representative only and must not mix results between wards.
-        rows = IndicatorReport.objects.filter(
-            technical_report__project_id=project_id,
-            ward_id=ward_id,
-        )
+        if not project_id or not (ward_id or project_location_id):
+            return Response({"detail": "project and reporting location are required."}, status=status.HTTP_400_BAD_REQUEST)
+        rows = IndicatorReport.objects.filter(technical_report__project_id=project_id)
+        if project_location_id:
+            location = ProjectLocation.objects.filter(pk=project_location_id, project_id=project_id).select_related("ward").first()
+            if not location:
+                return Response({"detail": "The reporting location is not configured for this Project Title."}, status=status.HTTP_400_BAD_REQUEST)
+            rows = rows.filter(project_location_id=project_location_id)
+            if location.ward_id:
+                rows = IndicatorReport.objects.filter(technical_report__project_id=project_id).filter(
+                    Q(project_location_id=project_location_id) | Q(project_location__isnull=True, ward_id=location.ward_id)
+                )
+        elif ward_id:
+            rows = rows.filter(project_location__isnull=True, ward_id=ward_id)
         if indicator_ids:
             rows = rows.filter(indicator_id__in=indicator_ids)
         cumulative = {}

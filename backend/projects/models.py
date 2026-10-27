@@ -646,12 +646,15 @@ class WorkflowNotification(models.Model):
 
 
 class IndicatorReport(models.Model):
-    """A ward-specific reporting entry for one indicator in a technical report."""
+    """A location-specific reporting entry for one indicator in a technical report."""
     technical_report = models.ForeignKey(
         TechnicalReport, on_delete=models.CASCADE, related_name="indicator_reports"
     )
     ward = models.ForeignKey(
         "Ward", on_delete=models.SET_NULL, related_name="indicator_reports", null=True, blank=True
+    )
+    project_location = models.ForeignKey(
+        ProjectLocation, on_delete=models.SET_NULL, related_name="indicator_reports", null=True, blank=True
     )
     indicator_id = models.CharField(max_length=64)
     indicator_name = models.CharField(max_length=500)
@@ -669,7 +672,11 @@ class IndicatorReport(models.Model):
             models.UniqueConstraint(
                 fields=["technical_report", "ward", "indicator_id"],
                 name="unique_indicator_report_per_report_ward",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["technical_report", "project_location", "indicator_id"],
+                name="unique_indicator_report_per_report_location",
+            ),
         ]
 
     def __str__(self):

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from django.db import models, transaction
+from django.db.models import Q
 
 from user_management.models import Institute, UserAccount, ValueChain
 
@@ -185,6 +186,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         if saved_locations.exists():
             representation["locations"] = [
                 {
+                    "projectLocationId": str(location.pk),
                     "county": location.county.name,
                     "countyId": str(location.county_id),
                     "svgId": location.county.svg_id,
@@ -198,17 +200,36 @@ class ProjectSerializer(serializers.ModelSerializer):
         return representation
 
     def _sync_project_locations(self, project, locations):
-        ProjectLocation.objects.filter(project=project).delete()
+        existing = {
+            (location.county_id, location.sub_county_id, location.ward_id): location
+            for location in ProjectLocation.objects.filter(project=project)
+        }
+        retained_ids = set()
+        seen = set()
         for location in locations or []:
             county_id = location.get("countyId") or None
             if not county_id:
                 continue
-            county = County.objects.get(pk=county_id)
+            county = County.objects.filter(pk=county_id).first()
+            if not county:
+                raise serializers.ValidationError({"locations": f"Unknown county: {county_id}."})
             sub_county_id = location.get("subCountyId") or None
             ward_id = location.get("wardId") or None
             sub_county = SubCounty.objects.filter(pk=sub_county_id, county=county).first() if sub_county_id else None
             ward = Ward.objects.filter(pk=ward_id, sub_county=sub_county).first() if sub_county and ward_id else None
-            ProjectLocation.objects.create(project=project, county=county, sub_county=sub_county, ward=ward)
+            if sub_county_id and not sub_county:
+                raise serializers.ValidationError({"locations": "A selected sub-county must belong to its county."})
+            if ward_id and not ward:
+                raise serializers.ValidationError({"locations": "A selected ward must belong to its sub-county."})
+            key = (county.pk, sub_county.pk if sub_county else None, ward.pk if ward else None)
+            if key in seen:
+                continue
+            seen.add(key)
+            saved = existing.get(key) or ProjectLocation.objects.create(
+                project=project, county=county, sub_county=sub_county, ward=ward
+            )
+            retained_ids.add(saved.pk)
+        ProjectLocation.objects.filter(project=project).exclude(pk__in=retained_ids).delete()
 
     def create(self, validated_data):
         locations = validated_data.get("locations", [])
@@ -735,6 +756,7 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
     target = serializers.DecimalField(max_digits=20, decimal_places=2, required=False)
     reportedProgress = serializers.DecimalField(source="reported_value", max_digits=20, decimal_places=2)
     wardId = serializers.PrimaryKeyRelatedField(source="ward", queryset=Ward.objects.all(), required=False, allow_null=True)
+    projectLocationId = serializers.PrimaryKeyRelatedField(source="project_location", queryset=ProjectLocation.objects.all(), required=False, allow_null=True)
     wardName = serializers.CharField(source="ward.name", read_only=True)
     reasonForZero = serializers.CharField(source="reason_for_zero", required=False, allow_blank=True)
     evidenceFiles = IndicatorReportEvidenceSerializer(source="evidence_files", many=True, read_only=True)
@@ -745,7 +767,7 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = IndicatorReport
         fields = [
-            "id", "wardId", "wardName", "indicatorId", "indicator", "target", "reportedProgress", "progress",
+            "id", "wardId", "projectLocationId", "wardName", "indicatorId", "indicator", "target", "reportedProgress", "progress",
             "cumulativeReported", "fullyAchieved", "achievement", "remarks", "reasonForZero",
             "evidenceFiles",
         ]
@@ -757,11 +779,21 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
         return float(min(Decimal("100"), (obj.reported_value / obj.target) * 100).quantize(Decimal("0.01")))
 
     def get_cumulativeReported(self, obj):
-        total = sum((row.reported_value for row in IndicatorReport.objects.filter(
+        rows = IndicatorReport.objects.filter(
             technical_report__project=obj.technical_report.project,
-            ward=obj.ward or obj.technical_report.ward,
             indicator_id=obj.indicator_id,
-        )), Decimal("0"))
+        )
+        if obj.project_location_id:
+            if obj.project_location.ward_id:
+                rows = rows.filter(
+                    Q(project_location_id=obj.project_location_id)
+                    | Q(project_location__isnull=True, ward_id=obj.project_location.ward_id)
+                )
+            else:
+                rows = rows.filter(project_location_id=obj.project_location_id)
+        else:
+            rows = rows.filter(project_location__isnull=True, ward=obj.ward or obj.technical_report.ward)
+        total = sum((row.reported_value for row in rows), Decimal("0"))
         return str(total)
 
     def get_fullyAchieved(self, obj):
@@ -933,42 +965,46 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         return str(max(Decimal("0"), obj.disbursed_amount - prior_utilized - obj.utilized_amount))
 
     def get_relatedWardReports(self, obj):
-        # A current report contains all wards in its indicator rows.  Group
-        # those rows for the ward-oriented details UI.
         grouped = {}
-        selected_ward_ids = {
-            str(location.get("wardId")) for location in (obj.selected_locations or [])
-            if location.get("wardId")
-        }
-        # Seed from the saved location snapshot so every selected ward has a
-        # distinct section even before it has indicator rows.
+        selected_keys = set()
         for location in obj.selected_locations or []:
+            location_id = location.get("projectLocationId")
             ward_id = location.get("wardId")
-            if not ward_id:
-                continue
-            grouped[str(ward_id)] = {
-                "id": f"{obj.pk}-{ward_id}", "wardId": str(ward_id),
+            key = str(location_id) if location_id else f"ward:{ward_id}" if ward_id else "unassigned"
+            selected_keys.add(key)
+            grouped[key] = {
+                "id": f"{obj.pk}-{key}", "locationId": str(location_id) if location_id else None,
+                "locationLevel": location.get("level") or ("Ward" if ward_id else "Sub-county" if location.get("subCountyId") else "County"),
+                "wardId": str(ward_id) if ward_id else None,
                 "wardName": location.get("wardName", ""),
                 "subCountyName": location.get("subCountyName", ""),
                 "countyName": location.get("countyName", ""), "rows": [],
             }
-        for row in obj.indicator_reports.select_related("ward__sub_county__county").prefetch_related("evidence_files"):
-            ward = row.ward or obj.ward
-            if selected_ward_ids and ward and str(ward.pk) not in selected_ward_ids:
+        for row in obj.indicator_reports.select_related("ward__sub_county__county", "project_location__county", "project_location__sub_county", "project_location__ward").prefetch_related("evidence_files"):
+            location = row.project_location
+            ward = row.ward or (location.ward if location else obj.ward)
+            key = str(location.pk) if location else f"ward:{ward.pk}" if ward else "unassigned"
+            if selected_keys and key not in selected_keys and key != "unassigned":
                 continue
-            key = str(ward.pk) if ward else "unassigned"
             if key not in grouped:
+                county = location.county if location else (ward.sub_county.county if ward else None)
+                sub_county = location.sub_county if location else (ward.sub_county if ward else None)
                 grouped[key] = {
-                    "id": f"{obj.pk}-{key}", "wardId": key if ward else None,
+                    "id": f"{obj.pk}-{key}",
+                    "locationId": str(location.pk) if location else None,
+                    "locationLevel": "Ward" if ward else "Sub-county" if sub_county else "County" if county else "General",
+                    "wardId": str(ward.pk) if ward else None,
                     "wardName": ward.name if ward else "",
-                    "subCountyName": ward.sub_county.name if ward else "",
-                    "countyName": ward.sub_county.county.name if ward else "",
+                    "subCountyName": sub_county.name if sub_county else "",
+                    "countyName": county.name if county else "",
                     "rows": [],
                 }
             grouped[key]["rows"].append(row)
         return [
             {
                 "id": item["id"],
+                "locationId": item["locationId"],
+                "locationLevel": item["locationLevel"],
                 "wardId": item["wardId"],
                 "wardName": item["wardName"],
                 "subCountyName": item["subCountyName"],
@@ -1058,16 +1094,54 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         ).strip()
 
         selected_locations = attrs.get("selected_locations", getattr(self.instance, "selected_locations", []))
-        # Locations are stored as a denormalized snapshot for the report, but
-        # their IDs must still describe the County -> Sub-county -> Ward chain.
+        selected_location_ids = set()
+        normalized_locations = []
         for location in selected_locations:
             county_id = location.get("countyId")
             sub_county_id = location.get("subCountyId")
             ward_id = location.get("wardId")
-            if not county_id or not sub_county_id or not ward_id:
-                raise serializers.ValidationError({"selectedLocations": "Each location must include a county, sub-county, and ward."})
-            if not Ward.objects.filter(pk=ward_id, sub_county_id=sub_county_id, sub_county__county_id=county_id).exists():
-                raise serializers.ValidationError({"selectedLocations": "Each selected location must follow the County → Sub-county → Ward hierarchy."})
+            project_location_id = location.get("projectLocationId")
+            if not county_id:
+                raise serializers.ValidationError({"selectedLocations": "Each selected location must include a county."})
+            if sub_county_id and not SubCounty.objects.filter(pk=sub_county_id, county_id=county_id).exists():
+                raise serializers.ValidationError({"selectedLocations": "Each selected sub-county must belong to its county."})
+            if ward_id and (not sub_county_id or not Ward.objects.filter(pk=ward_id, sub_county_id=sub_county_id, sub_county__county_id=county_id).exists()):
+                raise serializers.ValidationError({"selectedLocations": "Each selected ward must belong to its sub-county and county."})
+            configured_location = ProjectLocation.objects.filter(
+                project=project, county_id=county_id,
+                sub_county_id=sub_county_id or None, ward_id=ward_id or None,
+            ).first() if project else None
+            if project_location_id:
+                configured_location = ProjectLocation.objects.filter(pk=project_location_id, project=project).first() if project else None
+                if not configured_location or (str(configured_location.county_id) != str(county_id)
+                    or str(configured_location.sub_county_id or "") != str(sub_county_id or "")
+                    or str(configured_location.ward_id or "") != str(ward_id or "")):
+                    raise serializers.ValidationError({"selectedLocations": "The selected location is not configured for this Project Title."})
+            if not configured_location:
+                raise serializers.ValidationError({"selectedLocations": "Each selected location must belong to the selected Project Title."})
+            selected_location_ids.add(configured_location.pk)
+            normalized_locations.append({
+                "projectLocationId": str(configured_location.pk),
+                "level": "Ward" if configured_location.ward_id else "Sub-county" if configured_location.sub_county_id else "County",
+                "countyId": str(configured_location.county_id),
+                "countyName": configured_location.county.name,
+                **(
+                    {
+                        "subCountyId": str(configured_location.sub_county_id),
+                        "subCountyName": configured_location.sub_county.name,
+                    }
+                    if configured_location.sub_county_id else {}
+                ),
+                **(
+                    {
+                        "wardId": str(configured_location.ward_id),
+                        "wardName": configured_location.ward.name,
+                    }
+                    if configured_location.ward_id else {}
+                ),
+            })
+        if "selected_locations" in attrs:
+            attrs["selected_locations"] = normalized_locations
         if not getattr(self, "partial", False):
             if not project:
                 raise serializers.ValidationError(
@@ -1085,17 +1159,10 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 )
             if not category:
                 raise serializers.ValidationError({"category": "Category is required."})
-            if not selected_locations and not ward:
-                raise serializers.ValidationError({"selectedLocations": "Select at least one project ward for this report."})
 
         if ward and project:
             if not ProjectLocation.objects.filter(project=project, ward=ward).exists():
                 raise serializers.ValidationError({"wardId": "The selected ward is not associated with the selected project."})
-        if project and selected_locations:
-            selected_ward_ids = [location.get("wardId") for location in selected_locations if location.get("wardId")]
-            if not selected_ward_ids or not ProjectLocation.objects.filter(project=project, ward_id__in=selected_ward_ids).count() == len(set(selected_ward_ids)):
-                raise serializers.ValidationError({"selectedLocations": "Each selected ward must belong to the selected project."})
-
         if quarter and quarter not in self.QUARTER_MONTHS:
             raise serializers.ValidationError({"quarter": "Select Quarter 1, Quarter 2, Quarter 3, or Quarter 4."})
 
@@ -1145,16 +1212,33 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             )
             for item in indicator_reports:
                 item_ward = item.get("ward") or ward
-                if not item_ward:
-                    raise serializers.ValidationError({"indicatorReports": "Each indicator report must identify its ward."})
+                item_location = item.get("project_location")
+                if item_location:
+                    if item_location.project_id != project.pk:
+                        raise serializers.ValidationError({"indicatorReports": "Each reporting location must belong to the selected Project Title."})
+                    if selected_location_ids and item_location.pk not in selected_location_ids:
+                        raise serializers.ValidationError({"indicatorReports": "Each indicator must use a location selected for this report."})
+                    if item_location.ward_id and item_ward and item_location.ward_id != item_ward.pk:
+                        raise serializers.ValidationError({"indicatorReports": "The indicator ward does not match its selected reporting location."})
+                    if item_location.ward_id:
+                        item["ward"] = item_location.ward
+                        item_ward = item_location.ward
+                elif item_ward:
+                    if not ProjectLocation.objects.filter(project=project, ward=item_ward).exists():
+                        raise serializers.ValidationError({"indicatorReports": "The selected indicator ward is not configured for this Project Title."})
+                elif selected_location_ids:
+                    raise serializers.ValidationError({"indicatorReports": "Each indicator report must identify its selected Project Title location."})
                 indicator_id = item["indicator_id"]
                 target = item["target"]
                 reported = item["reported_value"]
-                cumulative = IndicatorReport.objects.filter(
-                    technical_report__project=project,
-                    ward=item_ward,
-                    indicator_id=indicator_id,
-                )
+                cumulative = IndicatorReport.objects.filter(technical_report__project=project, indicator_id=indicator_id)
+                if item_location:
+                    cumulative = cumulative.filter(
+                        Q(project_location=item_location)
+                        | Q(project_location__isnull=True, ward=item_location.ward)
+                    ) if item_location.ward_id else cumulative.filter(project_location=item_location)
+                else:
+                    cumulative = cumulative.filter(project_location__isnull=True, ward=item_ward)
                 context_report = self.instance or self._find_context_report({
                     "project": project,
                     "financial_year": financial_year,
@@ -1193,9 +1277,10 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 validated_data.pop("ward", None)
                 existing_locations = report.selected_locations or []
                 incoming_locations = validated_data.pop("selected_locations", [])
-                location_by_ward = {str(item.get("wardId")): item for item in existing_locations if item.get("wardId")}
-                location_by_ward.update({str(item.get("wardId")): item for item in incoming_locations if item.get("wardId")})
-                validated_data["selected_locations"] = list(location_by_ward.values())
+                get_location_key = lambda item: str(item.get("projectLocationId") or item.get("wardId") or item.get("subCountyId") or item.get("countyId") or "")
+                location_by_key = {get_location_key(item): item for item in existing_locations if get_location_key(item)}
+                location_by_key.update({get_location_key(item): item for item in incoming_locations if get_location_key(item)})
+                validated_data["selected_locations"] = list(location_by_key.values())
                 for attr, value in validated_data.items():
                     # A duplicate submission often has blank optional fields;
                     # it must never erase narrative, configured indicators, or
@@ -1217,10 +1302,20 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                     report = TechnicalReport.objects.filter(context_key=context_key).first()
                     if not report:
                         raise error
-            existing = {(item.ward_id, item.indicator_id): item for item in report.indicator_reports.all()}
+            existing = {(item.project_location_id, item.ward_id, item.indicator_id): item for item in report.indicator_reports.all()}
             for item in indicator_reports:
-                ward = item.get("ward") or report.ward
-                row = existing.get((ward.id if ward else None, item["indicator_id"]))
+                location = item.get("project_location")
+                ward = item.get("ward")
+                if location and location.ward_id:
+                    ward = location.ward
+                    item["ward"] = ward
+                elif not location:
+                    ward = ward or report.ward
+                    if ward:
+                        item["ward"] = ward
+                row = existing.get((location.pk if location else None, ward.pk if ward else None, item["indicator_id"]))
+                if not row and location and ward:
+                    row = existing.get((None, ward.pk, item["indicator_id"]))
                 if row:
                     for attr, value in item.items():
                         setattr(row, attr, value)
@@ -1274,9 +1369,16 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             instance.context_key = context_key
             instance.save()
             if indicator_reports is not None:
-                existing = {(item.ward_id, item.indicator_id): item for item in instance.indicator_reports.all()}
+                existing = {(item.project_location_id, item.ward_id, item.indicator_id): item for item in instance.indicator_reports.all()}
                 for item in indicator_reports:
-                    row = existing.get((item.get("ward").id if item.get("ward") else instance.ward_id, item["indicator_id"]))
+                    location = item.get("project_location")
+                    ward = item.get("ward")
+                    if location and location.ward_id:
+                        ward = location.ward
+                        item["ward"] = ward
+                    row = existing.get((location.pk if location else None, ward.pk if ward else instance.ward_id, item["indicator_id"]))
+                    if not row and location and ward:
+                        row = existing.get((None, ward.pk, item["indicator_id"]))
                     if row:
                         for attr, value in item.items():
                             setattr(row, attr, value)
