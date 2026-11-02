@@ -27,13 +27,13 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
   const { data: users = [] } = useManagedUsers();
   const { data: counties = [] } = useReferenceData();
   const institutes = counties.flatMap((county) => county.institutes);
-  const byRole = (role: string) => users.filter((user) => user.active && user.roles.includes(role));
+  const coordinators = users.filter((user) => user.active && user.roles.includes("project_coordinator"));
 
   useEffect(() => {
     if (data.coordinatorUserId) return;
-    const defaultCoordinator = byRole("project_coordinator").find((user) => user.fullName.toLowerCase() === "dr. michael okoti");
+    const defaultCoordinator = coordinators.find((user) => user.fullName.toLowerCase() === "dr. michael okoti");
     if (defaultCoordinator) onChange({ coordinatorUserId: defaultCoordinator.id, coordinator: defaultCoordinator.fullName });
-  }, [users]);
+  }, [coordinators, data.coordinatorUserId, onChange]);
 
   const handleNext = () => {
     const e: Record<string, string> = {};
@@ -83,19 +83,19 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
               onChange({ coordinatorUserId: e.target.value, coordinator: user?.fullName || "" });
             }}
               className="flex h-9 w-full rounded-md border border-input px-3 py-1 text-sm shadow-sm">
-              <option value="">— Select coordinator —</option>{byRole("project_coordinator").map((user) =>
+              <option value="">— Select coordinator —</option>{coordinators.map((user) =>
                 <option key={user.id} value={user.id}>{user.fullName}</option>)}
             </select>
           </Field>
           <Field label="Principal Investigator">
             <select multiple value={data.principalInvestigatorIds} onChange={(e) => onChange({ principalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}
-              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("principal_investigator").map((user) =>
+              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{users.map((user) =>
                 <option key={user.id} value={user.id}>{user.fullName}</option>)}
             </select>
           </Field>
           <Field label="Co-Principal Investigator">
             <select multiple value={data.coPrincipalInvestigatorIds} onChange={(e) => onChange({ coPrincipalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}
-              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{byRole("co_principal_investigator").map((user) =>
+              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm">{users.map((user) =>
                 <option key={user.id} value={user.id}>{user.fullName}</option>)}
             </select>
           </Field>

@@ -4,13 +4,8 @@ import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { StepProps } from "./types";
-import { useValueChains } from "@/hooks/useUserManagementApi";
-import {
-  PROJECT_COORDINATION_OPTIONS,
-  KALRO_INSTITUTES,
-  KALRO_CENTRES,
-  KALRO_SUB_CENTRES,
-} from "./data";
+import { useReferenceData, useValueChains } from "@/hooks/useUserManagementApi";
+import { PROJECT_COORDINATION_OPTIONS } from "./data";
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -42,8 +37,23 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
 export default function Step2ImplementationUnit({ data, onChange, onNext, onBack, isSaving }: StepProps) {
   const iu = data.implementationUnits;
   const { data: valueChains = [], isLoading, isError } = useValueChains();
+  const {
+    data: counties = [],
+    isLoading: isLoadingReferenceData,
+    isError: isReferenceDataError,
+    refetch: refetchReferenceData,
+  } = useReferenceData();
   const activeValueChains = valueChains.filter((vc) => vc.active);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const institutes = counties.flatMap((county) => county.institutes);
+  const selectedInstitute = institutes.find((institute) => institute.id === iu.instituteId)
+    ?? institutes.find((institute) => institute.name === iu.instituteName);
+  const centresForInstitute = selectedInstitute?.centres ?? [];
+  const selectedCentre = centresForInstitute.find((centre) => centre.id === iu.centreId)
+    ?? centresForInstitute.find((centre) => centre.name === iu.centre);
+  const subCentresForSelection = selectedCentre?.subCentres ?? selectedInstitute?.directSubCentres ?? [];
+  const selectedSubCentre = subCentresForSelection.find((subCentre) => subCentre.id === iu.subCentreId)
+    ?? subCentresForSelection.find((subCentre) => subCentre.name === iu.subCentre);
 
   // Re-open categories that contain values already saved on an existing project.
   useEffect(() => {
@@ -61,9 +71,6 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
   const updateIU = (updates: Partial<typeof iu>) => {
     onChange({ implementationUnits: { ...iu, ...updates } });
   };
-
-  const centresForInstitute = iu.instituteName ? (KALRO_CENTRES[iu.instituteName] ?? []) : [];
-  const subCentresForCentre = iu.centre ? (KALRO_SUB_CENTRES[iu.centre] ?? []) : [];
 
   const toggleValueChain = (vc: string) => {
     const current = data.valueChains;
@@ -120,42 +127,84 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
           <div className="space-y-3">
             <Checkbox
               checked={iu.institute}
-              onChange={(v) => updateIU({ institute: v, instituteName: v ? iu.instituteName : "", centre: "", subCentre: "" })}
+              onChange={(v) => updateIU({
+                institute: v,
+                instituteId: v ? selectedInstitute?.id ?? iu.instituteId : "",
+                instituteName: v ? selectedInstitute?.name ?? iu.instituteName : "",
+                centreId: "",
+                centre: "",
+                subCentreId: "",
+                subCentre: "",
+              })}
               label="Institute"
             />
             {iu.institute && (
               <div className="ml-6 space-y-3 max-w-sm">
+                {isLoadingReferenceData && <p className="text-xs text-muted-foreground">Loading institutes and centres…</p>}
+                {isReferenceDataError && (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    Unable to load reference data. <button type="button" className="underline" onClick={() => refetchReferenceData()}>Try again</button>
+                  </p>
+                )}
                 <div>
                   <Label className="text-xs text-muted-foreground mb-1.5 block">Institute</Label>
-                  <Select
-                    value={iu.instituteName}
-                    onChange={(v) => updateIU({ instituteName: v, centre: "", subCentre: "" })}
-                    options={KALRO_INSTITUTES}
-                    placeholder="Select Institute"
-                  />
+                  <select
+                    value={selectedInstitute?.id ?? ""}
+                    disabled={isLoadingReferenceData || isReferenceDataError}
+                    onChange={(event) => {
+                      const institute = institutes.find((item) => item.id === event.target.value);
+                      updateIU({
+                        instituteId: institute?.id ?? "",
+                        instituteName: institute?.name ?? "",
+                        centreId: "",
+                        centre: "",
+                        subCentreId: "",
+                        subCentre: "",
+                      });
+                    }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  >
+                    <option value="">— Select Institute —</option>
+                    {institutes.map((institute) => <option key={institute.id} value={institute.id}>{institute.name}</option>)}
+                  </select>
                 </div>
-                {iu.instituteName && centresForInstitute.length > 0 && (
+                {selectedInstitute && centresForInstitute.length > 0 && (
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">Centre</Label>
-                    <Select
-                      value={iu.centre}
-                      onChange={(v) => updateIU({ centre: v, subCentre: "" })}
-                      options={centresForInstitute}
-                      placeholder="Select Centre"
-                    />
+                    <select
+                      value={selectedCentre?.id ?? ""}
+                      onChange={(event) => {
+                        const centre = centresForInstitute.find((item) => item.id === event.target.value);
+                        updateIU({
+                          centreId: centre?.id ?? "",
+                          centre: centre?.name ?? "",
+                          subCentreId: "",
+                          subCentre: "",
+                        });
+                      }}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    >
+                      <option value="">— Select Centre —</option>
+                      {centresForInstitute.map((centre) => <option key={centre.id} value={centre.id}>{centre.name}</option>)}
+                    </select>
                   </div>
                 )}
-                {iu.centre && subCentresForCentre.length > 0 && (
+                {((selectedCentre && selectedCentre.subCentres.length > 0) || (!selectedCentre && selectedInstitute?.directSubCentres.length)) ? (
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">Sub-Centre</Label>
-                    <Select
-                      value={iu.subCentre}
-                      onChange={(v) => updateIU({ subCentre: v })}
-                      options={subCentresForCentre}
-                      placeholder="Select Sub-Centre"
-                    />
+                    <select
+                      value={selectedSubCentre?.id ?? ""}
+                      onChange={(event) => {
+                        const subCentre = subCentresForSelection.find((item) => item.id === event.target.value);
+                        updateIU({ subCentreId: subCentre?.id ?? "", subCentre: subCentre?.name ?? "" });
+                      }}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    >
+                      <option value="">— Select Sub-Centre —</option>
+                      {subCentresForSelection.map((subCentre) => <option key={subCentre.id} value={subCentre.id}>{subCentre.name}</option>)}
+                    </select>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -233,7 +282,7 @@ export default function Step2ImplementationUnit({ data, onChange, onNext, onBack
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
-        <Button onClick={onNext} disabled={isSaving} className="bg-green-700 text-primary-foreground ">
+        <Button onClick={onNext} disabled={isSaving || (iu.institute && (isLoadingReferenceData || isReferenceDataError))} className="bg-green-700 text-primary-foreground ">
           {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
           {isSaving ? "Saving..." : "Save & Continue"} <ChevronRight className="h-4 w-4" />
         </Button>

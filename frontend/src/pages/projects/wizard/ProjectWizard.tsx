@@ -5,6 +5,7 @@ import { Check, ArrowLeft, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/utils/apiClient";
 import { useQueryClient } from "@tanstack/react-query";
+import type { ProjectDocument } from "@/utils/types";
 import {
   qk,
   useComponents,
@@ -41,6 +42,8 @@ const STEPS = [
   { number: 9, label: "Beneficiary Targets" },
 ];
 
+const EMPTY_PROJECT_DOCUMENTS: ProjectDocument[] = [];
+
 function initials(name: string): string {
   return (
     name
@@ -49,6 +52,15 @@ function initials(name: string): string {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "PR"
+  );
+}
+
+class ProjectDocumentFlowError extends Error {}
+
+function hasAvailableProjectDocument(documents: ProjectDocument[], projectId: string): boolean {
+  return documents.some((document) =>
+    String(document.project) === String(projectId)
+    && document.files.some((file) => file.available === true || (file.available === undefined && Boolean(file.fileUrl))),
   );
 }
 
@@ -71,8 +83,11 @@ function projectToWizardData(project: Record<string, unknown>): Partial<WizardDa
       coordination: (implementationUnits.coordination as string) || "",
       coordinationOther: (implementationUnits.coordinationOther as string) || "",
       institute: !!implementationUnits.institute,
+      instituteId: (implementationUnits.instituteId as string) || "",
       instituteName: (implementationUnits.instituteName as string) || "",
+      centreId: (implementationUnits.centreId as string) || "",
       centre: (implementationUnits.centre as string) || "",
+      subCentreId: (implementationUnits.subCentreId as string) || "",
       subCentre: (implementationUnits.subCentre as string) || "",
     },
     valueChains: (project.valueChains as string[]) || [],
@@ -167,7 +182,11 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
 
   const { data: existingProject, isError: projectLoadError } = useProject(editId);
   const { data: existingMapping } = useProjectMapping(projectId);
-  const { data: existingDocuments = [] } = useProjectDocuments(projectId);
+  const {
+    data: existingDocuments = EMPTY_PROJECT_DOCUMENTS,
+    isLoading: isLoadingDocuments,
+    isError: documentsLoadError,
+  } = useProjectDocuments(projectId);
 
   const { data: kras = [] } = useComponents();
   const { data: objectives = [] } = useObjectives();
@@ -197,7 +216,6 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   }, [existingMapping]);
 
   useEffect(() => {
-    if (existingDocuments.length === 0) return;
     setData((prev) => {
       const unsavedDocs = prev.documents.filter((doc) => !doc.id && (doc.title.trim() || doc.files.length > 0));
       return {
@@ -209,12 +227,20 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
             docType: doc.documentType || "",
             description: doc.description || "",
             files: [],
+            savedFiles: doc.files || [],
           })),
           ...unsavedDocs,
         ],
       };
     });
   }, [existingDocuments]);
+
+  useEffect(() => {
+    if (!isEdit || !hydrated || currentStep <= 4 || isLoadingDocuments) return;
+    if (documentsLoadError || !hasAvailableProjectDocument(existingDocuments, projectId ?? "")) {
+      setCurrentStep(4);
+    }
+  }, [currentStep, documentsLoadError, existingDocuments, hydrated, isEdit, isLoadingDocuments, projectId]);
 
   // Hydrate from the existing project when editing.
   useEffect(() => {
@@ -229,7 +255,6 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     if (existingProject.mainProjectId) setMainProjectId(String(existingProject.mainProjectId));
     setCurrentStep(Math.min(Math.max(Number(existingProject.currentStep || 1), 1), 9));
     setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, existingProject, existingMapping, hydrated]);
 
   const onChange = (updates: Partial<WizardData>) =>
@@ -326,28 +351,66 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     };
   };
 
-  const syncDocuments = async (id: string, clearState = true) => {
-    const docsToUpload = data.documents.filter((doc) => !doc.id && doc.title.trim());
-    if (docsToUpload.length === 0) return;
+  const syncDocuments = async (id: string) => {
+    const docsToUpload = data.documents.filter((doc) => doc.files.length > 0);
 
     for (const doc of docsToUpload) {
+      if (!doc.title.trim()) {
+        throw new ProjectDocumentFlowError("Enter a document title for each file you upload.");
+      }
       const fd = new FormData();
-      fd.append("project", String(id));
-      fd.append("name", doc.title.trim());
-      fd.append("document_type", doc.docType);
-      fd.append("description", doc.description);
       doc.files.forEach((f) => fd.append("files", f));
-      await api.postForm("/project-documents/", fd);
+      let savedDocument: ProjectDocument;
+      try {
+        if (doc.id) {
+          savedDocument = await api.postForm<ProjectDocument>(`/project-documents/${doc.id}/add-files/`, fd);
+        } else {
+          fd.append("project", String(id));
+          fd.append("name", doc.title.trim());
+          fd.append("documentType", doc.docType);
+          fd.append("description", doc.description);
+          savedDocument = await api.postForm<ProjectDocument>("/project-documents/", fd);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "The server rejected the upload.";
+        throw new ProjectDocumentFlowError(`Project document upload failed: ${detail}`);
+      }
+      if (String(savedDocument.project) !== String(id)
+        || !savedDocument.files.some((file) => file.available === true || (file.available === undefined && Boolean(file.fileUrl)))) {
+        throw new ProjectDocumentFlowError("The uploaded file could not be verified as saved to this project.");
+      }
     }
 
-    if (clearState) setData((prev) => ({ ...prev, documents: prev.documents.filter((doc) => doc.id) }));
+    setData((prev) => ({
+      ...prev,
+      documents: prev.documents
+        .filter((doc) => doc.id)
+        .map((doc) => ({ ...doc, files: [] })),
+    }));
     await qc.invalidateQueries({ queryKey: qk.documents(id) });
   };
 
-  const persistStep = async (stepToSave = currentStep, markComplete = false, syncProjectDocuments = true) => {
+  const verifyProjectDocument = async (id: string) => {
+    let documents: ProjectDocument[];
+    try {
+      documents = await api.get<ProjectDocument[]>(`/project-documents/?project=${id}`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "The server could not be reached.";
+      throw new ProjectDocumentFlowError(`Unable to verify saved project documents: ${detail}`);
+    }
+    if (!hasAvailableProjectDocument(documents, id)) {
+      throw new ProjectDocumentFlowError(
+        "Upload at least one project document with an available file that has been saved before continuing to Step 5.",
+      );
+    }
+  };
+
+  const persistStep = async (stepToSave = currentStep, markComplete = false) => {
     if (!data.title.trim()) return projectId;
     setIsSaving(true);
     try {
+      const documentsRequired = stepToSave > 4;
+      const stepToPersistBeforeDocuments = documentsRequired ? 4 : stepToSave;
       let effectiveMainProjectId = mainProjectId;
       if (!effectiveMainProjectId) {
         const parent = await api.post<{ id: string }>("/main-projects/", {
@@ -366,30 +429,37 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       if (!projectId) {
         const created = await api.post<{ id: string }>("/projects/", {
           ...projectPayload,
-          isDraft: !markComplete,
-          currentStep: stepToSave,
+          isDraft: documentsRequired || !markComplete,
+          currentStep: stepToPersistBeforeDocuments,
         });
         savedId = created.id;
         setProjectId(created.id);
       } else {
         await api.patch(`/projects/${projectId}/`, {
           ...projectPayload,
-          isDraft: !markComplete,
-          currentStep: stepToSave,
+          isDraft: documentsRequired || !markComplete,
+          currentStep: stepToPersistBeforeDocuments,
         });
       }
       if (savedId && (data.selectedKeyActivityIds.length > 0 || data.selectedOutputIds.length > 0 || data.selectedOutputIndicatorIds.length > 0)) {
         await api.post("/project-mappings/", buildMappingPayload(savedId));
         await qc.invalidateQueries({ queryKey: qk.mapping(savedId) });
       }
-      if (savedId && stepToSave > 4 && syncProjectDocuments) {
+      if (savedId && documentsRequired) {
         await syncDocuments(savedId);
+        await verifyProjectDocument(savedId);
+        await api.patch(`/projects/${savedId}/`, {
+          isDraft: !markComplete,
+          currentStep: stepToSave,
+        });
       }
       await qc.invalidateQueries({ queryKey: qk.projects });
       return savedId;
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save progress for this step.");
+      toast.error(err instanceof ProjectDocumentFlowError
+        ? err.message
+        : "Failed to save progress for this step.");
       throw err;
     } finally {
       setIsSaving(false);
@@ -398,17 +468,29 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
 
   const goNext = async () => {
     const nextStep = Math.min(currentStep + 1, 9);
-    await persistStep(nextStep);
-    setCurrentStep(nextStep);
+    try {
+      await persistStep(nextStep);
+      setCurrentStep(nextStep);
+    } catch {
+      // persistStep already reports the validation or save error.
+    }
   };
   const goBack = async () => {
-    await persistStep(currentStep);
-    setCurrentStep((s) => Math.max(s - 1, 1));
+    try {
+      await persistStep(currentStep);
+      setCurrentStep((s) => Math.max(s - 1, 1));
+    } catch {
+      // persistStep already reports the validation or save error.
+    }
   };
   const jumpTo = async (n: number) => {
     if (n === currentStep) return;
-    await persistStep(Math.max(n, currentStep));
-    setCurrentStep(n);
+    try {
+      await persistStep(Math.max(n, currentStep));
+      setCurrentStep(n);
+    } catch {
+      // persistStep already reports the validation or save error.
+    }
   };
 
   const handleFinish = async () => {
@@ -419,7 +501,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
 
     setIsSubmitting(true);
     try {
-      const id = await persistStep(9, true, false);
+      const id = await persistStep(9, true);
       if (!id) {
         throw new Error("Project could not be saved before completion.");
       }
@@ -445,15 +527,14 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
           });
         }
       }
-      await syncDocuments(id, false);
-      setData((prev) => ({ ...prev, documents: prev.documents.filter((doc) => doc.id) }));
-
       await qc.invalidateQueries({ queryKey: qk.projects });
       toast.success(isEdit ? "Project updated successfully!" : "Project created successfully!");
       navigate(parentId ? `/projects/main/${parentId}` : "/projects");
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to ${isEdit ? "update" : "create"} project. Please try again.`);
+      toast.error(err instanceof ProjectDocumentFlowError
+        ? err.message
+        : `Failed to ${isEdit ? "update" : "create"} project. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
