@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useProjects, useTechnicalReport, useUpdateTechnicalReport } from "@/hooks/useProjectsApi";
 import type { TechnicalReport } from "@/utils/types";
 import { api } from "@/utils/apiClient";
+import { reportProgressPercent } from "@/utils/reportProgress";
 
 type Location = NonNullable<TechnicalReport["selectedLocations"]>[number];
 type WardValues = Record<string, Array<Record<string, any>>>;
@@ -114,13 +115,21 @@ export default function EditTechnicalReport() {
           const rows = wardValues[key] || (location.wardId ? wardValues[location.wardId] : undefined) || []; return <section key={locationKey(location)} className="overflow-hidden rounded-lg border border-green-200">
             <div className="sticky top-0 z-10 bg-green-50 p-4">
               <h3 className="font-semibold">Report Details — {[location.countyName, location.subCountyName, location.wardName].filter(Boolean).join(" / ")}</h3></div>{!rows.length ?
-                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this location.</p> : rows.map((row, index) => { const isZeroReport = row.reportedProgress !== "" && Number(row.reportedProgress) === 0; return <div key={row.id || row.indicatorId}
+                  <p className="p-4 text-sm text-muted-foreground">No saved indicator details for this location.</p> : rows.map((row, index) => { const isZeroReport = row.reportedProgress !== "" && Number(row.reportedProgress) === 0; const progress = reportProgressPercent(row.reportedProgress, row.target); return <div key={row.id || row.indicatorId}
                     className="space-y-3 border-t p-4"><div className="grid gap-3 md:grid-cols-3"><p><b>Indicator:</b> {row.indicator}</p>
-                      <p>
-                        <b>Target:</b> {row.target}</p>
+                      <div>
+                        <Label>Target</Label>
+                        <Input type="number" min="0" step="any" value={row.target} onChange={(event) => changeValue(key, index, "target", event.target.value)} />
+                      </div>
                       <div>
                         <Label>Report against target</Label>
                         <Input type="number" min="0" step="any" value={row.reportedProgress} onChange={(event) => changeValue(key, index, "reportedProgress", event.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 rounded-md bg-muted/35 p-3" aria-live="polite">
+                      <div className="flex justify-between text-xs font-medium"><span>Progress</span><span>{progress.toFixed(1)}%</span></div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${row.indicator} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+                        <div className="h-full bg-green-700 transition-all" style={{ width: `${progress}%` }} />
                       </div>
                     </div>
                     {isZeroReport ? <div><Label>Reason for Zero <span className="text-red-600">*</span></Label><Textarea value={row.reasonForZero || ""} onChange={(event) => changeValue(key, index, "reasonForZero", event.target.value)} placeholder="Explain why no progress was reported for this indicator." /></div> : <div className="grid gap-3 md:grid-cols-2"><div>
