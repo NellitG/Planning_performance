@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action, api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -234,19 +235,23 @@ class ProjectDocumentViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data
+        files = request.FILES.getlist("files") or request.FILES.getlist("file")
+        if not files:
+            raise ValidationError({"files": "Upload at least one project document file."})
+        if any(file.size <= 0 for file in files):
+            raise ValidationError({"files": "Project document files cannot be empty."})
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        document = serializer.save()
-
-        files = request.FILES.getlist("files") or request.FILES.getlist("file")
-        for f in files:
-            ProjectDocumentFile.objects.create(
-                document=document,
-                file=f,
-                name=f.name,
-                size=f.size,
-                file_type=f.content_type or "",
-            )
+        with transaction.atomic():
+            document = serializer.save()
+            for f in files:
+                ProjectDocumentFile.objects.create(
+                    document=document,
+                    file=f,
+                    name=f.name,
+                    size=f.size,
+                    file_type=f.content_type or "",
+                )
 
         out = self.get_serializer(document)
         headers = self.get_success_headers(out.data)
@@ -260,14 +265,17 @@ class ProjectDocumentViewSet(viewsets.ModelViewSet):
             return Response(
                 {"detail": "No files provided."}, status=status.HTTP_400_BAD_REQUEST
             )
-        for f in files:
-            ProjectDocumentFile.objects.create(
-                document=document,
-                file=f,
-                name=f.name,
-                size=f.size,
-                file_type=f.content_type or "",
-            )
+        if any(file.size <= 0 for file in files):
+            raise ValidationError({"files": "Project document files cannot be empty."})
+        with transaction.atomic():
+            for f in files:
+                ProjectDocumentFile.objects.create(
+                    document=document,
+                    file=f,
+                    name=f.name,
+                    size=f.size,
+                    file_type=f.content_type or "",
+                )
         return Response(self.get_serializer(document).data, status=status.HTTP_200_OK)
 
 

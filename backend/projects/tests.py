@@ -1,9 +1,12 @@
 from importlib import import_module
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from django.db import connection
 from django.apps import apps
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase, override_settings
+from user_management.models import Centre, County as ReferenceCounty, Institute, SubCentre, UserAccount
 
 from .models import (
     County,
@@ -12,12 +15,149 @@ from .models import (
     MainActivityIndicator,
     MainProject,
     Project,
+    ProjectDocument,
+    ProjectDocumentFile,
     ProjectLocation,
     SubCounty,
     TechnicalReport,
     Ward,
 )
-from .serializers import IndicatorReportSerializer, ProjectSerializer, TechnicalReportSerializer
+from .serializers import (
+    IndicatorReportSerializer,
+    MainProjectSerializer,
+    ProjectDocumentFileSerializer,
+    ProjectSerializer,
+    TechnicalReportSerializer,
+)
+
+
+class ProjectWizardIntegrationTests(TestCase):
+    def test_configured_api_host_is_accepted_by_django(self):
+        response = Client().get(
+            "/api/main-projects/",
+            HTTP_HOST="planning-performance.onrender.com",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_main_project_can_be_updated_without_changing_its_name(self):
+        project = MainProject.objects.create(name="Existing Main Project")
+        serializer = MainProjectSerializer(project, data={
+            "name": project.name,
+            "description": project.description,
+            "startDate": project.start_date,
+            "endDate": project.end_date,
+            "status": project.status,
+        }, partial=True)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+    def create_user(self, name, email, active=True):
+        return UserAccount.objects.create(
+            full_name=name,
+            email=email,
+            role="staff_user",
+            institute="KALRO",
+            password="test-password",
+            is_active=active,
+        )
+
+    def test_investigators_can_be_any_registered_users(self):
+        principal = self.create_user("Principal", "principal@example.test")
+        co_principal = self.create_user("Co-principal", "co-principal@example.test", active=False)
+        serializer = ProjectSerializer(data={
+            "name": "Investigator role-independent project",
+            "principalInvestigatorIds": [principal.pk],
+            "coPrincipalInvestigatorIds": [co_principal.pk],
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        project = serializer.save()
+        self.assertEqual(list(project.principal_investigators.all()), [principal])
+        self.assertEqual(list(project.co_principal_investigators.all()), [co_principal])
+
+    def test_implementation_unit_records_are_persisted_and_hierarchy_checked(self):
+        county = ReferenceCounty.objects.create(name="Reference County")
+        institute = Institute.objects.create(name="Reference Institute", county=county)
+        centre = Centre.objects.create(name="Reference Centre", county=county, institute=institute)
+        sub_centre = SubCentre.objects.create(
+            name="Reference Sub-centre",
+            county=county,
+            institute=institute,
+            centre=centre,
+        )
+        units = {
+            "institute": True,
+            "instituteId": str(institute.pk),
+            "instituteName": institute.name,
+            "centreId": str(centre.pk),
+            "centre": centre.name,
+            "subCentreId": str(sub_centre.pk),
+            "subCentre": sub_centre.name,
+        }
+        serializer = ProjectSerializer(data={
+            "name": "Valid reference selection",
+            "implementationUnits": units,
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        project = serializer.save()
+        self.assertEqual(project.implementation_units["instituteId"], str(institute.pk))
+        self.assertEqual(project.implementation_units["centreId"], str(centre.pk))
+        self.assertEqual(project.implementation_units["subCentreId"], str(sub_centre.pk))
+
+        other_institute = Institute.objects.create(name="Other Institute", county=county)
+        other_centre = Centre.objects.create(name="Other Centre", county=county, institute=other_institute)
+        invalid_serializer = ProjectSerializer(data={
+            "name": "Invalid reference selection",
+            "implementationUnits": {**units, "centreId": str(other_centre.pk)},
+        })
+        self.assertFalse(invalid_serializer.is_valid())
+        self.assertIn("implementationUnits", invalid_serializer.errors)
+
+    def test_project_cannot_advance_without_a_persisted_document_file(self):
+        serializer = ProjectSerializer(data={
+            "name": "Project without document",
+            "currentStep": 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("currentStep", serializer.errors)
+
+        project = Project.objects.create(project_name="Project with metadata only", current_step=4)
+        ProjectDocument.objects.create(project=project, name="Unuploaded proposal")
+        update = ProjectSerializer(project, data={"currentStep": 5}, partial=True)
+        self.assertFalse(update.is_valid())
+        self.assertIn("currentStep", update.errors)
+
+    def test_project_can_advance_after_a_document_file_is_saved(self):
+        with TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                project = Project.objects.create(
+                    project_name="Project with uploaded document",
+                    current_step=4,
+                )
+                document = ProjectDocument.objects.create(project=project, name="Proposal")
+                uploaded_file = SimpleUploadedFile("proposal.pdf", b"saved document contents")
+                document_file = ProjectDocumentFile.objects.create(
+                    document=document,
+                    file=uploaded_file,
+                    name=uploaded_file.name,
+                    size=uploaded_file.size,
+                )
+                self.assertTrue(ProjectDocumentFileSerializer(document_file).data["available"])
+                update = ProjectSerializer(project, data={"currentStep": 5}, partial=True)
+
+                self.assertTrue(update.is_valid(), update.errors)
+                document_file.file.delete(save=False)
+                self.assertFalse(ProjectDocumentFileSerializer(document_file).data["available"])
+                unavailable_update = ProjectSerializer(
+                    project,
+                    data={"currentStep": 5},
+                    partial=True,
+                )
+                self.assertFalse(unavailable_update.is_valid())
+                self.assertIn("currentStep", unavailable_update.errors)
 
 
 class TechnicalReportFlexibleLocationTests(TestCase):

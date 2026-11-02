@@ -4,7 +4,7 @@ from hashlib import sha256
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 
-from user_management.models import Institute, UserAccount, ValueChain
+from user_management.models import Centre, Institute, SubCentre, UserAccount, ValueChain
 from .main_projects import find_main_project_by_name, get_or_create_main_project
 
 from .models import (
@@ -61,8 +61,8 @@ class MainProjectSerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         value = value.strip()
         if self.instance:
-            existing = find_main_project_by_name(value)
-            if existing and existing.pk != self.instance.pk:
+            existing = find_main_project_by_name(value, exclude_pk=self.instance.pk)
+            if existing:
                 raise serializers.ValidationError(
                     "A Main Project with this name already exists."
                 )
@@ -99,8 +99,8 @@ class ProjectSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     coordinatorUserId = serializers.PrimaryKeyRelatedField(source="coordinator_user", queryset=UserAccount.objects.filter(is_active=True), required=False, allow_null=True)
-    principalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
-    coPrincipalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="co_principal_investigators", queryset=UserAccount.objects.filter(is_active=True), many=True, required=False)
+    principalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="principal_investigators", queryset=UserAccount.objects.all(), many=True, required=False)
+    coPrincipalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="co_principal_investigators", queryset=UserAccount.objects.all(), many=True, required=False)
     investigatorInstituteIds = serializers.PrimaryKeyRelatedField(source="investigator_institutes", queryset=Institute.objects.all(), many=True, required=False)
     coordinators = serializers.SerializerMethodField()
     principalInvestigators = serializers.SerializerMethodField()
@@ -297,21 +297,122 @@ class ProjectSerializer(serializers.ModelSerializer):
                 for institute in obj.investigator_institutes.all()]
 
     def validate(self, attrs):
-        # Roles are data-driven and must be present on the selected user.
-        role_checks = (("coordinator_user", "project_coordinator"),
-                       ("principal_investigators", "principal_investigator"),
-                       ("co_principal_investigators", "co_principal_investigator"))
-        for field, role_key in role_checks:
-            users = attrs.get(field)
-            if users is None:
-                continue
-            users = [users] if field == "coordinator_user" and users else users
-            invalid = [user.full_name for user in users if not user.roles.filter(key=role_key).exists()]
-            if invalid:
-                raise serializers.ValidationError({
-                    field: "Selected users do not have the required role: " + ", ".join(invalid)
-                })
+        if "implementation_units" in attrs:
+            attrs["implementation_units"] = self._validate_implementation_units(
+                attrs["implementation_units"]
+            )
+
+        coordinator = attrs.get("coordinator_user")
+        if coordinator and not coordinator.roles.filter(key="project_coordinator").exists():
+            raise serializers.ValidationError({
+                "coordinatorUserId": "The selected user does not have the Project Coordinator role."
+            })
+
+        current_step = attrs.get(
+            "current_step",
+            self.instance.current_step if self.instance else 1,
+        )
+        if current_step > 4 and (
+            not self.instance or not self._has_available_project_document(self.instance)
+        ):
+            raise serializers.ValidationError({
+                "currentStep": "Upload at least one available project document before proceeding beyond Step 4."
+            })
         return attrs
+
+    def _validate_implementation_units(self, units):
+        if not isinstance(units, dict):
+            raise serializers.ValidationError({
+                "implementationUnits": "Implementation unit selections must be an object."
+            })
+
+        units = dict(units)
+        institute_name = units.get("instituteName", "")
+        centre_name = units.get("centre", "")
+        sub_centre_name = units.get("subCentre", "")
+        for field_name, value in (
+            ("instituteName", institute_name),
+            ("centre", centre_name),
+            ("subCentre", sub_centre_name),
+        ):
+            if not isinstance(value, str):
+                raise serializers.ValidationError({
+                    "implementationUnits": {field_name: "Expected a text value."}
+                })
+
+        institute = self._reference_record(Institute, units.get("instituteId"), "instituteId")
+        if not institute and institute_name:
+            institute = Institute.objects.filter(name=institute_name).first()
+
+        centre = self._reference_record(Centre, units.get("centreId"), "centreId")
+        if not centre and centre_name and institute:
+            centre = Centre.objects.filter(name=centre_name, institute=institute).first()
+
+        if centre and (not institute or centre.institute_id != institute.pk):
+            raise serializers.ValidationError({
+                "implementationUnits": {
+                    "centreId": "Select a centre belonging to the selected institute."
+                }
+            })
+
+        sub_centre = self._reference_record(SubCentre, units.get("subCentreId"), "subCentreId")
+        if not sub_centre and sub_centre_name and institute:
+            sub_centre = SubCentre.objects.filter(
+                name=sub_centre_name,
+                institute=institute,
+                centre=centre if centre else None,
+            ).first()
+
+        if sub_centre and (
+            not institute
+            or sub_centre.institute_id != institute.pk
+            or sub_centre.centre_id != (centre.pk if centre else None)
+        ):
+            raise serializers.ValidationError({
+                "implementationUnits": {
+                    "subCentreId": "Select a sub-centre belonging to the selected institute and centre."
+                }
+            })
+
+        units["instituteId"] = str(institute.pk) if institute else ""
+        units["instituteName"] = institute.name if institute else institute_name
+        units["centreId"] = str(centre.pk) if centre else ""
+        units["centre"] = centre.name if centre else centre_name
+        units["subCentreId"] = str(sub_centre.pk) if sub_centre else ""
+        units["subCentre"] = sub_centre.name if sub_centre else sub_centre_name
+        return units
+
+    @staticmethod
+    def _reference_record(model, value, field_name):
+        if value in (None, ""):
+            return None
+        if isinstance(value, bool):
+            record_id = 0
+        elif isinstance(value, int):
+            record_id = value
+        elif isinstance(value, str) and value.isdecimal():
+            record_id = int(value)
+        else:
+            record_id = 0
+        record = model.objects.filter(pk=record_id).first() if record_id > 0 else None
+        if not record:
+            label = {
+                "instituteId": "institute",
+                "centreId": "centre",
+                "subCentreId": "sub-centre",
+            }[field_name]
+            raise serializers.ValidationError({
+                "implementationUnits": {field_name: f"Select a valid {label}."}
+            })
+        return record
+
+    @staticmethod
+    def _has_available_project_document(project):
+        for document in project.documents.prefetch_related("files"):
+            for document_file in document.files.all():
+                if document_file.file and document_file.file.storage.exists(document_file.file.name):
+                    return True
+        return False
 
 
 class WardSerializer(serializers.ModelSerializer):
@@ -566,22 +667,27 @@ class ProjectDocumentFileSerializer(serializers.ModelSerializer):
         source="file_type", required=False, allow_blank=True, default=""
     )
     fileUrl = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
     uploadedAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = ProjectDocumentFile
-        fields = ["id", "document", "name", "fileUrl", "size", "type", "uploadedAt"]
+        fields = ["id", "document", "name", "fileUrl", "available", "size", "type", "uploadedAt"]
         extra_kwargs = {
             "document": {"required": False},
             "file": {"required": False, "write_only": True},
         }
 
     def get_fileUrl(self, obj):
-        if not obj.file:
+        if not self.get_available(obj):
             return None
         request = self.context.get("request")
         url = obj.file.url
         return request.build_absolute_uri(url) if request else url
+
+    @staticmethod
+    def get_available(obj):
+        return bool(obj.file and obj.file.storage.exists(obj.file.name))
 
 
 class ProjectDocumentSerializer(serializers.ModelSerializer):

@@ -13,10 +13,12 @@ ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
         "ALLOWED_HOSTS",
-        "localhost,127.0.0.1",
+        "localhost,127.0.0.1,planning-performance.onrender.com",
     ).split(",")
     if host.strip()
 ]
+if "planning-performance.onrender.com" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("planning-performance.onrender.com")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

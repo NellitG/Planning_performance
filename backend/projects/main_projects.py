@@ -13,18 +13,20 @@ def normalize_main_project_name(value):
     return unicodedata.normalize("NFKC", str(value or "")).strip().casefold()
 
 
-def find_main_project_by_name(name):
+def find_main_project_by_name(name, exclude_pk=None):
     normalized = normalize_main_project_name(name)
     if not normalized:
         return None
-    return (
+    queryset = (
         MainProject.objects.annotate(
             _normalized_name=Lower(Trim("name"), output_field=CharField())
         )
         .filter(_normalized_name=normalized.lower())
         .order_by("id")
-        .first()
     )
+    if exclude_pk is not None:
+        queryset = queryset.exclude(pk=exclude_pk)
+    return queryset.first()
 
 
 def get_or_create_main_project(name, defaults=None):
