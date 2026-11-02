@@ -1,0 +1,648 @@
+{
+  "identified": {
+    "KeyResultArea": 5,
+    "StrategicObjective": 28,
+    "Strategy": 151,
+    "KeyActivity": 478,
+    "ExpectedOutput": 484,
+    "OutputIndicator": 561,
+    "Outcome": 24
+  },
+  "created": {
+    "KeyResultArea": 0,
+    "StrategicObjective": 0,
+    "Strategy": 85,
+    "KeyActivity": 315,
+    "ExpectedOutput": 440,
+    "OutputIndicator": 517,
+    "Outcome": 24
+  },
+  "skipped_duplicates": {
+    "KeyResultArea": 5,
+    "StrategicObjective": 27,
+    "Strategy": 52,
+    "KeyActivity": 130,
+    "ExpectedOutput": 11,
+    "OutputIndicator": 8,
+    "Outcome": 0
+  },
+  "manual_review_count": 117,
+  "manual_review": [
+    [
+      441,
+      "Multiple existing Objective 4.3 records under KRA 4; descendants held for review",
+      "Strategic Objective 4.3: To Strengthen the KALRO Seeds for Increased Production and Marketability"
+    ],
+    [
+      170,
+      "Source Strategy number matches existing wording variant; manual mapping needed",
+      "S1) Develop, adapt, validate and promote machinery and equipment for efficient agricultural operations"
+    ],
+    [
+      442,
+      "Strategy under ambiguous/unmapped Objective 4.3 held for review",
+      "S1) Increase generated revenue through sale of KALRO seeds"
+    ],
+    [
+      445,
+      "Strategy under ambiguous/unmapped Objective 4.3 held for review",
+      "S2) Develop and promote improved seeds and vegetative materials"
+    ],
+    [
+      637,
+      "Source Strategy number matches existing wording variant; manual mapping needed",
+      "S6) Events management"
+    ],
+    [
+      721,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S1) Develop the Strategic Plan implementation framework"
+    ],
+    [
+      722,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S2) Operationalise Strategic Plan Implementation Committee"
+    ],
+    [
+      723,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S3)     Appoint and train Planning, Monitoring  and Evaluation Officers (PME) at every Institute"
+    ],
+    [
+      725,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S4) Prepare annual work plans to actualise Strategic Plan"
+    ],
+    [
+      727,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S5) Maintain a database  of  research   projects/ programmes in the organisation"
+    ],
+    [
+      728,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S6) Prepare and monitor annual  Performance Contracts"
+    ],
+    [
+      732,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S7) Develop automated management information system for the Strategic Plan"
+    ],
+    [
+      734,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S8) Coordinate implementation of the Strategic Plan"
+    ],
+    [
+      738,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S9) Adopt  a  Quality  Management Systems (QMS)"
+    ],
+    [
+      740,
+      "Strategy section has no source Strategic Objective parent; held for review",
+      "S10) End  term  evaluation   of the Strategic Plan"
+    ],
+    [
+      170,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Design and develop agricultural machinery and equipment"
+    ],
+    [
+      171,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Test and validate agricultural machinery and equipment"
+    ],
+    [
+      172,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Promote agricultural machinery and equipment"
+    ],
+    [
+      442,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Generation of revenue through sale of seeds"
+    ],
+    [
+      443,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Operationalise  Mkulima  shops in the seed production Centres"
+    ],
+    [
+      444,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Allocate funds for operations towards generating revenue from sale of seeds"
+    ],
+    [
+      445,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Propagation of vegetative materials"
+    ],
+    [
+      446,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Produce Basic and certified seed"
+    ],
+    [
+      448,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Maintain  parental  pure crop lines"
+    ],
+    [
+      449,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Produce, package and avail indigenous and  underutilised crop seeds"
+    ],
+    [
+      450,
+      "Activity held because its source Strategy has no resolved database parent",
+      "License seed distributors for KALRO seeds"
+    ],
+    [
+      451,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Engage stockists and  agro -dealers in selling and promoting KALRO seeds"
+    ],
+    [
+      452,
+      "Activity held because its source Strategy has no resolved database parent",
+      "License seed merchants and producers"
+    ],
+    [
+      637,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Develop and implement events management policy"
+    ],
+    [
+      638,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Coordinate media coverage of events"
+    ],
+    [
+      639,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Create a database of all KALRO events for planning and reporting"
+    ],
+    [
+      721,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Develop KALRO Strategic Plan implementation framework"
+    ],
+    [
+      722,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Operationalise  Strategic  Plan implementation committee"
+    ],
+    [
+      723,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Appoint and support designated PM&E officer"
+    ],
+    [
+      724,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Conduct trainings and backstopping of scientists on log frame development and implementation"
+    ],
+    [
+      725,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Prepare annual workplans"
+    ],
+    [
+      727,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Update and maintain research project/programmes database"
+    ],
+    [
+      728,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Prepare annual Performance Contracts"
+    ],
+    [
+      730,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Conduct Training for IDs/CDs/ KALRO Secretariat on new  Public  service performance management system guidelines"
+    ],
+    [
+      731,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Conduct monitoring and evaluation of the Performance Contract"
+    ],
+    [
+      732,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Develop Management Information System (MIS) for tracking Strategic Plan implementation"
+    ],
+    [
+      733,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Training and backstopping staff on MIS"
+    ],
+    [
+      734,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Compile and submits  SP  quarterly  progress reports"
+    ],
+    [
+      735,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Compile and submit SP  annual  progress  reports"
+    ],
+    [
+      737,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Conduct and report mid-term evaluation of the Strategic Plan"
+    ],
+    [
+      738,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Acquire and implement a customer, products and services Quality Management System"
+    ],
+    [
+      739,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Acquire and implement a laboratory testing and calibration Quality Management System"
+    ],
+    [
+      740,
+      "Activity held because its source Strategy has no resolved database parent",
+      "Conduct end term evaluation of Strategic Plan"
+    ],
+    [
+      170,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Agricultural machinery and equipment designed and developed"
+    ],
+    [
+      171,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Agricultural machinery and equipment tested and validated"
+    ],
+    [
+      172,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Agricultural machinery and equipment promoted"
+    ],
+    [
+      442,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Revenue generated through sale of seeds"
+    ],
+    [
+      443,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Mkulima  shops operationalised"
+    ],
+    [
+      444,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Centres generating revenue"
+    ],
+    [
+      445,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Vegetatively propagated materials produced"
+    ],
+    [
+      446,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Basic and certified seed produced"
+    ],
+    [
+      448,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Parental pure crop lines maintained"
+    ],
+    [
+      449,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Indigenous and underutilised crop seeds produced,  packaged and availed"
+    ],
+    [
+      450,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Seed distributors licensed to distribute KALRO seeds"
+    ],
+    [
+      451,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Stockists and  agro -dealers engaged"
+    ],
+    [
+      452,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Seed merchants licensed and producing KALRO varieties"
+    ],
+    [
+      637,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Events management policy developed and implemented"
+    ],
+    [
+      638,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Media coverage of events coordinated"
+    ],
+    [
+      639,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Database of events for reporting and planning created"
+    ],
+    [
+      721,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "KALRO Strategic Plan implementation framework developed and circulated"
+    ],
+    [
+      722,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Strategic Plan implementation committee operationalised"
+    ],
+    [
+      723,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Institute PM&E Officers appointed and supported"
+    ],
+    [
+      724,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Trainings and backstopping of scientists on log frames conducted"
+    ],
+    [
+      725,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Annual work plans prepared"
+    ],
+    [
+      727,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Research projects/programmes database updated and maintained"
+    ],
+    [
+      728,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Annual Performance Contract prepared"
+    ],
+    [
+      730,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Trainings  for IDs/CDs/ KALRO Secretariat on new  Public  service performance management system guideline conducted"
+    ],
+    [
+      731,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Monitoring and evaluation activities of the Performance Contract conducted"
+    ],
+    [
+      732,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "MIS for tracking Strategic Plan implementation developed and operationalised"
+    ],
+    [
+      733,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Training and backstopping conducted"
+    ],
+    [
+      734,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "SP quarterly progress reports compiled and submitted to the KALRO Board"
+    ],
+    [
+      735,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Annual progress reports compiled and submitted"
+    ],
+    [
+      737,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Mid-term evaluation of the Strategic Plan conducted and reported"
+    ],
+    [
+      738,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Acquire and maintain ISO 9001:2015 certification"
+    ],
+    [
+      739,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "Acquire and maintain ISO 17025:2017 certification"
+    ],
+    [
+      740,
+      "Expected Output held because its Key Activity has no resolved database parent",
+      "End term evaluation of Strategic Plan conducted"
+    ],
+    [
+      170,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of agricultural machinery/ equipment designed and/or developed"
+    ],
+    [
+      171,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of agricultural machinery/equipment tested and/or validated"
+    ],
+    [
+      172,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of agricultural machinery/equipment promoted"
+    ],
+    [
+      442,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "Revenue generated (KES Billions)"
+    ],
+    [
+      443,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of operationalised  Mkulima  shops in seed production Centres"
+    ],
+    [
+      444,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of Centres supported financially to generate revenue"
+    ],
+    [
+      445,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of vegetatively propagated materials produced (Million)"
+    ],
+    [
+      446,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "Quantity of basic and certified seed produced (MT Thousands)"
+    ],
+    [
+      448,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of crop varieties parental lines maintained"
+    ],
+    [
+      449,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "Quantity of indigenous and underutilised crop  seeds produced, packaged and availed (MT)"
+    ],
+    [
+      450,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of seed distributors licensed  and distributing KALRO seeds"
+    ],
+    [
+      451,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of stockist and  agro -dealers selling and promoting KALRO seeds"
+    ],
+    [
+      452,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of seed merchants licensed and producing KALRO varieties"
+    ],
+    [
+      637,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "An  events management policy developed and implemented"
+    ],
+    [
+      638,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No.  of  media  events coverage coordinated"
+    ],
+    [
+      639,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No.  of  events  databases  created"
+    ],
+    [
+      721,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of Strategic Plan implementation framework developed and circulated"
+    ],
+    [
+      722,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No.  of  Strategic  Plan  implementation committees operationalised"
+    ],
+    [
+      723,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of institutes with designated PM&E officers appointed and supported"
+    ],
+    [
+      724,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No of trainings and backstopping of scientists on log frames conducted"
+    ],
+    [
+      725,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of annual work plans prepared"
+    ],
+    [
+      726,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of institute annual work plans prepared"
+    ],
+    [
+      727,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of databases of research projects/programmes updated and maintained"
+    ],
+    [
+      728,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of global Performance Contracts prepared"
+    ],
+    [
+      729,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of institutes Performance Contracts prepared"
+    ],
+    [
+      730,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of trainings for IDs/CDs/ KALRO Secretariat on new  Public  service performance management system guideline conducted"
+    ],
+    [
+      731,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of monitoring and evaluation activities of the Performance Contract conducted"
+    ],
+    [
+      732,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of management information system for tracking Strategic Plan implementation, developed and operationalised"
+    ],
+    [
+      733,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of people trained on and utilizing the MIS software for quarterly reporting"
+    ],
+    [
+      734,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No.  of  quarterly  progress reports compiled and submitted"
+    ],
+    [
+      735,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of annual progress reports compiled and submitted to the Board"
+    ],
+    [
+      736,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of institute annual progress reports compiled and submitted to the DG"
+    ],
+    [
+      737,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of mid-term evaluations conducted and reported"
+    ],
+    [
+      738,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "ISO 9001:2015 certification acquired and maintained"
+    ],
+    [
+      739,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "ISO 17025:2017 certification acquired and maintained"
+    ],
+    [
+      740,
+      "Indicator held because its Expected Output has no resolved database parent",
+      "No. of end term evaluation of the  Strategic  Plan"
+    ]
+  ],
+  "source_document": "D:\\\\KALRO\\\\PPM QC\\\\STRATEGIC  PLAN IMPLEMENTATION MATRIX.docx",
+  "source_table_rows": 747,
+  "held_for_review": {
+    "KeyResultArea": 0,
+    "StrategicObjective": 1,
+    "Strategy": 14,
+    "KeyActivity": 33,
+    "ExpectedOutput": 33,
+    "OutputIndicator": 36,
+    "Outcome": 0
+  },
+  "database_totals_after_import": {
+    "KeyResultArea": 5,
+    "StrategicObjective": 29,
+    "Strategy": 142,
+    "KeyActivity": 449,
+    "ExpectedOutput": 451,
+    "OutputIndicator": 526,
+    "Outcome": 24
+  },
+  "integrity_check": {
+    "objectives_without_kra": 0,
+    "strategies_without_objective": 0,
+    "activities_without_strategy": 0,
+    "outputs_missing_strategy_or_activity": 0,
+    "indicators_without_output": 0
+  },
+  "errors_encountered": [
+    "One initial invocation failed before any database changes because the source extract path was resolved relative to Django shell; corrected and the import then committed successfully."
+  ],
+  "responsibility_column": "Ignored completely; responsibility values were excluded from extraction and import."
+}

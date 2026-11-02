@@ -174,6 +174,95 @@ class TechnicalReportFlexibleLocationTests(TestCase):
             self.ward.name,
         )
 
+    def test_report_persists_decimal_indicator_values_and_progress_after_reload(self):
+        activity = MainActivity.objects.create(name="Decimal Reporting Activity")
+        indicator = MainActivityIndicator.objects.create(
+            main_activity=activity,
+            category="ICT",
+            indicator="Services delivered",
+            target="10",
+        )
+        serializer = TechnicalReportSerializer(data={
+            "title": "Decimal report",
+            "projectId": self.project.pk,
+            "mainActivityId": activity.pk,
+            "category": "ICT",
+            "quarter": "Quarter 1",
+            "financialYear": "2026-2027",
+            "selectedLocations": [{
+                "projectLocationId": self.ward_location.pk,
+                "countyId": self.county.pk,
+                "subCountyId": self.sub_county.pk,
+                "wardId": self.ward.pk,
+            }],
+            "indicatorReports": [{
+                "projectLocationId": self.ward_location.pk,
+                "wardId": self.ward.pk,
+                "indicatorId": str(indicator.pk),
+                "indicator": indicator.indicator,
+                "target": "10",
+                "reportedProgress": "2.5",
+                "achievement": "2.5 delivered",
+            }],
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        saved = serializer.save()
+
+        reloaded = TechnicalReport.objects.get(pk=saved.pk)
+        row = reloaded.indicator_reports.get()
+        self.assertEqual(reloaded.main_project_id, self.parent.pk)
+        self.assertEqual(row.project_location_id, self.ward_location.pk)
+        self.assertEqual(row.ward_id, self.ward.pk)
+        self.assertEqual(str(row.target), "10.00")
+        self.assertEqual(str(row.reported_value), "2.50")
+        self.assertEqual(row.achievement, "2.5 delivered")
+        self.assertEqual(TechnicalReportSerializer(reloaded).data["indicatorReports"][0]["progress"], 25.0)
+
+    def test_target_boundaries_keep_zero_reason_and_prevent_over_reporting(self):
+        activity = MainActivity.objects.create(name="Boundary Reporting Activity")
+        indicator = MainActivityIndicator.objects.create(
+            main_activity=activity,
+            category="ICT",
+            indicator="Boundary indicator",
+            target="10",
+        )
+
+        def serializer_for(value, target="10", **extras):
+            return TechnicalReportSerializer(data={
+                "title": "Boundary report",
+                "projectId": self.project.pk,
+                "mainActivityId": activity.pk,
+                "category": "ICT",
+                "quarter": "Quarter 1",
+                "financialYear": "2026-2027",
+                "indicatorReports": [{
+                    "indicatorId": str(indicator.pk),
+                    "indicator": indicator.indicator,
+                    "target": target,
+                    "reportedProgress": str(value),
+                    **extras,
+                }],
+            })
+
+        equal_target = serializer_for("10")
+        self.assertTrue(equal_target.is_valid(), equal_target.errors)
+        over_target = serializer_for("10.01")
+        self.assertFalse(over_target.is_valid())
+        self.assertIn("indicatorReports", over_target.errors)
+
+        indicator.target = "0"
+        indicator.save(update_fields=["target"])
+        zero_target_report = serializer_for("0", target="0", reasonForZero="No activity this quarter")
+        self.assertTrue(zero_target_report.is_valid(), zero_target_report.errors)
+        positive_against_zero = serializer_for("1", target="0")
+        self.assertTrue(positive_against_zero.is_valid(), positive_against_zero.errors)
+        positive_report = positive_against_zero.save()
+        self.assertEqual(positive_report.indicator_reports.get().reported_value, 1)
+        positive_with_report_target = serializer_for("2.5", target="10")
+        self.assertTrue(positive_with_report_target.is_valid(), positive_with_report_target.errors)
+        report = positive_with_report_target.save()
+        self.assertEqual(report.indicator_reports.get().target, 10)
+
     def test_location_from_another_project_is_rejected(self):
         other = Project.objects.create(project_name="Other Title", main_project_record=self.parent)
         other_location = ProjectLocation.objects.create(project=other, county=self.county)

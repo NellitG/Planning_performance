@@ -1,4 +1,7 @@
+import unicodedata
+
 from django.db import models
+from django.db.models.functions import Lower, Trim
 
 
 class MainProject(models.Model):
@@ -23,6 +26,16 @@ class MainProject(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                Lower(Trim("name")), name="uniq_mainproject_name_ci_trim"
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.name is not None:
+            self.name = unicodedata.normalize("NFKC", self.name).strip()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

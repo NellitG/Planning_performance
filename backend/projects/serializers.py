@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 
 from user_management.models import Institute, UserAccount, ValueChain
+from .main_projects import find_main_project_by_name, get_or_create_main_project
 
 from .models import (
     MainProject,
@@ -56,6 +57,21 @@ class MainProjectSerializer(serializers.ModelSerializer):
             "status",
             "projectTitles",
         ]
+
+    def validate_name(self, value):
+        value = value.strip()
+        if self.instance:
+            existing = find_main_project_by_name(value)
+            if existing and existing.pk != self.instance.pk:
+                raise serializers.ValidationError(
+                    "A Main Project with this name already exists."
+                )
+        return value
+
+    def create(self, validated_data):
+        name = validated_data.pop("name")
+        main_project, _ = get_or_create_main_project(name, defaults=validated_data)
+        return main_project
 
     def get_projectTitles(self, obj):
         return [
@@ -234,10 +250,11 @@ class ProjectSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         locations = validated_data.get("locations", [])
         with transaction.atomic():
-            if not validated_data.get("main_project_record"):
+            parent = validated_data.get("main_project_record")
+            if not parent:
                 parent_name = validated_data.get("main_project") or validated_data.get("project_name")
-                parent, _ = MainProject.objects.get_or_create(
-                    name=parent_name,
+                parent, _ = get_or_create_main_project(
+                    parent_name,
                     defaults={
                         "logo": validated_data.get("logo", ""),
                         "description": validated_data.get("description", ""),
@@ -246,7 +263,8 @@ class ProjectSerializer(serializers.ModelSerializer):
                         "status": validated_data.get("status", "Not Started"),
                     },
                 )
-                validated_data["main_project_record"] = parent
+            validated_data["main_project_record"] = parent
+            validated_data["main_project"] = parent.name
             project = super().create(validated_data)
             self._sync_project_locations(project, locations)
         return project
@@ -817,8 +835,6 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
             # narrative fields that are deliberately hidden in the UI.
             attrs["achievement"] = ""
             attrs["remarks"] = ""
-        if target == 0 and reported > 0:
-            raise serializers.ValidationError({"reportedProgress": "A positive report cannot be recorded against a target of 0."})
         return attrs
 
 
@@ -1052,17 +1068,21 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "indicatorReports": f"The selected indicator is no longer available for this reporting path: {item['indicator_id']}."
                 })
+            submitted_target = item.get("target")
             try:
-                target = Decimal(str(configured.target or "0").strip())
+                target = Decimal(str(
+                    submitted_target if submitted_target is not None else configured.target or "0"
+                ).strip())
             except (InvalidOperation, ValueError):
                 raise serializers.ValidationError({
-                    "indicatorReports": f"The configured target for '{configured.indicator}' must be numeric before it can be reported against."
+                    "indicatorReports": f"The target for '{configured.indicator}' must be numeric before it can be reported against."
                 })
             if target < 0:
                 raise serializers.ValidationError({
-                    "indicatorReports": f"The configured target for '{configured.indicator}' cannot be negative."
+                    "indicatorReports": f"The target for '{configured.indicator}' cannot be negative."
                 })
-            # Never trust the browser for the fixed target or display name.
+            # Persist the report's validated target as a snapshot so progress
+            # remains tied to the value entered for this reporting period.
             item["target"] = target
             item["indicator_name"] = configured.indicator
 
@@ -1251,8 +1271,6 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 if context_report:
                     cumulative = cumulative.exclude(technical_report=context_report)
                 cumulative_value = sum((entry.reported_value for entry in cumulative), Decimal("0"))
-                if target <= 0 and cumulative_value > 0:
-                    raise serializers.ValidationError({"indicatorReports": "This indicator has an invalid target of 0 with previous reporting."})
                 if target > 0 and cumulative_value >= target:
                     raise serializers.ValidationError({"indicatorReports": f"This indicator has already reached 100% and cannot be reported against again: {item['indicator_name']}."})
                 if target > 0 and cumulative_value + reported > target:
@@ -1295,13 +1313,17 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 report.save()
             else:
                 try:
-                    report = TechnicalReport.objects.create(context_key=context_key, **validated_data)
-                except Exception as error:
+                    # Keep the unique-key failure inside a savepoint. Catching
+                    # IntegrityError in the outer transaction leaves it
+                    # unusable and makes the recovery query fail as well.
+                    with transaction.atomic():
+                        report = TechnicalReport.objects.create(context_key=context_key, **validated_data)
+                except IntegrityError:
                     # The database unique constraint is the final protection
-                    # against concurrent identical submissions.
+                    # against concurrent submissions for the same context.
                     report = TechnicalReport.objects.filter(context_key=context_key).first()
                     if not report:
-                        raise error
+                        raise
             existing = {(item.project_location_id, item.ward_id, item.indicator_id): item for item in report.indicator_reports.all()}
             for item in indicator_reports:
                 location = item.get("project_location")
