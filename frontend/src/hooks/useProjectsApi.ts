@@ -403,6 +403,9 @@ export function useCreateOutputIndicator() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
+      strategyId,
+      keyActivityId,
+      expectedOutputId,
       text,
       cumulativeTarget,
       year1Target,
@@ -417,6 +420,9 @@ export function useCreateOutputIndicator() {
       budgetYear4,
       budgetYear5,
     }: {
+      strategyId: string;
+      keyActivityId: string;
+      expectedOutputId: string;
       text: string;
       cumulativeTarget?: string;
       year1Target?: string;
@@ -432,6 +438,9 @@ export function useCreateOutputIndicator() {
       budgetYear5?: string;
     }) =>
       api.post<OutputIndicator>("/output-indicators/", {
+        strategyId: Number(strategyId),
+        keyActivityId: nullableId(keyActivityId),
+        expectedOutputId: Number(expectedOutputId),
         text,
         cumulativeTarget,
         year1Target,
