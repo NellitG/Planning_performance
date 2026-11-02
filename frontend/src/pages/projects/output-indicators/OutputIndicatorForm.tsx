@@ -50,6 +50,7 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
   const [strategyError, setStrategyError] = useState("");
   const [keyActivityId, setKeyActivityId] = useState("");
   const [expectedOutputId, setExpectedOutputId] = useState("");
+  const [expectedOutputError, setExpectedOutputError] = useState("");
 
   const [rows, setRows] = useState<RowItem[]>([{ _key: uid(), text: "", cumulativeTarget: "", year1Target: "", year2Target: "", year3Target: "", year4Target: "", year5Target: "", totalBudgetMillions: "", budgetYear1: "", budgetYear2: "", budgetYear3: "", budgetYear4: "", budgetYear5: "", error: "" }]);
 
@@ -100,6 +101,7 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
     e.preventDefault();
     let valid = true;
     if (!strategyId) { setStrategyError("Please select a strategy"); valid = false; }
+    if (!expectedOutputId) { setExpectedOutputError("Please select an expected output"); valid = false; }
     const validatedRows = rows.map((row) => ({ ...row, error: row.text.trim() ? "" : "Indicator text is required" }));
     setRows(validatedRows);
     if (validatedRows.some((r) => r.error)) valid = false;
@@ -130,7 +132,7 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
       } else {
         const saved = rows.filter((r) => r.text.trim());
         for (const r of saved) {
-          await createIndicator.mutateAsync({ text: r.text, cumulativeTarget: r.cumulativeTarget, year1Target: r.year1Target, year2Target: r.year2Target, year3Target: r.year3Target, year4Target: r.year4Target, year5Target: r.year5Target, totalBudgetMillions: r.totalBudgetMillions, budgetYear1: r.budgetYear1, budgetYear2: r.budgetYear2, budgetYear3: r.budgetYear3, budgetYear4: r.budgetYear4, budgetYear5: r.budgetYear5 });
+          await createIndicator.mutateAsync({ strategyId, keyActivityId, expectedOutputId, text: r.text, cumulativeTarget: r.cumulativeTarget, year1Target: r.year1Target, year2Target: r.year2Target, year3Target: r.year3Target, year4Target: r.year4Target, year5Target: r.year5Target, totalBudgetMillions: r.totalBudgetMillions, budgetYear1: r.budgetYear1, budgetYear2: r.budgetYear2, budgetYear3: r.budgetYear3, budgetYear4: r.budgetYear4, budgetYear5: r.budgetYear5 });
         }
         toast.success(saved.length === 1 ? "Output indicator created" : `${saved.length} output indicators created`);
       }
@@ -210,10 +212,10 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
             </div>
 
             <div className="space-y-1.5">
-              <Label>Expected Output <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Label>Expected Output <span className="text-red-600">*</span></Label>
               {mode === "edit" ? <Input readOnly value={linkedExpectedOutput} className="bg-muted text-muted-foreground" /> : <Select
                 value={expectedOutputId}
-                onValueChange={setExpectedOutputId}
+                onValueChange={(value) => { setExpectedOutputId(value); setExpectedOutputError(""); }}
                 disabled={!strategyId || expectedOutputs.length === 0}
               >
                 <SelectTrigger>
@@ -228,10 +230,10 @@ export default function OutputIndicatorForm({ mode = "create" }: OutputIndicator
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— None —</SelectItem>
                   {expectedOutputs.map((o) => <SelectItem key={o.id} value={o.id}>{o.text}</SelectItem>)}
                 </SelectContent>
               </Select>}
+              {expectedOutputError && <p className="text-xs text-red-600">{expectedOutputError}</p>}
               {strategyId && expectedOutputs.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No expected outputs.{" "}
