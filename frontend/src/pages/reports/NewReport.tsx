@@ -23,13 +23,14 @@ import {
 import { QUARTER_OPTIONS, FINANCIAL_YEAR_OPTIONS } from "@/pages/projects/wizard/data";
 import type { ActivityIndicator, MainActivityIndicator, Project } from "@/utils/types";
 import { api } from "@/utils/apiClient";
+import { reportProgressPercent } from "@/utils/reportProgress";
 
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 
 }
 
-type IndicatorValue = { reportedProgress: string; achievement: string; remarks: string; reasonForZero: string; files: File[] };
+type IndicatorValue = { target: string; reportedProgress: string; achievement: string; remarks: string; reasonForZero: string; files: File[] };
 type WardIndicatorValues = Record<string, IndicatorValue>;
 type ReportingLocation = {
   key: string;
@@ -287,7 +288,8 @@ export default function NewReport() {
 
   const updateWardIndicator = (wardId: string, indicatorId: string, field: keyof Omit<IndicatorValue, "files">, value: string) => {
     setWardIndicatorValues((current) => {
-      const previous = current[wardId]?.[indicatorId] || { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
+      const configuredTarget = availableIndicators.find((indicator) => indicator.id === indicatorId)?.target;
+      const previous = current[wardId]?.[indicatorId] || { target: String(configuredTarget ?? "0"), reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
       const next = field === "reportedProgress" && value !== "" && Number(value) === 0
         ? { ...previous, reportedProgress: value, achievement: "", remarks: "", files: [] }
         : { ...previous, [field]: value };
@@ -301,7 +303,7 @@ export default function NewReport() {
       ...current[wardId],
       [indicatorId]: current[wardId]?.[indicatorId]
         ? { ...current[wardId][indicatorId], files }
-        : { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files },
+        : { target: String(availableIndicators.find((indicator) => indicator.id === indicatorId)?.target ?? "0"), reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files },
     },
   }));
 
@@ -386,7 +388,7 @@ export default function NewReport() {
           ...(location?.wardId ? { wardId: location.wardId } : {}),
           indicatorId: indicator.id,
           indicator: indicator.indicator,
-          target: Number(indicator.target || 0),
+          target: Number(value.target ?? indicator.target ?? 0),
           reportedProgress: Number(value.reportedProgress),
           achievement: Number(value.reportedProgress) === 0 ? "" : value.achievement,
           remarks: Number(value.reportedProgress) === 0 ? "" : value.remarks,
@@ -398,7 +400,8 @@ export default function NewReport() {
         ...(selectedLocations[0]?.wardId ? { wardId: selectedLocations[0].wardId } : {}),
         indicatorReports,
       } as any);
-      await Promise.all((saved.indicatorReports || []).map((row: any) => {
+      try {
+        await Promise.all((saved.indicatorReports || []).map((row: any) => {
         const locationKey = selectedLocations.find((location) => location.projectLocationId === row.projectLocationId)?.key || (row.wardId ? `location:${row.projectLocationId || ""}` : "__none__");
         const rowValue = wardIndicatorValues[locationKey]?.[row.indicatorId];
         const rowFiles = rowValue && Number(rowValue.reportedProgress) !== 0 ? rowValue.files : [];
@@ -406,7 +409,12 @@ export default function NewReport() {
         const form = new FormData();
         rowFiles.forEach((file: File) => form.append("files", file));
         return api.postForm(`/technical-reports/${saved.id}/indicator-reports/${row.id}/evidence/`, form);
-      }));
+        }));
+      } catch (error) {
+        toast.error(`Report saved, but evidence upload failed: ${error instanceof Error ? error.message : "Please upload evidence from the saved report."}`);
+        navigate(`/technical-reports/${saved.id}`);
+        return;
+      }
 
       toast.success("Report saved successfully.");
       navigate("/technical-reports");
@@ -564,34 +572,35 @@ export default function NewReport() {
                           <p className="mt-1 text-sm"><span className="font-medium">Main Activity:</span> {selectedMainActivity?.name || "Not selected"}</p>
                         </div>
                         {availableIndicators.map((indicator) => {
-                          const value = wardIndicatorValues[wardId]?.[indicator.id] || { reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
-                          const target = Number(indicator.target || 0);
+                          const value = wardIndicatorValues[wardId]?.[indicator.id] || { target: String(indicator.target ?? "0"), reportedProgress: "", achievement: "", remarks: "", reasonForZero: "", files: [] };
+                          const target = Number(value.target || 0);
                           const cumulative = cumulativeByWard[wardId]?.[indicator.id] || 0;
                           const entered = Number(value.reportedProgress || 0);
                           const isZeroReport = value.reportedProgress !== "" && Number(value.reportedProgress) === 0;
-                          const progress = target > 0 ? Math.min(100, (entered / target) * 100) : 0;
+                          const progress = reportProgressPercent(entered, target);
+                          const progressLabel = target > 0 ? `${progress.toFixed(1)}%` : "N/A";
                           const fullyAchieved = target > 0 && cumulative >= target;
                           return <div key={indicator.id} className="rounded-lg border border-border bg-background p-5 shadow-sm">
                             <div className="grid gap-4 lg:grid-cols-2">
                               <div>
                                 <p className="text-sm font-semibold">{indicator.indicator}</p>
-                                <p className="mt-1 text-sm text-muted-foreground">Target: {indicator.target || "0"} · Cumulative report: {cumulative}</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Target: {target} · Cumulative report: {cumulative}</p>
                               </div>
                               <div className="space-y-1.5">
                                 <Label>Target</Label>
-                                <Input value={indicator.target || "0"} readOnly aria-readonly className="bg-muted font-medium" />
+                                <Input type="number" min="0" step="any" value={value.target} onChange={(event) => updateWardIndicator(wardId, indicator.id, "target", event.target.value)} />
                               </div>
                             </div>
                             {fullyAchieved ? <div className="mt-4 rounded-md bg-green-100 p-3 text-sm font-medium text-green-800">
-                              <CheckCircle2 className="mr-1 inline h-4 w-4" />Target fully achieved. No further reporting is allowed.</div> : <div className="mt-4 space-y-1.5"><Label>Report Against Target</Label><Input type="number" min="0" step="any" max={Math.max(0, target - cumulative)} value={value.reportedProgress} onChange={(e) => updateWardIndicator(wardId, indicator.id, "reportedProgress", e.target.value)} placeholder={`Remaining: ${Math.max(0, target - cumulative)}`} /><p className="text-xs text-muted-foreground">Whole and decimal values are accepted. Remaining target: {Math.max(0, target - cumulative)}</p></div>}
+                              <CheckCircle2 className="mr-1 inline h-4 w-4" />Target fully achieved. No further reporting is allowed.</div> : <div className="mt-4 space-y-1.5"><Label>Report Against Target</Label><Input type="number" min="0" step="any" max={target > 0 ? Math.max(0, target - cumulative) : undefined} value={value.reportedProgress} onChange={(e) => updateWardIndicator(wardId, indicator.id, "reportedProgress", e.target.value)} placeholder={target > 0 ? `Remaining: ${Math.max(0, target - cumulative)}` : "Enter a non-negative value"} /><p className="text-xs text-muted-foreground">{target > 0 ? `Whole and decimal values are accepted. Remaining target: ${Math.max(0, target - cumulative)}` : "Whole and decimal non-negative values are accepted; no target limit is set."}</p></div>}
                             <div className="mt-4 rounded-md bg-muted/35 p-3">
                               <div className="mb-1 flex justify-between text-xs font-medium">
-                                <span>Progress</span><span>{progress.toFixed(1)}%</span>
+                                <span>Progress</span><span>{progressLabel}</span>
                               </div>
                               <div className="h-2.5 overflow-hidden rounded-full bg-muted">
                                 <div className="h-full bg-green-700 transition-all" style={{ width: `${progress}%` }} />
                               </div>
-                              <p className="mt-1 text-xs text-muted-foreground">Calculated from reported value ÷ fixed target.</p>
+                              <p className="mt-1 text-xs text-muted-foreground">{target > 0 ? "Calculated as reported value ÷ fixed target × 100." : "Percentage is unavailable because the fixed target is 0."}</p>
                             </div>
                             {!fullyAchieved && isZeroReport && <div className="mt-4 space-y-1.5">
                               <Label>Reason for Zero <span className="text-red-600">*</span>
