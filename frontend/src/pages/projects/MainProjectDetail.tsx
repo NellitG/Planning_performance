@@ -1,13 +1,23 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Calendar, CheckCircle2, Circle, Pencil, PlayCircle, Save } from "lucide-react";
+import { ArrowLeft, Calendar, CheckCircle2, Circle, Pencil, PlayCircle, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useMainProject, useUpdateMainProject } from "@/hooks/useProjectsApi";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useDeleteProject, useMainProject, useUpdateMainProject } from "@/hooks/useProjectsApi";
 
 function titleState(title: { isDraft: boolean; currentStep: number }) {
   if (!title.isDraft) return { label: "Completed", icon: CheckCircle2, color: "text-green-600" };
@@ -17,14 +27,27 @@ function titleState(title: { isDraft: boolean; currentStep: number }) {
 
 export default function MainProjectDetail() {
   const { id } = useParams<{ id: string }>(); const navigate = useNavigate(); const [params] = useSearchParams();
-  const { data: project, isLoading, isError } = useMainProject(id); const update = useUpdateMainProject();
+  const { data: project, isLoading, isError } = useMainProject(id);
+  const update = useUpdateMainProject();
+  const deleteProject = useDeleteProject();
   const [editing, setEditing] = useState(params.get("edit") === "1");
+  const [projectTitleToDelete, setProjectTitleToDelete] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({ name: "", description: "", startDate: "", endDate: "", status: "Not Started" });
 
   useEffect(() => { if (project) setForm({ name: project.name, description: project.description || "", startDate: project.startDate || "", endDate: project.endDate || "", status: project.status }); }, [project]);
   if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Loading Main Project…</div>;
   if (isError || !project) return <div className="p-8 text-sm text-red-700">The requested Main Project could not be loaded.</div>;
-  const save = async () => { try { await update.mutateAsync({ id: project.id, ...form, startDate: form.startDate || null, endDate: form.endDate || null }); toast.success("Main Project updated."); setEditing(false); } catch { toast.error("Failed to update Main Project."); } };
+  const save = async () => { try { await update.mutateAsync({ id: project.id, ...form, startDate: form.startDate || null, endDate: form.endDate || null }); toast.success("Main Project updated."); setEditing(false); } catch (error) { toast.error(error instanceof Error ? error.message : "Failed to update Main Project."); } };
+  const removeProjectTitle = async () => {
+    if (!projectTitleToDelete) return;
+    try {
+      await deleteProject.mutateAsync({ id: projectTitleToDelete.id, mainProjectId: project.id });
+      toast.success(`Project Title "${projectTitleToDelete.name}" deleted.`);
+      setProjectTitleToDelete(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete Project Title.");
+    }
+  };
   return <div className="space-y-6">
     <PageHeader title="Main Project" description="Parent project overview and project-title workflow status." actions={<div className="flex gap-2"><Button asChild variant="outline">
       <Link to="/projects">
@@ -69,9 +92,34 @@ export default function MainProjectDetail() {
         const state = titleState(title); const Icon = state.icon; return <div key={title.id} className="flex flex-wrap items-center gap-4 p-4">
           <span className="w-6 text-sm text-muted-foreground">{index + 1}.</span>
           <div className="min-w-48 flex-1"><Link to={`/projects/${title.id}/view`} className="font-medium hover:text-primary hover:underline">{title.name}</Link>
-            <div className={`mt-1 flex items-center gap-1 text-xs ${state.color}`}><Icon className="h-3.5 w-3.5" /> {state.label}</div></div><Button size="sm" variant="outline" onClick={() => navigate(`/projects/${title.id}/${title.isDraft ? "edit" : "view"}`)}>{title.isDraft ? "Continue" : "View"}</Button>
+            <div className={`mt-1 flex items-center gap-1 text-xs ${state.color}`}><Icon className="h-3.5 w-3.5" /> {state.label}</div></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => navigate(`/projects/${title.id}/${title.isDraft ? "edit" : "view"}`)}>{title.isDraft ? "Continue" : "View"}</Button><Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setProjectTitleToDelete({ id: title.id, name: title.name })}><Trash2 className="h-4 w-4" /> Delete</Button></div>
         </div>;
       })}{!project.projectTitles.length && <p className="p-6 text-sm text-muted-foreground">No Project Titles have been created.</p>}</div>
     </div>
+    <AlertDialog open={Boolean(projectTitleToDelete)} onOpenChange={(open) => {
+      if (!open && !deleteProject.isPending) setProjectTitleToDelete(null);
+    }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this Project Title?</AlertDialogTitle>
+          <AlertDialogDescription>
+            “{projectTitleToDelete?.name}” and its associated project data will be permanently deleted. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleteProject.isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={deleteProject.isPending}
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={(event) => {
+              event.preventDefault();
+              void removeProjectTitle();
+            }}
+          >
+            {deleteProject.isPending ? "Deleting..." : "Delete Project Title"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>;
 }

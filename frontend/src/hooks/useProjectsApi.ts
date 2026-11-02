@@ -156,8 +156,13 @@ export function useUpdateProject() {
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.del(`/projects/${id}/`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.projects }),
+    mutationFn: ({ id }: { id: string; mainProjectId: string }) =>
+      api.del(`/projects/${id}/`),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.projects });
+      qc.invalidateQueries({ queryKey: qk.mainProjects });
+      qc.invalidateQueries({ queryKey: ["mainProject", vars.mainProjectId] });
+    },
   });
 }
 
@@ -601,7 +606,7 @@ export function useUploadDocument() {
       const form = new FormData();
       form.append("project", projectId);
       form.append("name", name || files[0]?.name || "Document");
-      form.append("document_type", documentType || "Other");
+      form.append("documentType", documentType || "Other");
       form.append("description", description || "");
       files.forEach((f) => form.append("files", f));
       return api.postForm<ProjectDocument>("/project-documents/", form);
