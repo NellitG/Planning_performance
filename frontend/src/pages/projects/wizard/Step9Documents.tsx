@@ -113,6 +113,23 @@ function DocumentRow({
               ))}
             </ul>
           )}
+          {doc.savedFiles.length > 0 && (
+            <ul className="space-y-1.5 pt-1">
+              {doc.savedFiles.map((file) => (
+                <li key={file.id} className="rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs">
+                  {file.available === false ? (
+                    <span className="text-red-700">{file.name} — unavailable; upload a replacement.</span>
+                  ) : file.fileUrl ? (
+                    <a href={file.fileUrl} target="_blank" rel="noreferrer" className="text-primary underline">
+                      {file.name}
+                    </a>
+                  ) : (
+                    <span>{file.name} — saved; preview unavailable.</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
@@ -129,7 +146,7 @@ export default function Step9Documents({ data, onChange, onNext, onBack, onFinis
     onChange({
       documents: [
         ...data.documents,
-        { title: "", docType: "", description: "", files: [] },
+        { title: "", docType: "", description: "", files: [], savedFiles: [] },
       ],
     });
   };

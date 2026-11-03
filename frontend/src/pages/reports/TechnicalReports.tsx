@@ -25,7 +25,7 @@ function formatDate(value?: string | null) {
 
 export default function TechnicalReports() {
   const [financialYear, setFinancialYear] = useState<string | null>(null);
-  const [quarterSelected, setQuarterSelected] = useState<string>("Annual");
+  const [quarterSelected, setQuarterSelected] = useState<string>("Quarter 1");
   const [status, setStatus] = useState("All Reports");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);

@@ -343,6 +343,7 @@ export interface ProjectDocumentFile {
   document: string;
   name: string;
   fileUrl?: string | null;
+  available?: boolean;
   size: number;
   type: string;
   uploadedAt: string;

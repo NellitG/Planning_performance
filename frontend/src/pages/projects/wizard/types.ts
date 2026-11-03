@@ -3,9 +3,20 @@ export interface ImplementationUnitData {
   coordination: string;
   coordinationOther: string;
   institute: boolean;
+  instituteId: string;
   instituteName: string;
+  centreId: string;
   centre: string;
+  subCentreId: string;
   subCentre: string;
+}
+
+export interface SavedDocumentFile {
+  id: string;
+  name: string;
+  fileUrl?: string | null;
+  size: number;
+  available: boolean;
 }
 
 export interface LocationEntry {
@@ -34,6 +45,7 @@ export interface DocumentEntry {
   docType: string;
   description: string;
   files: File[];
+  savedFiles: SavedDocumentFile[];
 }
 
 export interface WizardData {
@@ -98,8 +110,11 @@ export const INITIAL_WIZARD_DATA: WizardData = {
     coordination: "",
     coordinationOther: "",
     institute: false,
+    instituteId: "",
     instituteName: "",
+    centreId: "",
     centre: "",
+    subCentreId: "",
     subCentre: "",
   },
   valueChains: [],
