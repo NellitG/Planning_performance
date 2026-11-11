@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, ChevronDown, LayoutGrid, Search, Moon, Sun, LogOut, User as UserIcon } from "lucide-react";
-import { useState, useEffect, useSyncExternalStore } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -9,29 +9,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import * as notificationsStore from "@/utils/notificationsStore";
 import { useAuth } from "@/context/AuthContext";
 import { MODULES } from "@/utils/modules";
+import { useMarkWorkflowNotificationRead, useWorkflowNotifications } from "@/hooks/useProjectsApi";
 
 export function TopNav() {
   const [dark, setDark] = useState(false);
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
+  const { data: notifications = [] } = useWorkflowNotifications();
+  const markRead = useMarkWorkflowNotificationRead();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
-  const notifications = useSyncExternalStore(
-    notificationsStore.subscribe,
-    notificationsStore.getNotifications,
-    notificationsStore.getNotifications,
-  );
-  const unreadCount = useSyncExternalStore(
-    notificationsStore.subscribe,
-    notificationsStore.getUnreadCount,
-    notificationsStore.getUnreadCount,
-  );
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   const moduleLabel = auth ? (MODULES[auth.module as keyof typeof MODULES]?.label ?? "KALRO PPM") : "KALRO PPM";
 
@@ -75,30 +68,32 @@ export function TopNav() {
         <DropdownMenu>
           <DropdownMenuTrigger className="relative rounded-md p-2 hover:bg-muted">
             <Bell className="h-4 w-4" />
-            <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {unreadCount}
-            </span>
+            {unreadCount > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unreadCount}</span>}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifications.map((n) => (
-              <DropdownMenuItem key={n.id} className="flex-col items-start gap-0.5">
-                <div className="text-sm font-medium">{n.title}</div>
-                <div className="text-xs text-muted-foreground">{n.desc}</div>
-                <div className="text-[10px] text-muted-foreground">{n.time}</div>
+            {notifications.slice(0, 5).map((notification) => (
+              <DropdownMenuItem key={notification.id} className="flex-col items-start gap-0.5" onSelect={() => {
+                if (!notification.isRead) markRead.mutate(notification.id);
+                navigate(`/technical-reports/${notification.reportId}`);
+              }}>
+                <div className="text-sm font-medium">{notification.reportTitle}</div>
+                <div className="line-clamp-2 text-xs text-muted-foreground">{notification.message}</div>
+                <div className="text-[10px] text-muted-foreground">{new Date(notification.createdAt).toLocaleString()}</div>
               </DropdownMenuItem>
             ))}
+            {!notifications.length && <div className="px-2 py-4 text-center text-sm text-muted-foreground">No notifications.</div>}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-between">
-              <a href="/notifications" className="flex w-full items-center justify-between gap-2">
+            <DropdownMenuItem className="justify-between" onSelect={() => navigate("/notifications")}>
+              <span className="flex w-full items-center justify-between gap-2">
                 <span>View all notifications</span>
                 {unreadCount > 0 && (
                   <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-[11px]">
                     {unreadCount} new
                   </Badge>
                 )}
-              </a>
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

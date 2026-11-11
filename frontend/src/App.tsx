@@ -1,8 +1,10 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import type { ReactNode } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { hasAnyRole } from "@/utils/roleAccess";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +68,7 @@ const PCReports = lazy(() => import("@/pages/performance-contracts/PCReports"));
 const ProjectDetail = lazy(() => import("@/pages/projects/ProjectDetail"));
 const ProjectView = lazy(() => import("@/pages/projects/ProjectView"));
 const MainProjectDetail = lazy(() => import("@/pages/projects/MainProjectDetail"));
+const MainProjectImplementation = lazy(() => import("@/pages/projects/MainProjectImplementation"));
 const ProjectComponents = lazy(() => import("@/pages/projects/components/Components"));
 const ComponentForm = lazy(() => import("@/pages/projects/components/ComponentForm"));
 const ComponentView = lazy(() => import("@/pages/projects/components/ComponentView"));
@@ -121,15 +124,32 @@ function LoadingFallback() {
 
 function ProtectedLayout() {
   const { auth, hydrated } = useAuth();
+  const { pathname } = useLocation();
   if (!hydrated) {
     return <LoadingFallback />;
   }
   if (!auth) return <Navigate to="/login" replace />;
+  const canViewProjects = hasAnyRole(auth, "system_admin", "value_chain_lead", "project_coordinator");
+  if (pathname.startsWith("/projects") && !canViewProjects) {
+    return <Navigate to="/technical-reports" replace />;
+  }
+  if (pathname === "/" && !canViewProjects && hasAnyRole(auth, "accountant", "me")) {
+    return <Navigate to="/technical-reports" replace />;
+  }
+  if (pathname.startsWith("/technical-reports/main/") && !canViewProjects) {
+    return <Navigate to="/technical-reports" replace />;
+  }
   return (
     <DashboardLayout>
       <Outlet />
     </DashboardLayout>
   );
+}
+
+function RoleGuard({ roles, children }: { roles: string[]; children: ReactNode }) {
+  const { auth } = useAuth();
+  if (!hasAnyRole(auth, ...roles)) return <Navigate to="/technical-reports" replace />;
+  return children;
 }
 
 function AppRoutes() {
@@ -145,11 +165,13 @@ function AppRoutes() {
         <Route index element={<Overview />} />
 
         <Route path="/projects" element={<Projects />} />
-        <Route path="/projects/new" element={<ProjectWizard mode="create" />} />
+        <Route path="/projects/new" element={<RoleGuard roles={["system_admin"]}><ProjectWizard mode="create" /></RoleGuard>} />
+        <Route path="/projects/main/new" element={<RoleGuard roles={["system_admin"]}><MainProjectImplementation /></RoleGuard>} />
+        <Route path="/projects/main/:id/implementation" element={<RoleGuard roles={["system_admin"]}><MainProjectImplementation /></RoleGuard>} />
         <Route path="/projects/main/:id" element={<MainProjectDetail />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/projects/:id/view" element={<ProjectView />} />
-        <Route path="/projects/:id/edit" element={<ProjectWizard mode="edit" />} />
+        <Route path="/projects/:id/edit" element={<RoleGuard roles={["system_admin"]}><ProjectWizard mode="edit" /></RoleGuard>} />
 
         <Route path="/projects/components" element={<ProjectComponents />} />
         <Route path="/projects/components/new" element={<ComponentForm mode="create" />} />
@@ -267,13 +289,13 @@ function AppRoutes() {
         <Route path="/financial-reports" element={<FinancialReports />} />
         <Route path="/technical-reports" element={<TechnicalReports />} />
         <Route path="/technical-reports/:id" element={<TechnicalReportDetails />} />
-        <Route path="/technical-reports/:id/edit" element={<EditTechnicalReport />} />
+        <Route path="/technical-reports/:id/edit" element={<RoleGuard roles={["system_admin", "value_chain_lead"]}><EditTechnicalReport /></RoleGuard>} />
         <Route path="/technical-reports/main/:id" element={<TechnicalReportMainProject />} />
         <Route path="/technical-reports/main/:mainId/title/:projectId" element={<TechnicalReportProjectTitle />} />
-        <Route path="/new-report" element={<NewReport />} />
+        <Route path="/new-report" element={<RoleGuard roles={["system_admin", "value_chain_lead"]}><NewReport /></RoleGuard>} />
 
         <Route path="/notifications" element={<Notifications />} />
-        <Route path="/user-management/*" element={<UserManagement />} />
+        <Route path="/user-management/*" element={<RoleGuard roles={["system_admin"]}><UserManagement /></RoleGuard>} />
         <Route path="/partners" element={<Partners />} />
         <Route path="/project-staff" element={<ProjectStaff />} />
       </Route>

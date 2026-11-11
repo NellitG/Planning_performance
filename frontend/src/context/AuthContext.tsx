@@ -26,7 +26,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = useCallback(async ({ email, password, moduleKey }: LoginParams): Promise<AuthState> => {
     const response = await api.post<{ token: string; user: { email: string; name: string; roles: string[] } }>("/auth/login/", { email, password });
-    const next: AuthState = { user: { email: response.user.email, name: response.user.name, role: response.user.roles[0] || "", initials: response.user.name.split(/\s+/).map(x => x[0]).join("").slice(0, 2).toUpperCase() }, module: moduleKey, token: response.token, issuedAt: new Date().toISOString() };
+    const roles = response.user.roles || [];
+    const next: AuthState = { user: { email: response.user.email, name: response.user.name, role: roles[0] || "", roles, initials: response.user.name.split(/\s+/).map(x => x[0]).join("").slice(0, 2).toUpperCase() }, module: moduleKey, token: response.token, issuedAt: new Date().toISOString() };
     setAuthToken(next.token);
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setAuth(next); return next;
   }, []);

@@ -3,13 +3,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { LogOut, ChevronLeft, ChevronDown, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import * as notificationsStore from "@/utils/notificationsStore";
 import { useAuth } from "@/context/AuthContext";
 import { MODULES, SIDEBAR_SECTIONS, SIDEBAR_TREE } from "@/utils/modules";
-import type { NavNode } from "@/utils/types";
+import { useWorkflowNotifications } from "@/hooks/useProjectsApi";
+import { hasAnyRole } from "@/utils/roleAccess";
+import type { NavGroupNode, NavNode } from "@/utils/types";
 import logoSrc from "@/assets/logo.png";
 
 function hasActiveDescendant(node: NavNode, pathname: string): boolean {
@@ -20,6 +21,25 @@ function hasActiveDescendant(node: NavNode, pathname: string): boolean {
     return node.children.some((c) => hasActiveDescendant(c, pathname));
   }
   return false;
+}
+
+function isNavGroup(node: NavNode): node is NavGroupNode {
+  return Array.isArray(node.children);
+}
+
+function filterNavigation(nodes: NavNode[], canManageUsers: boolean, canViewProjects: boolean): NavNode[] {
+  const filtered: NavNode[] = [];
+  for (const node of nodes) {
+    if (!isNavGroup(node)) {
+      if (!canManageUsers && node.to === "/user-management") continue;
+      if (!canViewProjects && node.to.startsWith("/projects")) continue;
+      filtered.push(node);
+      continue;
+    }
+    const children = filterNavigation(node.children, canManageUsers, canViewProjects);
+    if (children.length) filtered.push({ ...node, children });
+  }
+  return filtered;
 }
 
 interface NavLeafProps {
@@ -143,16 +163,18 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { pathname } = useLocation();
   const { auth } = useAuth();
-  const unreadCount = useSyncExternalStore(
-    notificationsStore.subscribe,
-    notificationsStore.getUnreadCount,
-    notificationsStore.getUnreadCount,
-  );
+  const { data: notifications = [] } = useWorkflowNotifications();
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   const moduleKey = auth?.module ?? "projects";
   const mod = MODULES[moduleKey as keyof typeof MODULES] ?? MODULES.projects;
-  const treeNodes = SIDEBAR_TREE[moduleKey];
-  const sections = treeNodes ? null : (SIDEBAR_SECTIONS[moduleKey] ?? SIDEBAR_SECTIONS.projects);
+  const canManageUsers = hasAnyRole(auth, "system_admin");
+  const canViewProjects = hasAnyRole(auth, "system_admin", "value_chain_lead", "project_coordinator");
+  const configuredTree = SIDEBAR_TREE[moduleKey];
+  const treeNodes = configuredTree ? filterNavigation(configuredTree, canManageUsers, canViewProjects) : null;
+  const sections = configuredTree ? null : (SIDEBAR_SECTIONS[moduleKey] ?? SIDEBAR_SECTIONS.projects)
+    .map((section) => ({ ...section, items: section.items.filter((item) => (canManageUsers || item.to !== "/user-management") && (canViewProjects || !item.to.startsWith("/projects"))) }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <motion.aside
