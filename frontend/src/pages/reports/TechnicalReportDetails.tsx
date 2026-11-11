@@ -1,79 +1,111 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { ArrowLeft, Download, Edit3, FileText, MapPin } from "lucide-react";
+import { ArrowLeft, Download, Edit3, Eye, FileText, MapPin } from "lucide-react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useTechnicalReport } from "@/hooks/useProjectsApi";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useReportWorkflowAction, useTechnicalReport } from "@/hooks/useProjectsApi";
 import { cn } from "@/lib/utils";
-import { technicalReportPdf } from "@/utils/technicalReportPdf";
+import { useAuth } from "@/context/AuthContext";
+import { canManageTechnicalReports, hasAnyRole } from "@/utils/roleAccess";
+import { api } from "@/utils/apiClient";
 
 const date = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString() : "N/A";
 
-function legacyDownloadPdf(report: Record<string, any>) {
-  const entries = [
-    ["Project", report.projectName],
-    ["Financial year", report.financialYear],
-    ["Quarter", report.quarter],
-    // ["Status", report.status],
-    ["Achievement", report.achievement],
-    ["Remarks", report.remarks],
-  ];
-
-  const content = entries
-    .map(
-      ([key, value], index) =>
-        `BT /F1 ${index ? 10 : 14
-        } Tf 50 ${790 - index * 30} Td (${String(key)}: ${String(
-          value ?? "N/A"
-        ).replace(/[()\\]/g, "")}) Tj ET`
-    )
-    .join("\n");
-
-  const pdf = `%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 842]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj
-4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
-5 0 obj<</Length ${content.length}>>stream
-${content}
-endstream
-endobj
-trailer<</Root 1 0 R>>
-%%EOF`;
-
-  const anchor = document.createElement("a");
-
-  anchor.href = URL.createObjectURL(
-    new Blob([pdf], {
-      type: "application/pdf",
-    })
-  );
-
-  anchor.download = "technical-report.pdf";
-  anchor.click();
-
-  URL.revokeObjectURL(anchor.href);
-}
-
 export default function TechnicalReportDetails() {
   const { id } = useParams();
   const location = useLocation();
+  const { auth } = useAuth();
 
   const {
     data: report,
     isLoading,
     isError,
     error,
+    refetch,
   } = useTechnicalReport(id);
+  const workflowAction = useReportWorkflowAction();
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [reviewComments, setReviewComments] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const openPreview = (currentReport: NonNullable<typeof report>) => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(technicalReportPdf(currentReport)));
-  };
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [evidencePreview, setEvidencePreview] = useState<{ url: string; name: string; fileType?: string } | null>(null);
+  const [loadingEvidenceId, setLoadingEvidenceId] = useState<string | null>(null);
+  const openPreview = useCallback(async (currentReport: NonNullable<typeof report>) => {
+    setPreviewLoading(true);
+    try {
+      const pdf = await api.getBlob(`/technical-reports/${currentReport.id}/pdf/`);
+      if (pdf.type !== "application/pdf") throw new Error("The server did not return a PDF document.");
+      const url = URL.createObjectURL(pdf);
+      setPreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return url;
+      });
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Unable to generate the report PDF.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
   const downloadPreview = () => {
     if (!previewUrl) return;
     const anchor = document.createElement("a"); anchor.href = previewUrl; anchor.download = `technical-report-${id}.pdf`; anchor.click();
+  };
+  const previewEvidence = async (indicatorReportId: string, file: { id: string; name: string; fileType?: string }) => {
+    if (!report) return;
+    setLoadingEvidenceId(file.id);
+    try {
+      const blob = await api.getBlob(
+        `/technical-reports/${report.id}/indicator-reports/${indicatorReportId}/evidence/${file.id}/download/`,
+      );
+      const url = URL.createObjectURL(blob);
+      if (evidencePreview) URL.revokeObjectURL(evidencePreview.url);
+      setEvidencePreview({ url, name: file.name, fileType: file.fileType });
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Unable to load evidence.");
+    } finally {
+      setLoadingEvidenceId(null);
+    }
+  };
+  const closeEvidencePreview = () => {
+    if (evidencePreview) URL.revokeObjectURL(evidencePreview.url);
+    setEvidencePreview(null);
+  };
+  const closePdfPreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+  };
+  const editableStatuses = ["Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"];
+  const reviewerRoles: Record<string, string> = {
+    "Submitted to Accountant": "accountant",
+    "Submitted to Project Coordinator": "project_coordinator",
+    "Submitted to M&E": "me",
+  };
+  const isEditable = Boolean(report && canManageTechnicalReports(auth) && editableStatuses.includes(report.status));
+  const canSubmit = Boolean(report && hasAnyRole(auth, "value_chain_lead") && editableStatuses.includes(report.status));
+  const canReview = Boolean(report && reviewerRoles[report.status] && hasAnyRole(auth, reviewerRoles[report.status]));
+  const runWorkflowAction = async (action: "submit" | "approve" | "reject") => {
+    if (!report || (action === "reject" && !rejectionReason.trim())) {
+      toast.error("A rejection reason is required.");
+      return;
+    }
+    try {
+      await workflowAction.mutateAsync({
+        id: report.id,
+        action,
+        ...(action === "reject" ? { reason: rejectionReason.trim() } : {}),
+        ...(action === "approve" && reviewComments.trim() ? { comments: reviewComments.trim() } : {}),
+      });
+      setRejectionReason("");
+      setReviewComments("");
+      await refetch();
+      toast.success(action === "submit" ? "Report submitted for review." : action === "approve" ? "Report approved." : "Report rejected and returned to the Value Chain Lead.");
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : `Unable to ${action} report.`);
+    }
   };
 
   useEffect(() => {
@@ -83,7 +115,12 @@ export default function TechnicalReportDetails() {
     ) {
       openPreview(report);
     }
-  }, [report, location.state]);
+  }, [report, location.state, openPreview]);
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (evidencePreview) URL.revokeObjectURL(evidencePreview.url);
+  }, [previewUrl, evidencePreview]);
 
   if (isLoading) {
     return (
@@ -118,7 +155,7 @@ export default function TechnicalReportDetails() {
       </dt>
 
       <dd className="mt-1 font-medium">
-        {String(value || "N/A")}
+        {value === null || value === undefined || value === "" ? "N/A" : String(value)}
       </dd>
     </div>
   );
@@ -141,10 +178,11 @@ export default function TechnicalReportDetails() {
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2 justify-end">
-        {/* Download PDF */}
+        {/* Preview saved report PDF */}
         <button
           type="button"
           onClick={() => openPreview(report)}
+          disabled={previewLoading}
           className={cn(
             "inline-flex h-10 items-center justify-center gap-1.5",
             "rounded-md border border-input bg-background",
@@ -156,12 +194,12 @@ export default function TechnicalReportDetails() {
             "disabled:pointer-events-none disabled:opacity-50"
           )}
         >
-          <Download className="h-4 w-4" />
-          Download PDF
+          {previewLoading ? <FileText className="h-4 w-4 animate-pulse" /> : <Eye className="h-4 w-4" />}
+          {previewLoading ? "Generating PDF..." : "Preview PDF"}
         </button>
 
         {/* Edit Report */}
-        <Link
+        {isEditable && <Link
           to={`/technical-reports/${report.id}/edit`}
           className={cn(
             "inline-flex h-10 items-center justify-center gap-1.5",
@@ -176,9 +214,47 @@ export default function TechnicalReportDetails() {
         >
           <Edit3 className="h-4 w-4" />
           Edit Report
-        </Link>
+        </Link>}
       </div>
       <br></br>
+
+      <Card className="mb-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Workflow Status</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Current stage: {report.status}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Financial review: {report.financialReviewStatus || "Pending"}</p>
+          </div>
+          <Badge variant={report.status === "Approved/Finalized" ? "default" : "outline"}>{report.status}</Badge>
+        </div>
+        {(canSubmit || canReview) && <div className="mt-4 flex flex-wrap items-end gap-3">
+          {canSubmit && <Button onClick={() => runWorkflowAction("submit")} disabled={workflowAction.isPending}>{workflowAction.isPending ? "Submitting..." : report.status.startsWith("Rejected by ") ? "Resubmit Report" : "Submit for Review"}</Button>}
+          {canReview && <>
+            {report.status === "Submitted to Accountant" && <div className="min-w-64 flex-1">
+              <label htmlFor="accountant-review-comments" className="mb-1 block text-sm font-medium">Accountant review comments (optional)</label>
+              <Textarea id="accountant-review-comments" value={reviewComments} onChange={(event) => setReviewComments(event.target.value)} maxLength={2000} placeholder="Record any comments about the reported expenditure." />
+            </div>}
+            <div className="min-w-64 flex-1">
+              <label htmlFor="rejection-reason" className="mb-1 block text-sm font-medium">Rejection reason (required to reject)</label>
+              <Textarea id="rejection-reason" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} maxLength={2000} placeholder="Explain what needs to be corrected." />
+            </div>
+            <Button onClick={() => runWorkflowAction("approve")} disabled={workflowAction.isPending}>Approve</Button>
+            <Button variant="destructive" onClick={() => runWorkflowAction("reject")} disabled={workflowAction.isPending || !rejectionReason.trim()}>Reject</Button>
+          </>}
+        </div>}
+        <div className="mt-5 border-t pt-4">
+          <h3 className="mb-3 text-sm font-semibold">Workflow History</h3>
+          <ol className="space-y-3">
+            {(report.workflowHistory || []).map((event, index) => <li key={`${event.at}-${index}`} className="border-l-2 border-muted pl-3 text-sm">
+              <p className="font-medium">{event.action}: {event.newStatus || event.previousStatus}</p>
+              <p className="text-xs text-muted-foreground">{event.user} · {event.role} · {new Date(event.at).toLocaleString()}</p>
+              {event.rejectionReason && <p className="mt-1 text-sm text-red-700">Reason: {event.rejectionReason}</p>}
+              {event.comments && <p className="mt-1 text-sm text-muted-foreground">Comments: {event.comments}</p>}
+            </li>)}
+            {!report.workflowHistory?.length && <li className="text-sm text-muted-foreground">No workflow events recorded.</li>}
+          </ol>
+        </div>
+      </Card>
 
       {/* Report Card */}
       <Card className="space-y-6 p-6">
@@ -210,6 +286,7 @@ export default function TechnicalReportDetails() {
           {item("Date created", date(report.createdAt))}
           {item("Amount disbursed", report.disbursedAmount)}
           {item("Amount utilized", report.utilizedAmount)}
+          {item("Amount remaining", report.amountRemaining)}
           {item(
             "Percentage utilization",
             `${report.percentageUtilization ?? 0}%`
@@ -257,8 +334,8 @@ export default function TechnicalReportDetails() {
                     <div className="mt-3">
                       <span className="text-xs font-medium uppercase text-muted-foreground">Evidence</span>
                       {indicator.evidenceFiles.length ? <ul className="mt-1 space-y-1">{indicator.evidenceFiles.map((file) => <li key={file.id}>
-                        <a className="inline-flex items-center gap-1 text-green-700 underline" href={file.url || undefined} target="_blank" rel="noreferrer">
-                          <FileText className="h-4 w-4" />{file.name}</a></li>)}
+                        <button type="button" className="inline-flex items-center gap-1 text-green-700 underline disabled:opacity-50" onClick={() => previewEvidence(indicator.id, file)} disabled={loadingEvidenceId === file.id}>
+                          <FileText className="h-4 w-4" />{loadingEvidenceId === file.id ? "Loading evidence..." : file.name}</button><span className="ml-2 text-xs text-muted-foreground">{[file.fileType, file.uploadedBy, file.createdAt ? new Date(file.createdAt).toLocaleDateString() : ""].filter(Boolean).join(" · ")}</span></li>)}
                       </ul> : <p className="mt-1">No evidence uploaded.</p>}
                     </div>
                   </div>)}
@@ -286,10 +363,26 @@ export default function TechnicalReportDetails() {
           </div>
             <div className="flex gap-2"><Button onClick={downloadPreview}>
               <Download className="mr-2 h-4 w-4" />Download PDF</Button>
-              <Button variant="outline" onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}>Close</Button>
+              <Button variant="outline" onClick={closePdfPreview}>Close</Button>
             </div>
           </div>
-          <iframe title="Technical report PDF preview" className="min-h-0 flex-1" src={previewUrl} /></div>
+          <iframe title="Technical report PDF preview" className="min-h-0 flex-1" src={`${previewUrl}#toolbar=1&navpanes=1&zoom=page-width`} /></div>
+      </div>}
+      {evidencePreview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-background shadow-xl">
+          <div className="flex items-center justify-between gap-3 border-b p-4">
+            <div><h2 className="font-semibold">{evidencePreview.name}</h2><p className="text-sm text-muted-foreground">Protected report evidence</p></div>
+            <div className="flex gap-2">
+              <a className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" href={evidencePreview.url} download={evidencePreview.name}>Download</a>
+              <Button variant="outline" onClick={closeEvidencePreview}>Close</Button>
+            </div>
+          </div>
+          {evidencePreview.fileType === "PDF" ?
+            <iframe title={`Evidence preview: ${evidencePreview.name}`} className="min-h-0 flex-1" src={evidencePreview.url} /> :
+            ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(evidencePreview.fileType || "") ?
+              <div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-muted/30 p-4"><img src={evidencePreview.url} alt={evidencePreview.name} className="max-h-full max-w-full object-contain" /></div> :
+              <div className="grid flex-1 place-items-center gap-3 p-8 text-center text-sm text-muted-foreground"><p>Preview is unavailable for this file type.</p><a href={evidencePreview.url} target="_blank" rel="noreferrer" className="text-primary underline">Open attachment in a new tab</a></div>}
+        </div>
       </div>}
     </>
   );

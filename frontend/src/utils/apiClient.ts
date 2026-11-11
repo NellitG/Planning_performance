@@ -41,10 +41,9 @@ function formatApiError(data: unknown): string {
   if (typeof data === "string") return data;
   if (Array.isArray(data)) return data.map(formatApiError).join("; ");
   if (data && typeof data === "object") {
-    if ("detail" in data && typeof (data as any).detail === "string") {
-      return (data as any).detail;
-    }
-    return Object.entries(data as Record<string, unknown>)
+    const objectData = data as Record<string, unknown>;
+    if (typeof objectData.detail === "string") return objectData.detail;
+    return Object.entries(objectData)
       .map(([key, value]) => `${key}: ${formatApiError(value)}`)
       .join("; ");
   }
@@ -75,6 +74,13 @@ export const api = {
       headers: headers(),
     });
     return handle(res) as Promise<T>;
+  },
+  getBlob: async (path: string): Promise<Blob> => {
+    const res = await fetch(`${BASE}${path}`, { headers: headers() });
+    if (!res.ok) {
+      await handle(res);
+    }
+    return res.blob();
   },
   post: async <T = unknown>(path: string, body?: Json): Promise<T> => {
     const res = await fetch(`${BASE}${path}`, {

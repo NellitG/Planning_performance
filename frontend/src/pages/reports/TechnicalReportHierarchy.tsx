@@ -3,6 +3,10 @@ import { ArrowLeft, ChevronRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useMainProject, useTechnicalReports } from "@/hooks/useProjectsApi";
+import { useAuth } from "@/context/AuthContext";
+import { canManageTechnicalReports } from "@/utils/roleAccess";
+
+const editableStatuses = ["Draft", "Rejected by Accountant", "Rejected by Project Coordinator", "Rejected by M&E"];
 
 export function TechnicalReportMainProject() {
   const { id } = useParams<{ id: string }>(); const { data: project, isLoading } = useMainProject(id);
@@ -12,9 +16,11 @@ export function TechnicalReportMainProject() {
 }
 
 export function TechnicalReportProjectTitle() {
+  const { auth } = useAuth();
+  const canManageReports = canManageTechnicalReports(auth);
   const { mainId, projectId } = useParams<{ mainId: string; projectId: string }>();
   const { data: project } = useMainProject(mainId); const { data: reports = [], isLoading } = useTechnicalReports();
   const title = project?.projectTitles.find((item) => item.id === projectId);
   const scoped = reports.filter((report) => report.projectId === projectId);
-  return <div className="space-y-5"><Button asChild variant="outline"><Link to={`/technical-reports/main/${mainId}`}><ArrowLeft className="h-4 w-4" /> {project?.name || "Main Project"}</Link></Button><Card className="p-6"><p className="text-xs font-medium uppercase text-muted-foreground">Project Title</p><h1 className="mt-1 text-2xl font-semibold">{title?.name || "Loading…"}</h1><div className="mt-5 space-y-3">{isLoading ? <p className="text-sm text-muted-foreground">Loading reports…</p> : scoped.map((report) => <div key={report.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-4"><FileText className="h-4 w-4 text-primary" /><div className="min-w-48 flex-1"><Link to={`/technical-reports/${report.id}`} className="font-medium hover:underline">{report.title}</Link><p className="text-xs text-muted-foreground">{report.financialYear} · {report.quarter} · {report.status}</p></div><Button asChild variant="outline" size="sm"><Link to={`/technical-reports/${report.id}`}>View</Link></Button><Button asChild variant="outline" size="sm"><Link to={`/technical-reports/${report.id}/edit`}>Edit</Link></Button></div>)}{!isLoading && !scoped.length && <p className="text-sm text-muted-foreground">No technical reports have been created for this Project Title.</p>}</div></Card></div>;
+  return <div className="space-y-5"><Button asChild variant="outline"><Link to={`/technical-reports/main/${mainId}`}><ArrowLeft className="h-4 w-4" /> {project?.name || "Main Project"}</Link></Button><Card className="p-6"><p className="text-xs font-medium uppercase text-muted-foreground">Project Title</p><h1 className="mt-1 text-2xl font-semibold">{title?.name || "Loading…"}</h1><div className="mt-5 space-y-3">{isLoading ? <p className="text-sm text-muted-foreground">Loading reports…</p> : scoped.map((report) => <div key={report.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-4"><FileText className="h-4 w-4 text-primary" /><div className="min-w-48 flex-1"><Link to={`/technical-reports/${report.id}`} className="font-medium hover:underline">{report.title}</Link><p className="text-xs text-muted-foreground">{report.financialYear} · {report.quarter} · {report.status}</p></div><Button asChild variant="outline" size="sm"><Link to={`/technical-reports/${report.id}`}>View</Link></Button>{canManageReports && editableStatuses.includes(report.status) && <Button asChild variant="outline" size="sm"><Link to={`/technical-reports/${report.id}/edit`}>Edit</Link></Button>}</div>)}{!isLoading && !scoped.length && <p className="text-sm text-muted-foreground">No technical reports have been created for this Project Title.</p>}</div></Card></div>;
 }
