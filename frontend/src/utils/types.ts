@@ -12,6 +12,7 @@ export interface Project {
   description?: string;
   status: ProjectStatus | string;
   coordinator?: string;
+  valueChainLeadIds?: string[];
   projectType?: string;
   implementationUnits?: Record<string, unknown>;
   valueChains?: string[];
@@ -43,13 +44,49 @@ export interface MainProject {
   startDate?: string | null;
   endDate?: string | null;
   status: string;
+  projectBudget?: number | string | null;
+  background?: string;
+  projectObjectives?: string;
+  implementationComplete: boolean;
+  implementationStep: number;
+  fundingSources: MainProjectFundingSource[];
+  locations: Array<{ countyId: string; county: string; svgId: string }>;
+  workflowHistory?: ReportWorkflowEvent[];
   projectTitles: Array<{
     id: string;
     name: string;
     status: string;
     isDraft: boolean;
     currentStep: number;
+    invalidLocationCounties: string[];
   }>;
+}
+
+export interface MainProjectFundingSource {
+  id?: string;
+  sourceName: string;
+  fundingAgencyId: string;
+  fundingAgency: string;
+  fundingTypeId: string;
+  fundingType: string;
+  amount: string | number;
+}
+
+export interface MainProjectDocumentFile {
+  id: string;
+  name: string;
+  fileUrl: string | null;
+  size: number;
+  available: boolean;
+}
+
+export interface MainProjectDocument {
+  id: string;
+  mainProject: string;
+  title: string;
+  documentType: "Project Proposal" | "MOU / Agreement";
+  files: MainProjectDocumentFile[];
+  createdAt: string;
 }
 
 export interface FundUtilization {
@@ -79,6 +116,45 @@ export interface Notification {
 export interface NotificationWithRead extends Notification {
   read: boolean;
 }
+
+export interface WorkflowNotification {
+  id: string;
+  reportId: string;
+  reportTitle: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  action: string | null;
+  previousStatus: string | null;
+  newStatus: string | null;
+}
+
+export interface ReportWorkflowEvent {
+  action: string;
+  user: string;
+  role: string;
+  previousStatus: string;
+  newStatus: string;
+  rejectionReason: string;
+  comments: string;
+  at: string;
+}
+
+export interface TechnicalReportIndicatorInput {
+  wardId?: string | null;
+  projectLocationId?: string | null;
+  indicatorId: string;
+  indicator: string;
+  target: string | number;
+  reportedProgress: string | number | null;
+  achievement?: string;
+  remarks?: string;
+  reasonForZero?: string;
+}
+
+export type TechnicalReportInput = Partial<Omit<TechnicalReport, "indicatorReports">> & {
+  indicatorReports?: TechnicalReportIndicatorInput[];
+};
 
 export interface ActivityItem {
   id: number;
@@ -231,14 +307,14 @@ export interface TechnicalReport {
     indicatorId: string;
     indicator: string;
     target: string | number;
-    reportedProgress: string | number;
+    reportedProgress: string | number | null;
     progress: number;
     cumulativeReported: string | number;
     fullyAchieved: boolean;
     achievement: string;
     remarks: string;
     reasonForZero: string;
-    evidenceFiles: Array<{ id: string; name: string; url: string | null }>;
+    evidenceFiles: Array<{ id: string; name: string; url: string | null; fileType?: string; uploadedBy?: string | null; createdAt?: string }>;
   }>;
   relatedWardReports?: Array<{
     id: string;
@@ -258,6 +334,10 @@ export interface TechnicalReport {
   percentageUtilization?: string | number | null;
   amountRemaining?: string | number;
   status: string;
+  financialReviewStatus?: "Pending" | "Approved" | "Rejected";
+  isValueChainLeadCopy?: boolean;
+  isFinalizedCopy?: boolean;
+  workflowHistory?: ReportWorkflowEvent[];
   achievement: string;
   remarks: string;
   supportingInformation?: string;
@@ -371,6 +451,7 @@ export interface AuthUser {
   email: string;
   name: string;
   role: string;
+  roles: string[];
   initials: string;
 }
 

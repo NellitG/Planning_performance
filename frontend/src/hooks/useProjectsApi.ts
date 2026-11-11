@@ -26,6 +26,8 @@ import type {
   Outcome,
   TechnicalReport,
   MainProject,
+  WorkflowNotification,
+  TechnicalReportInput,
 } from "@/utils/types";
 
 /* ------------------------------------------------------------------ keys */
@@ -48,6 +50,7 @@ export const qk = {
   subActivities: ["subActivities"] as const,
   subSubActivities: ["subSubActivities"] as const,
   technicalReports: ["technicalReports"] as const,
+  workflowNotifications: ["workflowNotifications"] as const,
   documents: (projectId: string) => ["documents", projectId] as const,
   mapping: (projectId: string) => ["mapping", projectId] as const,
   tracking: (projectId: string) => ["tracking", projectId] as const,
@@ -1165,17 +1168,32 @@ export function useTechnicalReport(id?: string) {
 export function useCreateTechnicalReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Partial<TechnicalReport>) => api.post<TechnicalReport>("/technical-reports/", input),
+    mutationFn: (input: TechnicalReportInput) => api.post<TechnicalReport>("/technical-reports/", input),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+  });
+}
+
+export function useSaveTechnicalReportDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TechnicalReportInput & { id?: string }) =>
+      api.post<TechnicalReport>("/technical-reports/save-draft/", input),
+    onSuccess: (report) => {
+      qc.invalidateQueries({ queryKey: qk.technicalReports });
+      qc.invalidateQueries({ queryKey: ["technicalReport", report.id] });
+    },
   });
 }
 
 export function useUpdateTechnicalReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...input }: Partial<TechnicalReport> & { id: string }) =>
+    mutationFn: ({ id, ...input }: TechnicalReportInput & { id: string }) =>
       api.patch<TechnicalReport>(`/technical-reports/${id}/`, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+    onSuccess: (_report, variables) => {
+      qc.invalidateQueries({ queryKey: qk.technicalReports });
+      qc.invalidateQueries({ queryKey: ["technicalReport", variables.id] });
+    },
   });
 }
 
@@ -1184,6 +1202,44 @@ export function useDeleteTechnicalReport() {
   return useMutation({
     mutationFn: (id: string) => api.del(`/technical-reports/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.technicalReports }),
+  });
+}
+
+export function useWorkflowNotifications() {
+  return useQuery({
+    queryKey: qk.workflowNotifications,
+    queryFn: () => api.get<WorkflowNotification[]>("/workflow-notifications/"),
+    staleTime: 15_000,
+  });
+}
+
+export function useMarkWorkflowNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<WorkflowNotification>(`/workflow-notifications/${id}/mark-read/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.workflowNotifications }),
+  });
+}
+
+export function useMarkAllWorkflowNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ markedRead: boolean }>("/workflow-notifications/mark-all-read/"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.workflowNotifications }),
+  });
+}
+
+export function useReportWorkflowAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, reason, comments }: { id: string; action: "submit" | "approve" | "reject"; reason?: string; comments?: string }) =>
+      api.post<TechnicalReport>(`/technical-reports/${id}/${action}/`, reason === undefined && comments === undefined ? undefined : { reason, comments }),
+    onSuccess: (_report, variables) => {
+      qc.invalidateQueries({ queryKey: ["technicalReport", variables.id] });
+      qc.invalidateQueries({ queryKey: qk.technicalReports });
+      qc.invalidateQueries({ queryKey: qk.workflowNotifications });
+    },
   });
 }
 

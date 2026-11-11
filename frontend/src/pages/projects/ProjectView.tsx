@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { canManageProjects } from "@/utils/roleAccess";
 import { StatusBadge } from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import {
@@ -272,6 +274,8 @@ function DocumentCard({ doc }: { doc: ProjectDocument }) {
 }
 
 export default function ProjectView() {
+  const { auth } = useAuth();
+  const canEditProjects = canManageProjects(auth);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -374,11 +378,11 @@ export default function ProjectView() {
             <Button asChild variant="outline">
               <Link to={project?.mainProjectId ? `/projects/main/${project.mainProjectId}` : "/projects"}><ArrowLeft className="h-4 w-4" /> Main Project</Link>
             </Button>
-            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+            {canEditProjects && <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
               <Link to={`/projects/${id}/edit`}>
                 <Pencil className="h-4 w-4" /> {isMapped ? "Edit Mapping" : "Start Workflow"}
               </Link>
-            </Button>
+            </Button>}
             <Button
               variant="outline"
               onClick={() => downloadProjectPdf(project, effectiveStatus, documents, kras.map((k) => k.title))}
@@ -422,9 +426,9 @@ export default function ProjectView() {
             <p className="text-xs text-amber-700 mt-0.5">
               This project has not been mapped to a component, strategic objectives, or strategies yet. Complete the 2-step workflow to activate it.
             </p>
-            <Button asChild size="sm" className="mt-3 bg-amber-600 text-white hover:bg-amber-700">
+            {canEditProjects && <Button asChild size="sm" className="mt-3 bg-amber-600 text-white hover:bg-amber-700">
               <Link to={`/projects/${id}/edit`}>Continue Workflow</Link>
-            </Button>
+            </Button>}
           </div>
         </div>
       )}

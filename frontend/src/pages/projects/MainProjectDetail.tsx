@@ -18,6 +18,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDeleteProject, useMainProject, useUpdateMainProject } from "@/hooks/useProjectsApi";
+import { useAuth } from "@/context/AuthContext";
+import { canManageProjects } from "@/utils/roleAccess";
 
 function titleState(title: { isDraft: boolean; currentStep: number }) {
   if (!title.isDraft) return { label: "Completed", icon: CheckCircle2, color: "text-green-600" };
@@ -27,10 +29,12 @@ function titleState(title: { isDraft: boolean; currentStep: number }) {
 
 export default function MainProjectDetail() {
   const { id } = useParams<{ id: string }>(); const navigate = useNavigate(); const [params] = useSearchParams();
+  const { auth } = useAuth();
+  const canEditProjects = canManageProjects(auth);
   const { data: project, isLoading, isError } = useMainProject(id);
   const update = useUpdateMainProject();
   const deleteProject = useDeleteProject();
-  const [editing, setEditing] = useState(params.get("edit") === "1");
+  const [editing, setEditing] = useState(canEditProjects && params.get("edit") === "1");
   const [projectTitleToDelete, setProjectTitleToDelete] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({ name: "", description: "", startDate: "", endDate: "", status: "Not Started" });
 
@@ -49,11 +53,13 @@ export default function MainProjectDetail() {
     }
   };
   return <div className="space-y-6">
-    <PageHeader title="Main Project" description="Parent project overview and project-title workflow status." actions={<div className="flex gap-2"><Button asChild variant="outline">
+    <PageHeader title="Main Project" description="Parent project overview and project-title workflow status." actions={<div className="flex flex-wrap gap-2"><Button asChild variant="outline">
       <Link to="/projects">
         <ArrowLeft className="h-4 w-4" /> Projects List</Link>
     </Button>
-      <Button variant="outline" onClick={() => setEditing((value) => !value)}><Pencil className="h-4 w-4" /> {editing ? "Cancel" : "Edit Main Project"}</Button>
+      {canEditProjects && <Button asChild variant={project.implementationComplete ? "outline" : "default"}><Link to={`/projects/main/${project.id}/implementation`}>{project.implementationComplete ? "Edit Implementation" : "Continue Implementation"}</Link></Button>}
+      {canEditProjects && project.implementationComplete && <Button asChild className="bg-green-700 text-white"><Link to={`/projects/new?mainProjectId=${project.id}`}>Add Project Title</Link></Button>}
+      {canEditProjects && <Button variant="outline" onClick={() => setEditing((value) => !value)}><Pencil className="h-4 w-4" /> {editing ? "Cancel" : "Edit Main Project"}</Button>}
     </div>} />
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       {editing ? <div className="grid gap-4 md:grid-cols-2"><label className="space-y-1 text-sm font-medium">Main Project Name<Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
@@ -76,6 +82,9 @@ export default function MainProjectDetail() {
           <h2 className="text-xl font-bold">{project.name}</h2>
           <StatusBadge status={project.status} />
         </div>{project.description && <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{project.description}</p>}
+          <p className={`mt-2 text-sm font-medium ${project.implementationComplete ? "text-green-700" : "text-amber-700"}`}>
+            Main Project implementation: {project.implementationComplete ? "Complete" : `Step ${project.implementationStep} of 5`}
+          </p>
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" /> Start: {project.startDate || "—"}</span>
@@ -92,7 +101,9 @@ export default function MainProjectDetail() {
         const state = titleState(title); const Icon = state.icon; return <div key={title.id} className="flex flex-wrap items-center gap-4 p-4">
           <span className="w-6 text-sm text-muted-foreground">{index + 1}.</span>
           <div className="min-w-48 flex-1"><Link to={`/projects/${title.id}/view`} className="font-medium hover:text-primary hover:underline">{title.name}</Link>
-            <div className={`mt-1 flex items-center gap-1 text-xs ${state.color}`}><Icon className="h-3.5 w-3.5" /> {state.label}</div></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => navigate(`/projects/${title.id}/${title.isDraft ? "edit" : "view"}`)}>{title.isDraft ? "Continue" : "View"}</Button><Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setProjectTitleToDelete({ id: title.id, name: title.name })}><Trash2 className="h-4 w-4" /> Delete</Button></div>
+            <div className={`mt-1 flex items-center gap-1 text-xs ${state.color}`}><Icon className="h-3.5 w-3.5" /> {state.label}</div>
+            {title.invalidLocationCounties.length > 0 && <p className="mt-1 text-xs font-medium text-red-700">Locations no longer approved by this Main Project: {title.invalidLocationCounties.join(", ")}. Edit the Project Title locations.</p>}
+          </div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => navigate(`/projects/${title.id}/${canEditProjects && title.isDraft ? "edit" : "view"}`)}>{canEditProjects && title.isDraft ? "Continue" : "View"}</Button>{canEditProjects && <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setProjectTitleToDelete({ id: title.id, name: title.name })}><Trash2 className="h-4 w-4" /> Delete</Button>}</div>
         </div>;
       })}{!project.projectTitles.length && <p className="p-6 text-sm text-muted-foreground">No Project Titles have been created.</p>}</div>
     </div>

@@ -6,7 +6,12 @@ import { ChevronRight, LoaderCircle, Plus, X } from "lucide-react";
 import type { StepProps } from "./types";
 import { PROJECT_TYPES, PROJECT_STATUSES_WIZARD } from "./data";
 import { useEffect, useState } from "react";
-import { useManagedUsers, useReferenceData } from "@/hooks/useUserManagementApi";
+import {
+  useManagedUsers,
+  useReferenceData,
+  useValueChainLeads,
+} from "@/hooks/useUserManagementApi";
+import { useMainProjects } from "@/hooks/useProjectsApi";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function Field({ label, error, required, children }:
@@ -25,7 +30,15 @@ function Field({ label, error, required, children }:
 export default function Step1Identification({ data, onChange, onNext, isSaving, allowAdditionalTitles = true }: StepProps & { allowAdditionalTitles?: boolean }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { data: users = [] } = useManagedUsers();
+  const {
+    data: valueChainLeads = [],
+    isLoading: isLoadingValueChainLeads,
+    isError: hasValueChainLeadError,
+    error: valueChainLeadError,
+  } = useValueChainLeads();
   const { data: counties = [] } = useReferenceData();
+  const { data: mainProjects = [], isLoading: isLoadingMainProjects, isError: mainProjectsError } = useMainProjects();
+  const implementedMainProjects = mainProjects.filter((project) => project.implementationComplete);
   const institutes = counties.flatMap((county) => county.institutes);
   const coordinators = users.filter((user) => user.active && user.roles.includes("project_coordinator"));
 
@@ -38,7 +51,7 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
   const handleNext = () => {
     const e: Record<string, string> = {};
     if (!data.title.trim()) e.title = "Project title is required";
-    if (!data.mainProject.trim()) e.mainProject = "Main Project is required";
+    if (!data.mainProjectId || !data.mainProject.trim()) e.mainProject = "Select an implemented Main Project";
     if (!data.projectType) e.projectType = "Please select a project type";
     if (!data.status) e.status = "Please select a status";
     setErrors(e);
@@ -51,11 +64,27 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
         <h2 className="text-base font-semibold text-foreground">Identification</h2>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Main Project" required error={errors.mainProject}>
-            <Input disabled={!allowAdditionalTitles} value={data.mainProject} onChange={(e) => {
-              onChange({ mainProject: e.target.value });
-              setErrors((p) => ({ ...p, mainProject: "" }));
-            }}
-              placeholder="e.g. Climate Smart Agriculture Programme" />
+            <select
+              disabled={!allowAdditionalTitles || isLoadingMainProjects || mainProjectsError}
+              value={data.mainProjectId || ""}
+              onChange={(event) => {
+                const parent = implementedMainProjects.find((project) => project.id === event.target.value);
+                onChange({ mainProjectId: parent?.id || null, mainProject: parent?.name || "" });
+                setErrors((previous) => ({ ...previous, mainProject: "" }));
+              }}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">
+                {isLoadingMainProjects ? "Loading Main Projects…" : "— Select implemented Main Project —"}
+              </option>
+              {implementedMainProjects.map((project) => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+            {mainProjectsError && <p className="text-xs text-red-600">Main Projects could not be loaded. Refresh and try again.</p>}
+            {!isLoadingMainProjects && !mainProjectsError && implementedMainProjects.length === 0 && (
+              <p className="text-xs text-muted-foreground">Complete a Main Project implementation before registering Project Titles.</p>
+            )}
           </Field>
           <Field label="Project Titles" required error={errors.title}>
             <div className="space-y-2">
@@ -86,6 +115,38 @@ export default function Step1Identification({ data, onChange, onNext, isSaving, 
               <option value="">— Select coordinator —</option>{coordinators.map((user) =>
                 <option key={user.id} value={user.id}>{user.fullName}</option>)}
             </select>
+          </Field>
+          <Field
+            label="Value Chain Lead"
+            error={hasValueChainLeadError
+              ? valueChainLeadError instanceof Error
+                ? valueChainLeadError.message
+                : "Unable to load Value Chain Leads."
+              : undefined}
+          >
+            <select
+              multiple
+              value={data.valueChainLeadIds}
+              disabled={isLoadingValueChainLeads || hasValueChainLeadError}
+              onChange={(e) => onChange({
+                valueChainLeadIds: Array.from(e.currentTarget.selectedOptions, (option) => option.value),
+              })}
+              className="min-h-20 w-full rounded-md border border-input px-3 py-1 text-sm"
+              aria-label="Value Chain Lead"
+            >
+              {isLoadingValueChainLeads && <option disabled>Loading Value Chain Leads...</option>}
+              {!isLoadingValueChainLeads && !hasValueChainLeadError && valueChainLeads.length === 0 && (
+                <option disabled>No Value Chain Leads available</option>
+              )}
+              {valueChainLeads.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.fullName} ({user.email})
+                </option>
+              ))}
+            </select>
+            {/* <p className="text-xs text-muted-foreground">
+              Select one or more Value Chain Leads. Use Ctrl or Command to select multiple.
+            </p> */}
           </Field>
           <Field label="Principal Investigator">
             <select multiple value={data.principalInvestigatorIds} onChange={(e) => onChange({ principalInvestigatorIds: Array.from(e.currentTarget.selectedOptions, x => x.value) })}

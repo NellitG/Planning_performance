@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Check, ArrowLeft, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   useKeyActivities,
   useOutputIndicators,
   useProject,
+  useMainProject,
   useProjectDocuments,
   useProjectMapping,
 } from "@/hooks/useProjectsApi";
@@ -74,6 +75,7 @@ function projectToWizardData(project: Record<string, unknown>): Partial<WizardDa
     coordinatorUserId: (project.coordinatorUserId as string) || "",
     principalInvestigatorIds: (project.principalInvestigatorIds as string[]) || [],
     coPrincipalInvestigatorIds: (project.coPrincipalInvestigatorIds as string[]) || [],
+    valueChainLeadIds: (project.valueChainLeadIds as string[]) || [],
     investigatorInstituteIds: (project.investigatorInstituteIds as string[]) || [],
     projectType: (project.projectType as string) || "",
     status: (project.status as string) || "Not Started",
@@ -168,9 +170,11 @@ function StepperHeader({ current, onJump }: { current: number; onJump: (n: numbe
 export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
   const { id: routeProjectId } = useParams<{ id: string }>();
   const editId = mode === "edit" ? routeProjectId : undefined;
   const isEdit = mode === "edit";
+  const requestedMainProjectId = searchParams.get("mainProjectId") || undefined;
 
   const [projectId, setProjectId] = useState<string | undefined>(isEdit ? editId : undefined);
   const [mainProjectId, setMainProjectId] = useState<string | undefined>();
@@ -181,6 +185,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
   const [hydrated, setHydrated] = useState(isEdit ? false : true);
 
   const { data: existingProject, isError: projectLoadError } = useProject(editId);
+  const { data: requestedMainProject } = useMainProject(requestedMainProjectId);
   const { data: existingMapping } = useProjectMapping(projectId);
   const {
     data: existingDocuments = EMPTY_PROJECT_DOCUMENTS,
@@ -203,7 +208,18 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     setCurrentStep(1);
     setData(INITIAL_WIZARD_DATA);
     setHydrated(!isEdit);
-  }, [editId, isEdit]);
+  }, [editId, isEdit, requestedMainProjectId]);
+
+  useEffect(() => {
+    if (isEdit || !requestedMainProject) return;
+    const id = String(requestedMainProject.id);
+    setMainProjectId(id);
+    setData((previous) => ({
+      ...previous,
+      mainProjectId: id,
+      mainProject: requestedMainProject.name,
+    }));
+  }, [isEdit, requestedMainProject]);
 
   useEffect(() => {
     if (!existingMapping) return;
@@ -227,7 +243,10 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
             docType: doc.documentType || "",
             description: doc.description || "",
             files: [],
-            savedFiles: doc.files || [],
+            savedFiles: (doc.files || []).map((file) => ({
+              ...file,
+              available: file.available ?? Boolean(file.fileUrl),
+            })),
           })),
           ...unsavedDocs,
         ],
@@ -270,10 +289,11 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     status: data.status || "Not Started",
     coordinator: data.coordinator,
     mainProject: data.mainProject,
-    mainProjectId: mainProjectId || null,
+    mainProjectId: data.mainProjectId || mainProjectId || null,
     coordinatorUserId: data.coordinatorUserId || null,
     principalInvestigatorIds: data.principalInvestigatorIds.map(Number),
     coPrincipalInvestigatorIds: data.coPrincipalInvestigatorIds.map(Number),
+    valueChainLeadIds: data.valueChainLeadIds.map(Number),
     investigatorInstituteIds: data.investigatorInstituteIds.map(Number),
     projectType: data.projectType,
     implementationUnits: data.implementationUnits,
@@ -411,18 +431,11 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
     try {
       const documentsRequired = stepToSave > 4;
       const stepToPersistBeforeDocuments = documentsRequired ? 4 : stepToSave;
-      let effectiveMainProjectId = mainProjectId;
+      const effectiveMainProjectId = data.mainProjectId || mainProjectId;
       if (!effectiveMainProjectId) {
-        const parent = await api.post<{ id: string }>("/main-projects/", {
-          name: data.mainProject.trim() || data.title.trim(),
-          logo: initials(data.mainProject.trim() || data.title),
-          startDate: data.startDate || null,
-          endDate: data.expectedEndDate || null,
-          status: data.status || "Not Started",
-        });
-        effectiveMainProjectId = parent.id;
-        setMainProjectId(effectiveMainProjectId);
+        throw new Error("Select an implemented Main Project before creating a Project Title.");
       }
+      setMainProjectId(effectiveMainProjectId);
       let savedId = projectId;
       const projectPayload = buildProjectPayload();
       projectPayload.mainProjectId = effectiveMainProjectId;
@@ -459,7 +472,9 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       console.error(err);
       toast.error(err instanceof ProjectDocumentFlowError
         ? err.message
-        : "Failed to save progress for this step.");
+        : err instanceof Error
+          ? err.message
+          : "Failed to save progress for this step.");
       throw err;
     } finally {
       setIsSaving(false);
@@ -524,6 +539,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
             isDraft: true,
             currentStep: 1,
             status: "Not Started",
+            valueChainLeadIds: data.valueChainLeadIds.map(Number),
           });
         }
       }
@@ -581,7 +597,7 @@ export default function ProjectWizard({ mode }: { mode: "create" | "edit" }) {
       {currentStep === 3 && <Step3StrategicAlignment {...stepProps} />}
       {currentStep === 4 && <Step9Documents {...stepProps} />}
       {currentStep === 5 && <Step5ObjectivesOutcomes {...stepProps} />}
-      {currentStep === 6 && <Step7ProjectLocations {...stepProps} />}
+      {currentStep === 6 && <Step7ProjectLocations {...stepProps} restrictToAllowed />}
       {currentStep === 7 && <Step4TimelineFinance {...stepProps} />}
       {currentStep === 8 && <Step8FundingSources {...stepProps} />}
       {currentStep === 9 && (

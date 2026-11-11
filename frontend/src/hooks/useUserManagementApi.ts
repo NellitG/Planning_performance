@@ -72,6 +72,7 @@ export interface ValueChainInput {
 
 export interface RoleOption { id: string; key: UserRoleKey; name: string; }
 export interface FundingAgency { id: string; name: string; active: boolean; created_at: string; updated_at: string; }
+export interface FundingType { id: string; name: string; active: boolean; }
 
 export interface StrategicPlanDocument {
   id: string;
@@ -107,6 +108,7 @@ export const userManagementKeys = {
   departments: ["user-management", "departments"] as const,
   roles: ["user-management", "roles"] as const,
   fundingAgencies: ["user-management", "funding-agencies"] as const,
+  fundingTypes: ["user-management", "funding-types"] as const,
 };
 
 const STALE = 30_000;
@@ -149,6 +151,10 @@ export function useFundingAgencies() {
   return useQuery({ queryKey: userManagementKeys.fundingAgencies, queryFn: () => api.get<FundingAgency[]>("/user-management/funding-agencies/"), staleTime: STALE });
 }
 
+export function useFundingTypes() {
+  return useQuery({ queryKey: userManagementKeys.fundingTypes, queryFn: () => api.get<FundingType[]>("/user-management/funding-types/"), staleTime: STALE });
+}
+
 export function useCreateFundingAgency() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (input: { name: string; active: boolean }) => api.post<FundingAgency>("/user-management/funding-agencies/", input), onSuccess: () => qc.invalidateQueries({ queryKey: userManagementKeys.fundingAgencies }) });
@@ -168,6 +174,14 @@ export function useManagedUsers() {
   return useQuery({
     queryKey: userManagementKeys.users,
     queryFn: () => api.get<ManagedUser[]>("/user-management/users/"),
+    staleTime: STALE,
+  });
+}
+
+export function useValueChainLeads() {
+  return useQuery({
+    queryKey: [...userManagementKeys.users, "value-chain-leads"],
+    queryFn: () => api.get<ManagedUser[]>("/user-management/users/value-chain-leads/"),
     staleTime: STALE,
   });
 }

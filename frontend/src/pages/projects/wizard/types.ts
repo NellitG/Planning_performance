@@ -58,6 +58,7 @@ export interface WizardData {
   coordinatorUserId: string;
   principalInvestigatorIds: string[];
   coPrincipalInvestigatorIds: string[];
+  valueChainLeadIds: string[];
   investigatorInstituteIds: string[];
   projectType: string;
   status: string;
@@ -100,6 +101,7 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   coordinatorUserId: "",
   principalInvestigatorIds: [],
   coPrincipalInvestigatorIds: [],
+  valueChainLeadIds: [],
   investigatorInstituteIds: [],
   projectType: "",
   status: "Not Started",
