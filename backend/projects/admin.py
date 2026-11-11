@@ -8,6 +8,10 @@ from .models import (
     KeyResultArea,
     MainActivity,
     MainProject,
+    MainProjectDocument,
+    MainProjectDocumentFile,
+    MainProjectFundingSource,
+    MainProjectLocation,
     OutputIndicator,
     Project,
     ProjectComponent,
@@ -28,6 +32,10 @@ from .models import (
 
 admin.site.register(Project)
 admin.site.register(MainProject)
+admin.site.register(MainProjectDocument)
+admin.site.register(MainProjectDocumentFile)
+admin.site.register(MainProjectFundingSource)
+admin.site.register(MainProjectLocation)
 admin.site.register(KeyResultArea)
 admin.site.register(StrategicObjective)
 admin.site.register(Strategy)

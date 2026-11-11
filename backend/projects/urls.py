@@ -9,6 +9,8 @@ from .views import (
     KeyResultAreaViewSet,
     MainActivityIndicatorViewSet,
     MainActivityViewSet,
+    MainProjectDocumentFileViewSet,
+    MainProjectDocumentViewSet,
     OutputIndicatorViewSet,
     OutcomeIndicatorViewSet,
     OutcomeViewSet,
@@ -25,6 +27,7 @@ from .views import (
     SubActivityViewSet,
     SubSubActivityViewSet,
     TechnicalReportViewSet,
+    WorkflowNotificationViewSet,
     kenya_counties_map,
     geography,
 )
@@ -32,6 +35,8 @@ from .views import (
 router = DefaultRouter()
 router.register(r"projects", ProjectViewSet)
 router.register(r"main-projects", MainProjectViewSet)
+router.register(r"main-project-documents", MainProjectDocumentViewSet)
+router.register(r"main-project-document-files", MainProjectDocumentFileViewSet)
 router.register(r"kras", KeyResultAreaViewSet)
 router.register(r"strategic-objectives", StrategicObjectiveViewSet)
 router.register(r"strategies", StrategyViewSet)
@@ -53,6 +58,11 @@ router.register(r"sub-activities", SubActivityViewSet)
 router.register(r"sub-sub-activities", SubSubActivityViewSet)
 router.register(r"activity-indicators", ActivityIndicatorViewSet)
 router.register(r"technical-reports", TechnicalReportViewSet)
+router.register(
+    r"workflow-notifications",
+    WorkflowNotificationViewSet,
+    basename="workflow-notification",
+)
 
 urlpatterns = [
     path("kenya-counties/", kenya_counties_map, name="kenya-counties-map"),

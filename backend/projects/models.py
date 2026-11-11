@@ -18,9 +18,14 @@ class MainProject(models.Model):
     name = models.CharField(max_length=500)
     logo = models.CharField(max_length=20, blank=True)
     description = models.TextField(blank=True)
+    project_budget = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    background = models.TextField(blank=True)
+    project_objectives = models.TextField(blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Not Started")
+    implementation_complete = models.BooleanField(default=False)
+    implementation_step = models.PositiveSmallIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -36,6 +41,63 @@ class MainProject(models.Model):
         if self.name is not None:
             self.name = unicodedata.normalize("NFKC", self.name).strip()
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class MainProjectFundingSource(models.Model):
+    main_project = models.ForeignKey(
+        MainProject, on_delete=models.CASCADE, related_name="funding_sources"
+    )
+    source_name = models.CharField(max_length=255)
+    funding_agency = models.ForeignKey(
+        "user_management.FundingAgency", on_delete=models.PROTECT
+    )
+    funding_type = models.ForeignKey(
+        "user_management.FundingType", on_delete=models.PROTECT
+    )
+    amount = models.DecimalField(max_digits=20, decimal_places=2)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.source_name
+
+
+class MainProjectDocument(models.Model):
+    DOCUMENT_TYPE_CHOICES = [
+        ("Project Proposal", "Project Proposal"),
+        ("MOU / Agreement", "MOU / Agreement"),
+    ]
+
+    main_project = models.ForeignKey(
+        MainProject, on_delete=models.CASCADE, related_name="documents"
+    )
+    title = models.CharField(max_length=500)
+    document_type = models.CharField(max_length=120, choices=DOCUMENT_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class MainProjectDocumentFile(models.Model):
+    document = models.ForeignKey(
+        MainProjectDocument, on_delete=models.CASCADE, related_name="files"
+    )
+    file = models.FileField(upload_to="main_project_documents/")
+    name = models.CharField(max_length=500, blank=True)
+    size = models.BigIntegerField(default=0)
+    file_type = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.name
@@ -81,6 +143,8 @@ class Project(models.Model):
         related_name="principal_investigator_projects")
     co_principal_investigators = models.ManyToManyField("user_management.UserAccount", blank=True,
         related_name="co_principal_investigator_projects")
+    value_chain_leads = models.ManyToManyField("user_management.UserAccount", blank=True,
+        related_name="value_chain_lead_projects")
     investigator_institutes = models.ManyToManyField("user_management.Institute", blank=True,
         related_name="investigator_projects")
     project_type = models.CharField(max_length=50, blank=True)
@@ -160,6 +224,21 @@ class ProjectLocation(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["project", "county", "sub_county", "ward"], name="unique_project_location")]
+
+
+class MainProjectLocation(models.Model):
+    main_project = models.ForeignKey(
+        MainProject, on_delete=models.CASCADE, related_name="county_locations"
+    )
+    county = models.ForeignKey(County, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["main_project", "county"],
+                name="unique_main_project_county",
+            )
+        ]
 
 
 class KeyResultArea(models.Model):
@@ -616,7 +695,7 @@ class TechnicalReport(models.Model):
     created_by = models.ForeignKey("user_management.UserAccount", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="created_reports")
     original_report = models.OneToOneField("self", null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="value_chain_lead_copy")
+        related_name="finalized_copy")
     achievement = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
     supporting_information = models.TextField(blank=True)
@@ -641,6 +720,7 @@ class ReportWorkflowAudit(models.Model):
     previous_status = models.CharField(max_length=80)
     new_status = models.CharField(max_length=80)
     rejection_reason = models.TextField(blank=True)
+    comments = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -650,12 +730,26 @@ class ReportWorkflowAudit(models.Model):
 class WorkflowNotification(models.Model):
     recipient = models.ForeignKey("user_management.UserAccount", on_delete=models.CASCADE, related_name="workflow_notifications")
     report = models.ForeignKey(TechnicalReport, on_delete=models.CASCADE, related_name="notifications")
+    workflow_audit = models.ForeignKey(
+        ReportWorkflowAudit,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recipient", "workflow_audit"],
+                condition=models.Q(workflow_audit__isnull=False),
+                name="unique_notification_per_workflow_event",
+            )
+        ]
 
 
 class IndicatorReport(models.Model):
@@ -672,7 +766,7 @@ class IndicatorReport(models.Model):
     indicator_id = models.CharField(max_length=64)
     indicator_name = models.CharField(max_length=500)
     target = models.DecimalField(max_digits=20, decimal_places=2)
-    reported_value = models.DecimalField(max_digits=20, decimal_places=2)
+    reported_value = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
     achievement = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
     reason_for_zero = models.TextField(blank=True)
@@ -702,6 +796,13 @@ class IndicatorReportEvidence(models.Model):
     )
     file = models.FileField(upload_to="technical_report_evidence/")
     name = models.CharField(max_length=500)
+    uploaded_by = models.ForeignKey(
+        "user_management.UserAccount",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="technical_report_evidence",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -9,8 +9,11 @@ class ProjectPermission(BasePermission):
     def has_permission(self, request, view):
         if has_role(request.user, "system_admin"):
             return True
-        # Coordinators may inspect projects but cannot create/edit them.
-        return request.method in SAFE_METHODS and has_role(request.user, "project_coordinator")
+        # Project coordinators and assigned value-chain leads can inspect projects,
+        # but project creation and editing remain administrator-only.
+        return request.method in SAFE_METHODS and has_role(
+            request.user, "project_coordinator", "value_chain_lead"
+        )
 
 
 class ReportPermission(BasePermission):

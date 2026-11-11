@@ -3,12 +3,25 @@ from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
+from rest_framework.reverse import reverse
 
-from user_management.models import Centre, Institute, SubCentre, UserAccount, ValueChain
+from user_management.models import (
+    Centre,
+    FundingAgency,
+    FundingType,
+    Institute,
+    SubCentre,
+    UserAccount,
+    ValueChain,
+)
 from .main_projects import find_main_project_by_name, get_or_create_main_project
 
 from .models import (
     MainProject,
+    MainProjectDocument,
+    MainProjectDocumentFile,
+    MainProjectFundingSource,
+    MainProjectLocation,
     Project,
     KeyResultArea,
     StrategicObjective,
@@ -31,6 +44,8 @@ from .models import (
     ProjectSubComponent,
     ProjectOutput,
     TechnicalReport,
+    ReportWorkflowAudit,
+    WorkflowNotification,
     IndicatorReport,
     IndicatorReportEvidence,
     County,
@@ -40,10 +55,65 @@ from .models import (
 )
 
 
+class MainProjectFundingSourceSerializer(serializers.ModelSerializer):
+    sourceName = serializers.CharField(source="source_name")
+    fundingAgencyId = serializers.PrimaryKeyRelatedField(
+        source="funding_agency", queryset=FundingAgency.objects.all()
+    )
+    fundingAgency = serializers.CharField(source="funding_agency.name", read_only=True)
+    fundingTypeId = serializers.PrimaryKeyRelatedField(
+        source="funding_type", queryset=FundingType.objects.all()
+    )
+    fundingType = serializers.CharField(source="funding_type.name", read_only=True)
+    amount = serializers.DecimalField(
+        max_digits=20, decimal_places=2, min_value=0
+    )
+
+    class Meta:
+        model = MainProjectFundingSource
+        fields = [
+            "id",
+            "sourceName",
+            "fundingAgencyId",
+            "fundingAgency",
+            "fundingTypeId",
+            "fundingType",
+            "amount",
+        ]
+        read_only_fields = ["id", "fundingAgency", "fundingType"]
+
+
 class MainProjectSerializer(serializers.ModelSerializer):
     projectTitles = serializers.SerializerMethodField()
     startDate = serializers.DateField(source="start_date", required=False, allow_null=True)
     endDate = serializers.DateField(source="end_date", required=False, allow_null=True)
+    projectBudget = serializers.DecimalField(
+        source="project_budget",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    projectObjectives = serializers.CharField(
+        source="project_objectives", required=False, allow_blank=True
+    )
+    implementationComplete = serializers.BooleanField(
+        source="implementation_complete", required=False
+    )
+    implementationStep = serializers.IntegerField(
+        source="implementation_step", required=False, min_value=1, max_value=5
+    )
+    fundingSources = MainProjectFundingSourceSerializer(
+        source="funding_sources", many=True, required=False
+    )
+    locationCountyIds = serializers.PrimaryKeyRelatedField(
+        source="location_county_ids",
+        many=True,
+        queryset=County.objects.all(),
+        required=False,
+        write_only=True,
+    )
+    locations = serializers.SerializerMethodField()
 
     class Meta:
         model = MainProject
@@ -52,26 +122,177 @@ class MainProjectSerializer(serializers.ModelSerializer):
             "name",
             "logo",
             "description",
+            "projectBudget",
+            "background",
+            "projectObjectives",
             "startDate",
             "endDate",
             "status",
+            "implementationComplete",
+            "implementationStep",
+            "fundingSources",
+            "locationCountyIds",
+            "locations",
             "projectTitles",
         ]
 
     def validate_name(self, value):
         value = value.strip()
-        if self.instance:
-            existing = find_main_project_by_name(value, exclude_pk=self.instance.pk)
-            if existing:
-                raise serializers.ValidationError(
-                    "A Main Project with this name already exists."
-                )
+        existing = find_main_project_by_name(
+            value, exclude_pk=self.instance.pk if self.instance else None
+        )
+        if existing:
+            raise serializers.ValidationError(
+                "A Main Project with this name already exists."
+            )
         return value
 
     def create(self, validated_data):
         name = validated_data.pop("name")
-        main_project, _ = get_or_create_main_project(name, defaults=validated_data)
+        funding_sources = validated_data.pop("funding_sources", [])
+        location_counties = validated_data.pop("location_county_ids", [])
+        main_project, created = get_or_create_main_project(name, defaults=validated_data)
+        if not created:
+            raise serializers.ValidationError({
+                "name": "A Main Project with this name already exists."
+            })
+        self._sync_funding_sources(main_project, funding_sources)
+        self._sync_locations(main_project, location_counties)
         return main_project
+
+    def update(self, instance, validated_data):
+        funding_sources = validated_data.pop("funding_sources", None)
+        location_counties = validated_data.pop("location_county_ids", None)
+        previous_name = instance.name
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+            if instance.name != previous_name:
+                Project.objects.filter(main_project_record=instance).update(
+                    main_project=instance.name
+                )
+            if funding_sources is not None:
+                self._sync_funding_sources(instance, funding_sources)
+            if location_counties is not None:
+                self._sync_locations(instance, location_counties)
+        return instance
+
+    @staticmethod
+    def _sync_funding_sources(main_project, funding_sources):
+        main_project.funding_sources.all().delete()
+        MainProjectFundingSource.objects.bulk_create(
+            [
+                MainProjectFundingSource(main_project=main_project, **source)
+                for source in funding_sources
+            ]
+        )
+
+    @staticmethod
+    def _sync_locations(main_project, counties):
+        county_ids = {county.pk for county in counties}
+        MainProjectLocation.objects.filter(main_project=main_project).exclude(
+            county_id__in=county_ids
+        ).delete()
+        MainProjectLocation.objects.bulk_create(
+            [
+                MainProjectLocation(main_project=main_project, county=county)
+                for county in counties
+                if not MainProjectLocation.objects.filter(
+                    main_project=main_project, county=county
+                ).exists()
+            ]
+        )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        start_date = attrs.get(
+            "start_date", self.instance.start_date if self.instance else None
+        )
+        end_date = attrs.get(
+            "end_date", self.instance.end_date if self.instance else None
+        )
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {"endDate": "End date cannot be earlier than start date."}
+            )
+        budget = attrs.get(
+            "project_budget",
+            self.instance.project_budget if self.instance else None,
+        )
+        if budget is not None and budget < 0:
+            raise serializers.ValidationError(
+                {"projectBudget": "Project budget cannot be negative."}
+            )
+        if attrs.get("implementation_complete"):
+            step = attrs.get(
+                "implementation_step",
+                self.instance.implementation_step if self.instance else 1,
+            )
+            if step != 5:
+                raise serializers.ValidationError({
+                    "implementationStep": "Complete all five implementation steps before marking the Main Project complete."
+                })
+            self._validate_completed_implementation(attrs)
+        return attrs
+
+    def _validate_completed_implementation(self, attrs):
+        instance = self.instance
+        start_date = attrs.get("start_date", instance.start_date if instance else None)
+        end_date = attrs.get("end_date", instance.end_date if instance else None)
+        background = attrs.get("background", instance.background if instance else "")
+        objectives = attrs.get(
+            "project_objectives", instance.project_objectives if instance else ""
+        )
+        budget = attrs.get(
+            "project_budget", instance.project_budget if instance else None
+        )
+        if budget is None:
+            raise serializers.ValidationError(
+                {"projectBudget": "Enter the Main Project budget before completing implementation."}
+            )
+        if not background.strip() or not objectives.strip():
+            raise serializers.ValidationError({
+                "background": "Enter the Main Project background and objectives before completing implementation."
+            })
+        if not start_date or not end_date:
+            raise serializers.ValidationError({
+                "startDate": "Enter both Main Project dates before completing implementation."
+            })
+        if end_date < start_date:
+            raise serializers.ValidationError({
+                "endDate": "End date cannot be earlier than start date."
+            })
+
+        county_ids = attrs.get("location_county_ids")
+        if county_ids is None and instance:
+            county_ids = list(instance.county_locations.values_list("county_id", flat=True))
+        if not county_ids:
+            raise serializers.ValidationError({
+                "locationCountyIds": "Select at least one county before completing implementation."
+            })
+
+        has_uploaded_document = False
+        if instance:
+            for document in instance.documents.prefetch_related("files"):
+                if any(
+                    file.file and file.file.storage.exists(file.file.name)
+                    for file in document.files.all()
+                ):
+                    has_uploaded_document = True
+                    break
+        if not has_uploaded_document:
+            raise serializers.ValidationError({
+                "documents": "Upload at least one Main Project document before completing implementation."
+            })
+
+    def get_locations(self, obj):
+        return [
+            {
+                "countyId": str(location.county_id),
+                "county": location.county.name,
+                "svgId": location.county.svg_id,
+            }
+            for location in obj.county_locations.select_related("county").all()
+        ]
 
     def get_projectTitles(self, obj):
         return [
@@ -81,9 +302,25 @@ class MainProjectSerializer(serializers.ModelSerializer):
                 "status": project.status,
                 "isDraft": project.is_draft,
                 "currentStep": project.current_step,
+                "invalidLocationCounties": self._invalid_project_locations(
+                    obj, project
+                ),
             }
             for project in obj.project_titles.all().order_by("created_at")
         ]
+
+    @staticmethod
+    def _invalid_project_locations(main_project, project):
+        allowed_counties = set(
+            main_project.county_locations.values_list("county_id", flat=True)
+        )
+        return sorted(
+            {
+                location.county.name
+                for location in project.project_locations.select_related("county")
+                if location.county_id not in allowed_counties
+            }
+        )
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -101,6 +338,14 @@ class ProjectSerializer(serializers.ModelSerializer):
     coordinatorUserId = serializers.PrimaryKeyRelatedField(source="coordinator_user", queryset=UserAccount.objects.filter(is_active=True), required=False, allow_null=True)
     principalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="principal_investigators", queryset=UserAccount.objects.all(), many=True, required=False)
     coPrincipalInvestigatorIds = serializers.PrimaryKeyRelatedField(source="co_principal_investigators", queryset=UserAccount.objects.all(), many=True, required=False)
+    valueChainLeadIds = serializers.PrimaryKeyRelatedField(
+        source="value_chain_leads",
+        queryset=UserAccount.objects.filter(
+            Q(role="value_chain_lead") | Q(roles__key="value_chain_lead")
+        ).distinct(),
+        many=True,
+        required=False,
+    )
     investigatorInstituteIds = serializers.PrimaryKeyRelatedField(source="investigator_institutes", queryset=Institute.objects.all(), many=True, required=False)
     coordinators = serializers.SerializerMethodField()
     principalInvestigators = serializers.SerializerMethodField()
@@ -149,6 +394,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     pwds = serializers.IntegerField(required=False, allow_null=True)
 
     locations = serializers.JSONField(required=False, default=list)
+    invalidLocations = serializers.SerializerMethodField()
     fundingSources = serializers.JSONField(
         source="funding_sources", required=False, default=list
     )
@@ -170,6 +416,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "coordinatorUserId",
             "principalInvestigatorIds",
             "coPrincipalInvestigatorIds",
+            "valueChainLeadIds",
             "investigatorInstituteIds",
             "coordinators",
             "principalInvestigators",
@@ -191,6 +438,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "youth",
             "pwds",
             "locations",
+            "invalidLocations",
             "fundingSources",
             "isDraft",
             "currentStep",
@@ -215,7 +463,33 @@ class ProjectSerializer(serializers.ModelSerializer):
             ]
         return representation
 
+    def get_invalidLocations(self, obj):
+        if not obj.main_project_record_id:
+            return []
+        allowed_counties = set(
+            obj.main_project_record.county_locations.values_list(
+                "county_id", flat=True
+            )
+        )
+        return [
+            {
+                "countyId": str(location.county_id),
+                "county": location.county.name,
+            }
+            for location in obj.project_locations.select_related("county")
+            if location.county_id not in allowed_counties
+        ]
+
     def _sync_project_locations(self, project, locations):
+        if not isinstance(locations, list):
+            raise serializers.ValidationError({
+                "locations": "Project Title locations must be provided as a list."
+            })
+        allowed_counties = set(
+            project.main_project_record.county_locations.values_list(
+                "county_id", flat=True
+            )
+        )
         existing = {
             (location.county_id, location.sub_county_id, location.ward_id): location
             for location in ProjectLocation.objects.filter(project=project)
@@ -225,10 +499,18 @@ class ProjectSerializer(serializers.ModelSerializer):
         for location in locations or []:
             county_id = location.get("countyId") or None
             if not county_id:
+                if location:
+                    raise serializers.ValidationError({
+                        "locations": "Each selected location must include a county ID."
+                    })
                 continue
             county = County.objects.filter(pk=county_id).first()
             if not county:
                 raise serializers.ValidationError({"locations": f"Unknown county: {county_id}."})
+            if county.pk not in allowed_counties:
+                raise serializers.ValidationError({
+                    "locations": f"{county.name} is not included in the Main Project's approved geographical coverage."
+                })
             sub_county_id = location.get("subCountyId") or None
             ward_id = location.get("wardId") or None
             sub_county = SubCounty.objects.filter(pk=sub_county_id, county=county).first() if sub_county_id else None
@@ -252,17 +534,17 @@ class ProjectSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             parent = validated_data.get("main_project_record")
             if not parent:
-                parent_name = validated_data.get("main_project") or validated_data.get("project_name")
-                parent, _ = get_or_create_main_project(
-                    parent_name,
-                    defaults={
-                        "logo": validated_data.get("logo", ""),
-                        "description": validated_data.get("description", ""),
-                        "start_date": validated_data.get("start_date"),
-                        "end_date": validated_data.get("end_date"),
-                        "status": validated_data.get("status", "Not Started"),
-                    },
+                parent = find_main_project_by_name(
+                    validated_data.get("main_project", "")
                 )
+            if not parent:
+                raise serializers.ValidationError({
+                    "mainProjectId": "Select an existing, implemented Main Project before creating a Project Title."
+                })
+            if not parent.implementation_complete:
+                raise serializers.ValidationError({
+                    "mainProjectId": "Complete the Main Project implementation before creating Project Titles."
+                })
             validated_data["main_project_record"] = parent
             validated_data["main_project"] = parent.name
             project = super().create(validated_data)
@@ -270,10 +552,11 @@ class ProjectSerializer(serializers.ModelSerializer):
         return project
 
     def update(self, instance, validated_data):
-        locations = validated_data.get("locations", instance.locations)
+        locations = validated_data.get("locations")
         with transaction.atomic():
             project = super().update(instance, validated_data)
-            self._sync_project_locations(project, locations)
+            if locations is not None:
+                self._sync_project_locations(project, locations)
         return project
 
     def _people(self, people):
@@ -297,6 +580,81 @@ class ProjectSerializer(serializers.ModelSerializer):
                 for institute in obj.investigator_institutes.all()]
 
     def validate(self, attrs):
+        parent = attrs.get(
+            "main_project_record",
+            self.instance.main_project_record if self.instance else None,
+        )
+        if not parent:
+            parent_name = attrs.get(
+                "main_project", self.instance.main_project if self.instance else ""
+            )
+            parent = find_main_project_by_name(parent_name)
+        if parent:
+            changing_parent = bool(
+                self.instance and parent.pk != self.instance.main_project_record_id
+            )
+            if (not self.instance or changing_parent) and not parent.implementation_complete:
+                raise serializers.ValidationError({
+                    "mainProjectId": "Complete the Main Project implementation before assigning Project Titles."
+                })
+            attrs["main_project_record"] = parent
+            attrs["main_project"] = parent.name
+
+        locations = attrs.get("locations")
+        if locations is not None and not isinstance(locations, list):
+            raise serializers.ValidationError({
+                "locations": "Project Title locations must be provided as a list."
+            })
+        if locations is not None and any(not isinstance(location, dict) for location in locations):
+            raise serializers.ValidationError({
+                "locations": "Each Project Title location must be an object."
+            })
+        if parent and self.instance and parent.pk != self.instance.main_project_record_id:
+            locations_to_validate = locations
+            if locations_to_validate is None:
+                locations_to_validate = [
+                    {"countyId": str(county_id)}
+                    for county_id in self.instance.project_locations.values_list(
+                        "county_id", flat=True
+                    )
+                ]
+            allowed_counties = set(
+                parent.county_locations.values_list("county_id", flat=True)
+            )
+            for location in locations_to_validate:
+                if str(location.get("countyId")) not in {
+                    str(county_id) for county_id in allowed_counties
+                }:
+                    county_id = location.get("countyId")
+                    county = County.objects.filter(pk=county_id).first()
+                    county_name = county.name if county else "A selected county"
+                    raise serializers.ValidationError({
+                        "locations": f"{county_name} is not included in the selected Main Project's approved geographical coverage."
+                    })
+        if locations is not None:
+            if not parent:
+                raise serializers.ValidationError({
+                    "mainProjectId": "Select an implemented Main Project before assigning Project Title locations."
+                })
+            allowed_counties = set(
+                parent.county_locations.values_list("county_id", flat=True)
+            )
+            for location in locations:
+                county_id = location.get("countyId")
+                if not county_id:
+                    raise serializers.ValidationError({
+                        "locations": "Each selected location must include a county ID."
+                    })
+                county = County.objects.filter(pk=county_id).first()
+                if not county:
+                    raise serializers.ValidationError({
+                        "locations": f"Unknown county: {county_id}."
+                    })
+                if county.pk not in allowed_counties:
+                    raise serializers.ValidationError({
+                        "locations": f"{county.name} is not included in the Main Project's approved geographical coverage."
+                    })
+
         if "implementation_units" in attrs:
             attrs["implementation_units"] = self._validate_implementation_units(
                 attrs["implementation_units"]
@@ -712,6 +1070,44 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         ]
 
 
+class MainProjectDocumentFileSerializer(serializers.ModelSerializer):
+    fileUrl = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
+    uploadedAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = MainProjectDocumentFile
+        fields = ["id", "document", "name", "fileUrl", "available", "size", "file_type", "uploadedAt"]
+        extra_kwargs = {
+            "document": {"required": False},
+            "file": {"required": False, "write_only": True},
+        }
+
+    def get_fileUrl(self, obj):
+        if not self.get_available(obj):
+            return None
+        request = self.context.get("request")
+        url = obj.file.url
+        return request.build_absolute_uri(url) if request else url
+
+    @staticmethod
+    def get_available(obj):
+        return bool(obj.file and obj.file.storage.exists(obj.file.name))
+
+
+class MainProjectDocumentSerializer(serializers.ModelSerializer):
+    mainProject = serializers.PrimaryKeyRelatedField(
+        source="main_project", queryset=MainProject.objects.all()
+    )
+    documentType = serializers.ChoiceField(source="document_type", choices=MainProjectDocument.DOCUMENT_TYPE_CHOICES)
+    files = MainProjectDocumentFileSerializer(many=True, read_only=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = MainProjectDocument
+        fields = ["id", "mainProject", "title", "documentType", "files", "createdAt"]
+
+
 class ProjectMappingSerializer(serializers.ModelSerializer):
     project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
     kraIds = serializers.JSONField(source="kra_ids", required=False)
@@ -862,23 +1258,89 @@ class IndicatorTrackingSerializer(serializers.ModelSerializer):
 
 class IndicatorReportEvidenceSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
+    fileType = serializers.SerializerMethodField()
+    uploadedBy = serializers.SerializerMethodField()
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
 
     class Meta:
         model = IndicatorReportEvidence
-        fields = ["id", "name", "url", "created_at"]
+        fields = ["id", "name", "url", "fileType", "uploadedBy", "createdAt"]
+        read_only_fields = fields
 
     def get_url(self, obj):
         if not obj.file:
             return None
         request = self.context.get("request")
-        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+        if not request:
+            return None
+        return reverse(
+            "technicalreport-download-indicator-evidence",
+            kwargs={
+                "pk": obj.indicator_report.technical_report_id,
+                "indicator_report_id": obj.indicator_report_id,
+                "evidence_id": obj.pk,
+            },
+            request=request,
+        )
+
+    def get_fileType(self, obj):
+        return obj.name.rsplit(".", 1)[-1].upper() if "." in obj.name else "File"
+
+    def get_uploadedBy(self, obj):
+        return obj.uploaded_by.full_name if obj.uploaded_by else None
+
+
+class WorkflowNotificationSerializer(serializers.ModelSerializer):
+    reportId = serializers.IntegerField(source="report_id", read_only=True)
+    reportTitle = serializers.CharField(source="report.title", read_only=True)
+    isRead = serializers.BooleanField(source="is_read", required=False)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    action = serializers.CharField(
+        source="workflow_audit.action", read_only=True, allow_null=True
+    )
+    previousStatus = serializers.CharField(
+        source="workflow_audit.previous_status", read_only=True, allow_null=True
+    )
+    newStatus = serializers.CharField(
+        source="workflow_audit.new_status", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = WorkflowNotification
+        fields = [
+            "id",
+            "reportId",
+            "reportTitle",
+            "message",
+            "isRead",
+            "createdAt",
+            "action",
+            "previousStatus",
+            "newStatus",
+        ]
+        read_only_fields = [
+            "id",
+            "reportId",
+            "reportTitle",
+            "message",
+            "createdAt",
+            "action",
+            "previousStatus",
+            "newStatus",
+        ]
 
 
 class IndicatorReportSerializer(serializers.ModelSerializer):
     indicatorId = serializers.CharField(source="indicator_id")
     indicator = serializers.CharField(source="indicator_name")
     target = serializers.DecimalField(max_digits=20, decimal_places=2, required=False)
-    reportedProgress = serializers.DecimalField(source="reported_value", max_digits=20, decimal_places=2)
+    reportedProgress = serializers.DecimalField(
+        source="reported_value",
+        max_digits=20,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
     wardId = serializers.PrimaryKeyRelatedField(source="ward", queryset=Ward.objects.all(), required=False, allow_null=True)
     projectLocationId = serializers.PrimaryKeyRelatedField(source="project_location", queryset=ProjectLocation.objects.all(), required=False, allow_null=True)
     wardName = serializers.CharField(source="ward.name", read_only=True)
@@ -898,13 +1360,20 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def get_progress(self, obj):
-        if obj.target <= 0:
+        if obj.target is None or obj.target <= 0 or obj.reported_value is None:
             return 0
         return float(min(Decimal("100"), (obj.reported_value / obj.target) * 100).quantize(Decimal("0.01")))
 
     def get_cumulativeReported(self, obj):
         rows = IndicatorReport.objects.filter(
             technical_report__project=obj.technical_report.project,
+            technical_report__financial_year=obj.technical_report.financial_year,
+            technical_report__quarter=obj.technical_report.quarter,
+            technical_report__main_activity=obj.technical_report.main_activity,
+            technical_report__sub_activity=obj.technical_report.sub_activity,
+            technical_report__category=obj.technical_report.category,
+            technical_report__value_chain=obj.technical_report.value_chain,
+            technical_report__original_report__isnull=True,
             indicator_id=obj.indicator_id,
         )
         if obj.project_location_id:
@@ -917,11 +1386,11 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
                 rows = rows.filter(project_location_id=obj.project_location_id)
         else:
             rows = rows.filter(project_location__isnull=True, ward=obj.ward or obj.technical_report.ward)
-        total = sum((row.reported_value for row in rows), Decimal("0"))
+        total = sum((row.reported_value or Decimal("0") for row in rows), Decimal("0"))
         return str(total)
 
     def get_fullyAchieved(self, obj):
-        if obj.target <= 0:
+        if obj.target is None or obj.target <= 0:
             return False
         return Decimal(self.get_cumulativeReported(obj)) >= obj.target
 
@@ -929,6 +1398,8 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         target = attrs.get("target", getattr(self.instance, "target", None))
         reported = attrs.get("reported_value", getattr(self.instance, "reported_value", None))
+        if self.context.get("saving_draft"):
+            return attrs
         reason = attrs.get("reason_for_zero", getattr(self.instance, "reason_for_zero", "")).strip()
         if target is not None and target < 0:
             raise serializers.ValidationError({"target": "Indicator target must be a non-negative number."})
@@ -937,8 +1408,6 @@ class IndicatorReportSerializer(serializers.ModelSerializer):
         if reported == 0 and not reason:
             raise serializers.ValidationError({"reasonForZero": "Please provide a reason when Report Against Target is 0."})
         if reported == 0:
-            # Zero reports use the required explanation only.  Do not retain
-            # narrative fields that are deliberately hidden in the UI.
             attrs["achievement"] = ""
             attrs["remarks"] = ""
         return attrs
@@ -1025,7 +1494,10 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
     workflowHistory = serializers.SerializerMethodField()
+    financialReviewStatus = serializers.SerializerMethodField()
     isValueChainLeadCopy = serializers.BooleanField(source="original_report_id", read_only=True)
+    isFinalizedCopy = serializers.BooleanField(source="original_report_id", read_only=True)
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = TechnicalReport
@@ -1065,7 +1537,9 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             "supportingDocuments",
             "status",
             "workflowHistory",
+            "financialReviewStatus",
             "isValueChainLeadCopy",
+            "isFinalizedCopy",
             "createdAt",
             "updatedAt",
         ]
@@ -1081,6 +1555,7 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             sub_activity_id=obj.sub_activity_id,
             category=obj.category,
             value_chain=obj.value_chain,
+            original_report__isnull=True,
         ).exclude(pk=obj.pk).exclude(quarter=obj.quarter).aggregate(
             total=models.Sum("utilized_amount")
         )["total"] or Decimal("0")
@@ -1139,10 +1614,25 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
         ]
 
     def get_workflowHistory(self, obj):
+        source_report = obj.original_report or obj
         return [{"action": x.action, "user": x.user.full_name if x.user else "Deleted user",
                  "role": x.user_role, "previousStatus": x.previous_status, "newStatus": x.new_status,
-                 "rejectionReason": x.rejection_reason, "at": x.created_at}
-                for x in obj.workflow_audit.all()]
+                 "rejectionReason": x.rejection_reason, "comments": x.comments, "at": x.created_at}
+                for x in source_report.workflow_audit.all()]
+
+    def get_financialReviewStatus(self, obj):
+        report = obj.original_report or obj
+        if report.status == "Submitted to Accountant":
+            return "Pending"
+        accountant_events = report.workflow_audit.filter(user_role="accountant").order_by("-created_at")
+        latest_event = accountant_events.first()
+        if not latest_event:
+            return "Pending"
+        if latest_event.action == "Rejected":
+            return "Rejected"
+        if latest_event.action == "Approved":
+            return "Approved"
+        return "Pending"
 
     @staticmethod
     def _configured_indicator(main_activity, category, value_chain, indicator_id):
@@ -1170,14 +1660,30 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             configured = self._configured_indicator(
                 main_activity, category, value_chain, item["indicator_id"]
             )
+            existing = None
             if not configured:
-                raise serializers.ValidationError({
-                    "indicatorReports": f"The selected indicator is no longer available for this reporting path: {item['indicator_id']}."
-                })
+                if self.instance:
+                    existing_rows = self.instance.indicator_reports.filter(
+                        indicator_id=item["indicator_id"]
+                    )
+                    item_location = item.get("project_location")
+                    item_ward = item.get("ward") or self.instance.ward
+                    if item_location:
+                        existing_rows = existing_rows.filter(project_location=item_location)
+                    else:
+                        existing_rows = existing_rows.filter(
+                            project_location__isnull=True,
+                            ward=item_ward,
+                        )
+                    existing = existing_rows.first()
+                if not existing:
+                    raise serializers.ValidationError({
+                        "indicatorReports": f"The selected indicator is no longer available for this reporting path: {item['indicator_id']}."
+                    })
             submitted_target = item.get("target")
             try:
                 target = Decimal(str(
-                    submitted_target if submitted_target is not None else configured.target or "0"
+                    submitted_target if submitted_target is not None else existing.target if existing else "0"
                 ).strip())
             except (InvalidOperation, ValueError):
                 raise serializers.ValidationError({
@@ -1190,10 +1696,22 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             # Persist the report's validated target as a snapshot so progress
             # remains tied to the value entered for this reporting period.
             item["target"] = target
-            item["indicator_name"] = configured.indicator
+            item["indicator_name"] = configured.indicator if configured else existing.indicator_name
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        if self.context.get("saving_draft"):
+            title = attrs.get("title", getattr(self.instance, "title", "")).strip()
+            attrs["title"] = title or "Untitled Technical Report"
+            project = attrs.get("project", getattr(self.instance, "project", None))
+            if project and project.main_project_record_id:
+                main_project = attrs.get("main_project")
+                if main_project and main_project.pk != project.main_project_record_id:
+                    raise serializers.ValidationError({
+                        "mainProjectId": "The selected Project Title does not belong to this Main Project."
+                    })
+                attrs["main_project"] = project.main_project_record
+            return attrs
         title = attrs.get("title", getattr(self.instance, "title", "")).strip()
         if not title:
             raise serializers.ValidationError({"title": "Report title is required."})
@@ -1336,6 +1854,16 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             self._apply_configured_targets(
                 indicator_reports, main_activity, category, value_chain
             )
+            context_report = self.instance or self._find_context_report({
+                "project": project,
+                "financial_year": financial_year,
+                "quarter": quarter,
+                "main_activity": main_activity,
+                "sub_activity": sub_activity,
+                "category": category,
+                "value_chain": value_chain,
+            })
+            submitted_keys = set()
             for item in indicator_reports:
                 item_ward = item.get("ward") or ward
                 item_location = item.get("project_location")
@@ -1357,7 +1885,63 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 indicator_id = item["indicator_id"]
                 target = item["target"]
                 reported = item["reported_value"]
-                cumulative = IndicatorReport.objects.filter(technical_report__project=project, indicator_id=indicator_id)
+                location_key = (
+                    ("location", item_location.pk)
+                    if item_location
+                    else ("ward", item_ward.pk if item_ward else None)
+                )
+                submitted_key = (*location_key, indicator_id)
+                if submitted_key in submitted_keys:
+                    raise serializers.ValidationError({
+                        "indicatorReports": f"Indicator '{item['indicator_name']}' is included more than once for the same reporting location."
+                    })
+                submitted_keys.add(submitted_key)
+
+                context_reports = TechnicalReport.objects.filter(
+                    project=project,
+                    financial_year=financial_year,
+                    quarter=quarter,
+                    main_activity=main_activity,
+                    sub_activity=sub_activity,
+                    category=category,
+                    value_chain=value_chain,
+                    original_report__isnull=True,
+                )
+                if self.instance:
+                    context_reports = context_reports.exclude(pk=context_report.pk)
+                duplicates = IndicatorReport.objects.filter(
+                    technical_report__in=context_reports,
+                    indicator_id=indicator_id,
+                )
+                if item_location:
+                    if item_location.ward_id:
+                        duplicates = duplicates.filter(
+                            Q(project_location=item_location)
+                            | Q(project_location__isnull=True, ward=item_location.ward)
+                        )
+                    else:
+                        duplicates = duplicates.filter(project_location=item_location)
+                else:
+                    duplicates = duplicates.filter(
+                        project_location__isnull=True,
+                        ward=item_ward,
+                    )
+                if duplicates.exists():
+                    raise serializers.ValidationError({
+                        "indicatorReports": f"This indicator has already been reported for the selected reporting context and location: {item['indicator_name']}."
+                    })
+
+                cumulative = IndicatorReport.objects.filter(
+                    technical_report__project=project,
+                    technical_report__financial_year=financial_year,
+                    technical_report__quarter=quarter,
+                    technical_report__main_activity=main_activity,
+                    technical_report__sub_activity=sub_activity,
+                    technical_report__category=category,
+                    technical_report__value_chain=value_chain,
+                    technical_report__original_report__isnull=True,
+                    indicator_id=indicator_id,
+                )
                 if item_location:
                     cumulative = cumulative.filter(
                         Q(project_location=item_location)
@@ -1365,18 +1949,12 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                     ) if item_location.ward_id else cumulative.filter(project_location=item_location)
                 else:
                     cumulative = cumulative.filter(project_location__isnull=True, ward=item_ward)
-                context_report = self.instance or self._find_context_report({
-                    "project": project,
-                    "financial_year": financial_year,
-                    "quarter": quarter,
-                    "main_activity": main_activity,
-                    "sub_activity": sub_activity,
-                    "category": category,
-                    "value_chain": value_chain,
-                })
                 if context_report:
                     cumulative = cumulative.exclude(technical_report=context_report)
-                cumulative_value = sum((entry.reported_value for entry in cumulative), Decimal("0"))
+                cumulative_value = sum(
+                    (entry.reported_value or Decimal("0") for entry in cumulative),
+                    Decimal("0"),
+                )
                 if target > 0 and cumulative_value >= target:
                     raise serializers.ValidationError({"indicatorReports": f"This indicator has already reached 100% and cannot be reported against again: {item['indicator_name']}."})
                 if target > 0 and cumulative_value + reported > target:
@@ -1389,12 +1967,28 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         indicator_reports = validated_data.pop("indicator_reports", [])
+        if self.context.get("saving_draft"):
+            validated_data["context_key"] = None
+            report = TechnicalReport.objects.create(**validated_data)
+            for item in indicator_reports:
+                IndicatorReport.objects.create(technical_report=report, **item)
+            return report
         context_key = self._context_key(validated_data)
         with transaction.atomic():
             # A report is one reporting context, not one record per ward.  This
             # also picks up reports created before context_key was introduced.
             report = self._find_context_report(validated_data)
             if report:
+                report = TechnicalReport.objects.select_for_update().get(pk=report.pk)
+                if report.status not in (
+                    "Draft",
+                    "Rejected by Accountant",
+                    "Rejected by Project Coordinator",
+                    "Rejected by M&E",
+                ):
+                    raise serializers.ValidationError({
+                        "status": "Report contents cannot be changed while it is under review."
+                    })
                 validated_data.pop("report_group_id", None)
                 # The original report ward is only a legacy representative.
                 # Ward-specific rows and selected_locations hold the coverage.
@@ -1427,9 +2021,21 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
                 except IntegrityError:
                     # The database unique constraint is the final protection
                     # against concurrent submissions for the same context.
-                    report = TechnicalReport.objects.filter(context_key=context_key).first()
+                    report = TechnicalReport.objects.select_for_update().filter(
+                        context_key=context_key,
+                        original_report__isnull=True,
+                    ).first()
                     if not report:
                         raise
+                    if report.status not in (
+                        "Draft",
+                        "Rejected by Accountant",
+                        "Rejected by Project Coordinator",
+                        "Rejected by M&E",
+                    ):
+                        raise serializers.ValidationError({
+                            "status": "Report contents cannot be changed while it is under review."
+                        })
             existing = {(item.project_location_id, item.ward_id, item.indicator_id): item for item in report.indicator_reports.all()}
             for item in indicator_reports:
                 location = item.get("project_location")
@@ -1468,6 +2074,13 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def _find_context_report(data):
+        context_key = TechnicalReportSerializer._context_key(data)
+        report = TechnicalReport.objects.filter(
+            context_key=context_key,
+            original_report__isnull=True,
+        ).first()
+        if report:
+            return report
         return TechnicalReport.objects.filter(
             project=data.get("project"),
             financial_year=data.get("financial_year", ""),
@@ -1476,10 +2089,37 @@ class TechnicalReportSerializer(serializers.ModelSerializer):
             sub_activity=data.get("sub_activity"),
             category=data.get("category", ""),
             value_chain=data.get("value_chain", ""),
+            original_report__isnull=True,
         ).order_by("created_at").first()
 
     def update(self, instance, validated_data):
         indicator_reports = validated_data.pop("indicator_reports", None)
+        if self.context.get("saving_draft"):
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.status = "Draft"
+            instance.context_key = None
+            instance.save()
+            if indicator_reports is not None:
+                existing = {
+                    (item.project_location_id, item.ward_id, item.indicator_id): item
+                    for item in instance.indicator_reports.all()
+                }
+                for item in indicator_reports:
+                    location = item.get("project_location")
+                    ward = item.get("ward")
+                    row = existing.get((
+                        location.pk if location else None,
+                        ward.pk if ward else None,
+                        item["indicator_id"],
+                    ))
+                    if row:
+                        for attr, value in item.items():
+                            setattr(row, attr, value)
+                        row.save()
+                    else:
+                        IndicatorReport.objects.create(technical_report=instance, **item)
+            return instance
         with transaction.atomic():
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
