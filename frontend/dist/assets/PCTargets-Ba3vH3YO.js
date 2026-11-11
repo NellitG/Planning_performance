@@ -1,0 +1,1 @@
+import{j as t}from"./index-Dmv9DKal.js";import{P as r}from"./PagePlaceholder-rr-3Stot.js";import"./card-BTvTJgzr.js";function n(){return t.jsx(r,{title:"PC Targets",description:"Manage performance contract annual targets."})}export{n as default};
