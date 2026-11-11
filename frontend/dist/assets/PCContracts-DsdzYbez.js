@@ -1,1 +1,0 @@
-import{j as t}from"./index-B8pAXw1T.js";import{P as r}from"./PagePlaceholder-DZRFBpx1.js";import"./card-B8CJXcEa.js";function n(){return t.jsx(r,{title:"Performance Contracts",description:"Manage departmental performance contracts."})}export{n as default};
