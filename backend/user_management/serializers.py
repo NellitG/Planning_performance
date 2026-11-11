@@ -1,7 +1,7 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
+from .models import Centre, County, Department, FundingAgency, FundingType, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, ValueChain
 
 
 class SubCentreSerializer(serializers.ModelSerializer):
@@ -210,12 +210,17 @@ class FundingAgencySerializer(serializers.ModelSerializer):
     class Meta:
         model = FundingAgency
         fields = ["id", "name", "active", "created_at", "updated_at"]
-        read_only_fields = ["created_at", "updated_at"]
+
+
+class FundingTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundingType
+        fields = ["id", "name", "active"]
 
     def validate_name(self, value):
         value = value.strip()
         if not value:
-            raise serializers.ValidationError("Funding agency name is required.")
+            raise serializers.ValidationError("Funding type name is required.")
         return value
 
 

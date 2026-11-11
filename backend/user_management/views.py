@@ -2,12 +2,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import action, api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from django.db.models import Q
 
-from .models import Centre, County, Department, FundingAgency, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, UserSession, ValueChain
+from .models import Centre, County, Department, FundingAgency, FundingType, Institute, Role, StrategicPlanDocument, SubCentre, UserAccount, UserSession, ValueChain
 from .authentication import create_session
 from .permissions import UserManagementPermission
 from .serializers import (
@@ -17,6 +18,7 @@ from .serializers import (
     CountyHierarchySerializer,
     DepartmentSerializer,
     FundingAgencySerializer,
+    FundingTypeSerializer,
     RoleSerializer,
 )
 
@@ -52,6 +54,20 @@ class UserAccountViewSet(viewsets.ModelViewSet):
     search_fields = ["full_name", "email", "role", "institute"]
     ordering_fields = ["full_name", "email", "role", "institute", "is_active", "created_at", "updated_at"]
 
+    @action(detail=False, methods=["get"], url_path="value-chain-leads")
+    def value_chain_leads(self, request):
+        queryset = self.filter_queryset(
+            self.get_queryset()
+            .filter(Q(role="value_chain_lead") | Q(roles__key="value_chain_lead"))
+            .distinct()
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 class ValueChainViewSet(viewsets.ModelViewSet):
     queryset = ValueChain.objects.all()
@@ -77,6 +93,16 @@ class FundingAgencyViewSet(viewsets.ModelViewSet):
     filterset_fields = ["active"]
     search_fields = ["name"]
     ordering_fields = ["name", "active", "created_at", "updated_at"]
+
+
+class FundingTypeViewSet(viewsets.ModelViewSet):
+    queryset = FundingType.objects.all()
+    serializer_class = FundingTypeSerializer
+    permission_classes = [UserManagementPermission]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["active"]
+    search_fields = ["name"]
+    ordering_fields = ["name", "active"]
 
 
 class StrategicPlanDocumentViewSet(viewsets.ModelViewSet):
