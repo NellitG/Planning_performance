@@ -1,35 +1,36 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import * as notificationsStore from "@/utils/notificationsStore";
+import {
+  useMarkAllWorkflowNotificationsRead,
+  useMarkWorkflowNotificationRead,
+  useWorkflowNotifications,
+} from "@/hooks/useProjectsApi";
 
 export default function Notifications() {
-  const notifications = useSyncExternalStore(
-    notificationsStore.subscribe,
-    notificationsStore.getNotifications,
-    notificationsStore.getNotifications,
-  );
-
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications],
-  );
-
-  const [selectedId, setSelectedId] = useState<number | null>(() => notifications[0]?.id ?? null);
+  const { data: notifications = [], isLoading, isError, error } = useWorkflowNotifications();
+  const markRead = useMarkWorkflowNotificationRead();
+  const markAllRead = useMarkAllWorkflowNotificationsRead();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   useEffect(() => {
-    if (!selectedId && notifications.length) {
-      setSelectedId(notifications[0].id);
-    }
+    if (!selectedId && notifications.length) setSelectedId(notifications[0].id);
   }, [notifications, selectedId]);
 
-  const selectedNotification =
-    notifications.find((notification) => notification.id === selectedId) ?? notifications[0];
-
-  if (!selectedNotification) {
-    return null;
-  }
+  const selected = notifications.find((notification) => notification.id === selectedId);
+  const selectNotification = (id: string, isRead: boolean) => {
+    setSelectedId(id);
+    if (!isRead) markRead.mutate(id, {
+      onError: (reason) => toast.error(reason instanceof Error ? reason.message : "Unable to mark notification as read."),
+    });
+  };
+  const markAll = () => markAllRead.mutate(undefined, {
+    onError: (reason) => toast.error(reason instanceof Error ? reason.message : "Unable to mark notifications as read."),
+  });
 
   return (
     <>
@@ -37,103 +38,59 @@ export default function Notifications() {
         <div>
           <div className="text-xs text-muted-foreground">Dashboard › Notifications</div>
           <h1 className="mt-1 text-2xl font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">
-            Review recent updates, read full details, and keep your notifications up to date.
-          </p>
+          <p className="text-sm text-muted-foreground">Review technical report workflow updates.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="rounded-full px-3 py-2 text-sm">
-            {unreadCount} unread
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => notificationsStore.markAllAsRead()}
-            disabled={unreadCount === 0}
-          >
-            Mark all read
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="rounded-full px-3 py-2 text-sm">{unreadCount} unread</Badge>
+          <Button variant="outline" size="sm" onClick={markAll} disabled={!unreadCount || markAllRead.isPending}>
+            {markAllRead.isPending ? "Marking..." : "Mark all read"}
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-        <Card className="border-border bg-background">
-          <CardHeader className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle>All notifications</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Click a notification to open and read it.
-              </p>
-            </div>
-            <Badge variant="outline" className="rounded-full px-2 py-1 text-xs">
-              {unreadCount} unread
-            </Badge>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <div className="space-y-1">
-              {notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  type="button"
-                  onClick={() => setSelectedId(notification.id)}
-                  className={`flex w-full items-start justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors hover:bg-muted ${
-                    selectedId === notification.id ? "bg-muted" : ""
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium">{notification.title}</p>
-                      {!notification.read && (
-                        <Badge variant="secondary" className="rounded-full px-2 py-1 text-[11px]">
-                          New
-                        </Badge>
-                      )}
+      {isError && <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error instanceof Error ? error.message : "Unable to load notifications."}</p>}
+      {isLoading ? <p className="py-12 text-center text-sm text-muted-foreground">Loading notifications...</p> :
+        !notifications.length ? <Card className="p-8 text-center text-sm text-muted-foreground">You have no workflow notifications.</Card> :
+          <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle>All notifications</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    onClick={() => selectNotification(notification.id, notification.isRead)}
+                    className={`w-full border-b px-4 py-4 text-left last:border-0 hover:bg-muted ${selectedId === notification.id ? "bg-muted" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-medium">{notification.reportTitle}</p>
+                      {!notification.isRead && <Badge variant="secondary">New</Badge>}
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">{notification.desc}</p>
-                  </div>
-                  <div className="shrink-0 text-right text-[11px] text-muted-foreground">
-                    {notification.time}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                    <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{notification.message}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{new Date(notification.createdAt).toLocaleString()}</p>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <CardTitle>{selectedNotification.title}</CardTitle>
-                {!selectedNotification.read && (
-                  <Badge variant="secondary" className="rounded-full px-2 py-1 text-xs">
-                    Unread
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{selectedNotification.time}</p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <p className="text-sm leading-7 text-foreground">{selectedNotification.desc}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                onClick={() => notificationsStore.markAsRead(selectedNotification.id)}
-                disabled={selectedNotification.read}
-              >
-                {selectedNotification.read ? "Already read" : "Mark read"}
-              </Button>
-              {selectedNotification.read && (
-                <Badge variant="outline" className="rounded-full px-2 py-1 text-xs">
-                  Read
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            {selected && <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>{selected.reportTitle}</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">{new Date(selected.createdAt).toLocaleString()}</p>
+                  </div>
+                  {selected.newStatus && <Badge variant="outline">{selected.newStatus}</Badge>}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <p className="whitespace-pre-wrap text-sm leading-7">{selected.message}</p>
+                <Button asChild><Link to={`/technical-reports/${selected.reportId}`}>Open technical report</Link></Button>
+              </CardContent>
+            </Card>}
+          </div>}
     </>
   );
 }
