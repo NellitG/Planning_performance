@@ -244,7 +244,7 @@ function FundingAgenciesPage() {
   if (isError) return <ErrorState label="Unable to load funding agencies from the backend." />;
 
   return <div className="space-y-4">
-    <PageHeader title="Funding Agencies" description="Manage funding agencies stored in the Django database." />
+    <PageHeader title="Funding Agencies" description="Manage Donor Funding Agencies" />
     <form onSubmit={submit} className="flex max-w-xl gap-2 rounded-xl border bg-card p-4 shadow-sm">
       <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Funding agency name" aria-label="Funding agency name" />
       <Button type="submit" disabled={createAgency.isPending} className="bg-green-700 text-primary-foreground"><Plus className="h-4 w-4" /> Add</Button>
@@ -305,7 +305,7 @@ function UsersList() {
     <div className="space-y-4">
       <PageHeader
         title="Users"
-        description="List, search and manage registered system users from the Django backend."
+        description="Manage KALRO PPM users and their roles."
         actions={
           <Button asChild className="bg-green-700 text-primary-foreground">
             <Link to="/user-management/users/new"><Plus className="h-4 w-4" /> Add New User</Link>
@@ -682,7 +682,7 @@ function ValueChainsList() {
     <div className="space-y-4">
       <PageHeader
         title="Value Chains"
-        description="Manage configured Value Chains from the Django backend."
+        description="Manage Value chains used to group projects and assign Value Chain Leads."
         actions={<Button asChild className="bg-green-700 text-primary-foreground"><Link to="/user-management/value-chains/new"><Plus className="h-4 w-4" /> Create Value Chain</Link></Button>}
       />
       <div className="rounded-xl border bg-card shadow-sm">

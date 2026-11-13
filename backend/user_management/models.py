@@ -1,6 +1,7 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models
-
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.conf import settings
 
 class County(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -15,6 +16,7 @@ class County(models.Model):
 class Institute(models.Model):
     name = models.CharField(max_length=255, unique=True)
     county = models.ForeignKey(County, related_name="institutes", on_delete=models.PROTECT)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name"]
@@ -27,6 +29,7 @@ class Centre(models.Model):
     name = models.CharField(max_length=255)
     county = models.ForeignKey(County, related_name="centres", on_delete=models.PROTECT)
     institute = models.ForeignKey(Institute, related_name="centres", on_delete=models.CASCADE)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name"]
@@ -41,6 +44,7 @@ class SubCentre(models.Model):
     county = models.ForeignKey(County, related_name="sub_centres", on_delete=models.PROTECT)
     institute = models.ForeignKey(Institute, related_name="sub_centres", on_delete=models.CASCADE)
     centre = models.ForeignKey(Centre, related_name="sub_centres", on_delete=models.CASCADE, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name"]
@@ -95,7 +99,41 @@ class FundingType(models.Model):
         return self.name
 
 
-class UserAccount(models.Model):
+class UserAccountManager(BaseUserManager):
+   
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("An email address is required.")
+
+        email = self.normalize_email(email)
+
+        user = self.model(
+            email=email,
+            **extra_fields
+        )
+
+        user.set_password(password)
+        user.save(using=self._db)
+
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(email, password, **extra_fields)
+
+
+class UserAccount(AbstractBaseUser, PermissionsMixin):
+
     ROLE_CHOICES = [
         ("system_admin", "System Admin"),
         ("value_chain_lead", "Value Chain Lead"),
@@ -107,22 +145,82 @@ class UserAccount(models.Model):
         ("staff_user", "Staff User"),
     ]
 
+    # User identification
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES)
-    roles = models.ManyToManyField(Role, blank=True, related_name="users")
-    personal_number = models.CharField(max_length=100, blank=True)
+
+    # Application roles
+    role = models.CharField(
+        max_length=50,
+        choices=ROLE_CHOICES
+    )
+
+    roles = models.ManyToManyField(
+        Role,
+        blank=True,
+        related_name="users"
+    )
+
+    # Organizational information
+    personal_number = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
     institute = models.CharField(max_length=255)
-    # Keep the legacy display value while storing authoritative Reference Data links.
-    institute_reference = models.ForeignKey(Institute, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
-    centre = models.ForeignKey(Centre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
-    sub_centre = models.ForeignKey(SubCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name="users")
-    value_chains = models.ManyToManyField("ValueChain", blank=True, related_name="value_chain_leads")
-    password = models.CharField(max_length=255)
+
+    institute_reference = models.ForeignKey(
+        Institute,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users"
+    )
+
+    centre = models.ForeignKey(
+        Centre,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users"
+    )
+
+    sub_centre = models.ForeignKey(
+        SubCentre,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users"
+    )
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users"
+    )
+
+    value_chains = models.ManyToManyField(
+        "ValueChain",
+        blank=True,
+        related_name="value_chain_leads"
+    )
+
+    # Django authentication and access control
     is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Custom manager
+    objects = UserAccountManager()
+
+    # Authentication configuration
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["full_name"]
 
     class Meta:
         ordering = ["full_name"]
@@ -132,13 +230,42 @@ class UserAccount(models.Model):
     def __str__(self):
         return f"{self.full_name} <{self.email}>"
 
+    def get_full_name(self):
+        return self.full_name
+
+    def get_short_name(self):
+        return self.full_name.split()[0] if self.full_name else self.email
+
 
 class UserSession(models.Model):
-    user = models.ForeignKey(UserAccount, on_delete=models.CASCADE, related_name="sessions")
-    token = models.CharField(max_length=128, unique=True, db_index=True)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sessions"
+    )
+
+    token = models.CharField(
+        max_length=128,
+        unique=True,
+        db_index=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
     last_used_at = models.DateTimeField(auto_now=True)
-    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    revoked_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Session for {self.user.email}"
+
 
 
 class ValueChain(models.Model):

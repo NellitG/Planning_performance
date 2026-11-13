@@ -33,7 +33,7 @@ class ReferenceDataViewSet(viewsets.ReadOnlyModelViewSet):
     ).all()
 
     def get_queryset(self):
-        return self.queryset.filter(institutes__isnull=False).distinct()
+        return self.queryset.filter(institutes__is_active=True).distinct()
 
 
 class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
