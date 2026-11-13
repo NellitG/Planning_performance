@@ -47,6 +47,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+AUTH_USER_MODEL = "user_management.UserAccount"
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
