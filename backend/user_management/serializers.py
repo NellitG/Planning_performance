@@ -14,16 +14,19 @@ class SubCentreSerializer(serializers.ModelSerializer):
 
 class CentreSerializer(serializers.ModelSerializer):
     county = serializers.CharField(source="county.name")
-    subCentres = SubCentreSerializer(source="sub_centres", many=True, read_only=True)
+    subCentres = serializers.SerializerMethodField()
 
     class Meta:
         model = Centre
         fields = ["id", "name", "county", "subCentres"]
 
+    def get_subCentres(self, obj):
+        return SubCentreSerializer(obj.sub_centres.filter(is_active=True), many=True).data
+
 
 class InstituteSerializer(serializers.ModelSerializer):
     county = serializers.CharField(source="county.name")
-    centres = CentreSerializer(many=True, read_only=True)
+    centres = serializers.SerializerMethodField()
     directSubCentres = serializers.SerializerMethodField()
 
     class Meta:
@@ -31,15 +34,21 @@ class InstituteSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "county", "centres", "directSubCentres"]
 
     def get_directSubCentres(self, obj):
-        return SubCentreSerializer(obj.sub_centres.filter(centre__isnull=True), many=True).data
+        return SubCentreSerializer(obj.sub_centres.filter(centre__isnull=True, is_active=True), many=True).data
+
+    def get_centres(self, obj):
+        return CentreSerializer(obj.centres.filter(is_active=True), many=True).data
 
 
 class CountyHierarchySerializer(serializers.ModelSerializer):
-    institutes = InstituteSerializer(many=True, read_only=True)
+    institutes = serializers.SerializerMethodField()
 
     class Meta:
         model = County
         fields = ["id", "name", "institutes"]
+
+    def get_institutes(self, obj):
+        return InstituteSerializer(obj.institutes.filter(is_active=True), many=True).data
 
 
 class DepartmentSerializer(serializers.ModelSerializer):

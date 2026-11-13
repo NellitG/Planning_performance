@@ -2,7 +2,6 @@ from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth.hashers import check_password
-from django.contrib.auth.models import User
 from django.core.management import call_command, CommandError
 from django.test import Client, TestCase, override_settings
 
@@ -40,7 +39,14 @@ class CreateLocalAccountCommandTests(TestCase):
 class LoginCsrfTests(TestCase):
     def test_login_does_not_require_session_csrf_for_token_authentication(self):
         client = Client(enforce_csrf_checks=True)
-        client.force_login(User.objects.create_user(username="admin"))
+        user = UserAccount.objects.create_user(
+            email="admin@example.test",
+            password="test-password",
+            full_name="Admin",
+            role="system_admin",
+            institute="Test Institute",
+        )
+        client.force_login(user)
 
         response = client.post(
             "/api/auth/login/",
